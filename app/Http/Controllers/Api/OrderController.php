@@ -1,0 +1,831 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Botble\Ecommerce\Models\Customer;
+use Illuminate\Support\Facades\Auth;
+use Botble\Ecommerce\Models\Order;
+use Botble\Ecommerce\Models\OrderHistory;
+use Botble\Ecommerce\Enums\ShippingMethodEnum;
+use Botble\Ecommerce\Enums\OrderStatusEnum;
+use Botble\Ecommerce\Enums\OrderHistoryActionEnum;
+use Botble\Ecommerce\Services\CreatePaymentForOrderService;
+use Botble\Ecommerce\Models\OrderAddress;
+use Botble\Ecommerce\Models\Address;
+use Botble\Ecommerce\Models\Product;
+use Botble\Ecommerce\Models\OrderProduct;
+use Botble\Ecommerce\Models\Invoice;
+use Botble\Ecommerce\Models\InvoiceItem;
+use Botble\Ecommerce\Facades\Discount;
+use Botble\Ecommerce\Models\DiscountProduct;
+use Botble\Ecommerce\Models\Discount as DiscountModel;
+use Botble\Ecommerce\Models\MobileVerification;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
+class OrderController extends Controller
+{
+    public function storeOrder(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+
+        $validator = Validator::make($request->all(), [
+            'products'      => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $customer_id = $request->input('customer_id');
+
+        if (!$customer_id) {
+            $validator = Validator::make($request->all(), [
+                'billingAddress.first_name'      => 'required|string|max:255',
+                'billingAddress.last_name'      => 'required|string|max:255',
+                'billingAddress.email'     => 'required|string|max:255',
+                'billingAddress.mobile'     => 'required|numeric',
+                'billingAddress.area'     => 'required|string',
+                'billingAddress.building'     => 'required|string',
+                'billingAddress.emirates'     => 'required|string',
+                ]);
+    
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }
+            
+            $exisCustomer = Customer::where('email', $request->billingAddress['email'])->orWhere('phone', $request->billingAddress['mobile'])->first();
+    
+            if (!$exisCustomer) {
+                $customer = Customer::create([
+                    'name'      => $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                    'email'     => $request->input('billingAddress.email'),
+                    'phone'     => $request->input('billingAddress.mobile'),
+                    'password'  => $request->input('password') ? Hash::make($request->input('password')) : Hash::make('123456')
+                ]);
+
+                Address::create([
+                    'name'      => $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                    'email'     => $request->input('billingAddress.email'),
+                    'phone'     => $request->input('billingAddress.mobile'),
+                    'state' => $request->input('billingAddress.emirates'),
+                    'city' => $request->input('billingAddress.emirates'),
+                    'country' => $request->input('billingAddress.country'),
+                    'address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                    'customer_id' => $customer->id,
+                ]);
+
+                // $otp = rand(1111, 9999);
+
+                // $ch = curl_init();
+
+                // $passw = "11F2";
+                // $pass = "$";
+                // $p = "E89_6C3";
+                // $password = $passw.$pass.$p;
+
+                // curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".$request->input('billingAddress.mobile')."&sender=Ahmedper&msg=".$otp."".urlencode(' is your OTP for Registration')."&msgtype=16");
+                // curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                // curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+                // $result = curl_exec($ch);
+                // if (curl_errno($ch)) {
+                //     echo 'Error:' . curl_error($ch);die;
+                // }
+                // curl_close ($ch);
+
+                // $customer->otp = $otp;
+                // $customer->save();
+
+                $customer_id = $customer->id;
+            } else {
+                $exisAddress = Address::where('customer_id', $exisCustomer->id)->first();
+                if(!$exisAddress) {
+                    Address::create([
+                        'name'      => $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                        'email'     => $request->input('billingAddress.email'),
+                        'phone'     => $request->input('billingAddress.mobile'),
+                        'state' => $request->input('billingAddress.emirates'),
+                        'city' => $request->input('billingAddress.emirates'),
+                        'country' => $request->input('billingAddress.country'),
+                        'address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                        'customer_id' => $exisCustomer->id,
+                    ]);
+                }
+                $customer_id = $exisCustomer->id;
+            }
+        }
+
+        // echo "<pre>";print_r(([
+        //     'user_id' => $customer_id,
+        //     'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
+        //     'shipping_option' => $request->input('shipping_option'),
+        //     'shipping_amount' => $request->input('shippingPrice') ? : 0,
+        //     'tax_amount' => (($request->input('finalPrice') - 3) / 100) * 5 ? : 0,
+        //     'sub_total' => $request->input('totalPrice') ? : 0,
+        //     'amount' => $request->input('finalPrice') ? : 0,
+        //     'coupon_code' => $request->input('coupon_code'),
+        //     'discount_amount' => $request->input('discount_amount') ? : 0,
+        //     'promotion_amount' => $request->input('promotion_amount') ? : 0,
+        //     'discount_description' => $request->input('discount_description'),
+        //     'description' => $request->input('note'),
+        //     'is_confirmed' => 1,
+        //     'is_finished' => 1,
+        //     'status' => OrderStatusEnum::PROCESSING,
+        //     'lang' => $request->input('locale'),
+        // ]));die();
+        // echo "<pre>";print_r([
+        //     'user_id' => $customer_id,
+        //     'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
+        //     'shipping_option' => $request->input('shipping_option'),
+        //     'shipping_amount' => $request->input('shippingPrice') ? : 0,
+        //     'tax_amount' => (($request->input('finalPrice') - 3) / 100) * 5 ? : 0,
+        //     'sub_total' => $request->input('totalPrice') ? : 0,
+        //     'amount' => $request->input('finalPrice') ? : 0,
+        //     'coupon_code' => $request->input('coupon_code'),
+        //     'discount_amount' => $request->input('discount_amount') ? : 0,
+        //     'promotion_amount' => $request->input('promotion_amount') ? : 0,
+        //     'discount_description' => $request->input('discount_description'),
+        //     'description' => $request->input('note'),
+        //     'is_confirmed' => 1,
+        //     'is_finished' => 1,
+        //     'status' => OrderStatusEnum::PROCESSING,
+        //     'order_lang' => $request->input('locale'),
+        // ]);die();
+        $order = Order::create([
+            'user_id' => $customer_id,
+            'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
+            'shipping_option' => $request->input('shipping_option'),
+            'shipping_amount' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)),
+            'shipping_amount_vat' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+            'service_amount' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)),
+            'service_amount_vat' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+            'vat' => $request->input('vatTax'),
+            'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
+            'sub_total' => $request->input('totalPrice') ? : 0,
+            'amount' => $request->input('finalPrice') ? : 0,
+            'coupon_code' => $request->input('couponCode'),
+            'discount_amount' => $request->input('discount_amount') ? : 0,
+            'promotion_amount' => $request->input('promotion_amount') ? : 0,
+            'discount_description' => $request->input('discount_description'),
+            'description' => $request->input('note'),
+            'is_confirmed' => 1,
+            'is_finished' => 1,
+            'status' => OrderStatusEnum::PROCESSING,
+            'lang' => $request->input('locale'),
+        ]);
+
+        // echo "<pre>";print_r($order);die();
+
+        if($order) {
+
+            if($request->input('customer_id')) {
+                $loggedInCustomer = Customer::where('id', $request->input('customer_id'))->first();
+                $loggedInCustomerAdd = Address::where('customer_id', $loggedInCustomer->id)->first();
+                if(!$loggedInCustomerAdd) {
+                    Address::create([
+                        'name'      => $loggedInCustomer->name,
+                        'email'     => $loggedInCustomer->email,
+                        'phone'     => $loggedInCustomer->phone,
+                        'state' => $request->input('billingAddress.emirates'),
+                        'city' => $request->input('billingAddress.emirates'),
+                        'country' => $request->input('billingAddress.country'),
+                        'address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                        'customer_id' => $loggedInCustomer->id,
+                    ]);
+                    $loggedInCustomerAdd = Address::where('customer_id', $loggedInCustomer->id)->first();
+                }
+                OrderAddress::query()->create([
+                    'name' => $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $loggedInCustomer->name,
+                    'phone' => $request->input('shippingAddress.mobile') ? $request->input('shippingAddress.mobile') : $loggedInCustomer->phone,
+                    'email' => $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $loggedInCustomer->email,
+                    'state' => $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->state,
+                    'city' => $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->city,
+                    'country' => $request->input('shippingAddress.country') ? $request->input('shippingAddress.country') : $loggedInCustomerAdd->country,
+                    'address' => $request->input('shippingAddress.area') ? $request->input('shippingAddress.area').' '.$request->input('shippingAddress.building') : $loggedInCustomerAdd->address,
+                    'order_id' => $order->id,
+                    'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
+                ]);
+
+                if($request->input('payment_method') == 'paytabs') {            
+                    $data = [
+                        "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $loggedInCustomer->name,
+                        "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $loggedInCustomer->email,
+                        "phone"=> $request->input('shippingAddress.mobile') ? $request->input('shippingAddress.mobile') : $loggedInCustomer->phone,
+                        "street1"=> $request->input('shippingAddress.area') ? $request->input('shippingAddress.area').' '.$request->input('shippingAddress.building') : $loggedInCustomerAdd->address,
+                        "city"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->city,
+                        "state"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->state,
+                        "country"=> "AE",
+                        // "zip"=> "54321"
+                    ];
+                    // $resp = $this->payTabsPayment($request, $data);
+                    // return response()->json([
+                    //     'redirect_url'     => $resp['redirect_url']
+                    // ]);
+                }
+
+            } else {
+                OrderAddress::query()->create([
+                    'name' => $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                    'phone' => $request->input('shippingAddress.mobile') ? $request->input('shippingAddress.mobile') : $request->input('billingAddress.mobile'),
+                    'email' => $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $request->input('billingAddress.email'),
+                    'state' => $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
+                    'city' => $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
+                    // 'zip_code' => $request->input('shippingAddress.zip_code'),
+                    'country' => $request->input('shippingAddress.country') ? $request->input('shippingAddress.country') : $request->input('billingAddress.country'),
+                    'address' => $request->input('shippingAddress.area') ? $request->input('shippingAddress.area').' '.$request->input('shippingAddress.building') : $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                    'order_id' => $order->id,
+                    'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
+                ]);
+
+                if($request->input('payment_method') == 'paytabs') {
+                    $data = [
+                        "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                        "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $request->input('billingAddress.email'),
+                        "phone"=> $request->input('shippingAddress.mobile') ? $request->input('shippingAddress.mobile') : $request->input('billingAddress.mobile'),
+                        "street1"=> $request->input('shippingAddress.area') ? $request->input('shippingAddress.area').' '.$request->input('shippingAddress.building') : $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                        "city"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
+                        "state"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
+                        "country"=> "AE",
+                        // "zip"=> "54321"
+                    ];
+                    // $resp = $this->payTabsPayment($request, $data);
+                    // return response()->json([
+                    //     'redirect_url'     => $resp['redirect_url']
+                    // ]);
+                }
+            }
+            // die();
+            OrderHistory::query()->create([
+                'action' => OrderHistoryActionEnum::CREATE_ORDER_FROM_WEBSITE,
+                'description' => trans('plugins/ecommerce::order.create_order_from_website'),
+                'order_id' => $order->getKey(),
+            ]);
+
+            OrderHistory::query()->create([
+                'action' => OrderHistoryActionEnum::CREATE_ORDER,
+                'description' => trans(
+                    'plugins/ecommerce::order.new_order',
+                    ['order_id' => $order->code]
+                ),
+                'order_id' => $order->getKey(),
+            ]);
+
+            OrderHistory::query()->create([
+                'action' => OrderHistoryActionEnum::CONFIRM_ORDER,
+                'description' => trans('plugins/ecommerce::order.order_was_verified_by'),
+                'order_id' => $order->getKey(),
+                'user_id' => $customer_id,
+            ]);
+
+            $prod = array();
+    
+            foreach ($request->input('products') as $product) {
+                
+                $quantity = $product['quantity'] ? $product['quantity'] : 1;
+
+                $exisProduct = Product::where('ec_products.id', $product['product_id'])
+                // ->join('ec_tax_products', 'ec_products.id', '=', 'ec_tax_products.product_id')->join('ec_taxes', 'ec_taxes.id', '=', 'ec_tax_products.tax_id')
+                ->first();
+
+                $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+
+                $exisProduct->coupon = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+
+                $exisProduct->qty = $quantity;
+
+                // print_r($exisProduct);
+
+                array_push($prod, $exisProduct);
+
+                // $discount_price = '';
+                // $sale_price = '';
+                if(!is_null($exisProduct->discount)) {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = $exisProduct->discount->value;
+                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'order_id' => $order->id,
+                        'product_id' => $product['product_id'],
+                        'product_name' => $exisProduct->name,
+                        'product_image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'weight' => $exisProduct->weight,
+                        'price' => $price,
+                        'total_amount' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'product_options' => [],
+                        'options' => json_encode($options),
+                        'product_type' => $exisProduct->product_type,
+                        'product_category' => $product['category_name'],
+                        'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                        'vat' => $request->input('vatTax'),
+                    ];
+                } elseif(!is_null($exisProduct->coupon)) {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = $exisProduct->coupon->value;
+                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'order_id' => $order->id,
+                        'product_id' => $product['product_id'],
+                        'product_name' => $exisProduct->name,
+                        'product_image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'weight' => $exisProduct->weight,
+                        'price' => $price,
+                        'total_amount' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'product_options' => [],
+                        'options' => json_encode($options),
+                        'product_type' => $exisProduct->product_type,
+                        'product_category' => $product['category_name'],
+                        'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                        'vat' => $request->input('vatTax'),
+                    ];
+                } elseif(!is_null($exisProduct->sale_price)) {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = $exisProduct->sale_price;
+                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'order_id' => $order->id,
+                        'product_id' => $product['product_id'],
+                        'product_name' => $exisProduct->name,
+                        'product_image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'weight' => $exisProduct->weight,
+                        'price' => $price,
+                        'total_amount' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'product_options' => [],
+                        'options' => json_encode($options),
+                        'product_type' => $exisProduct->product_type,
+                        'product_category' => $product['category_name'],
+                        'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                        'vat' => $request->input('vatTax'),
+                    ];
+                } else {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = 0;
+                    $discount_amount = 0.00;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'order_id' => $order->id,
+                        'product_id' => $product['product_id'],
+                        'product_name' => $exisProduct->name,
+                        'product_image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'weight' => $exisProduct->weight,
+                        'price' => $price,
+                        'total_amount' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'product_options' => [],
+                        'options' => json_encode($options),
+                        'product_type' => $exisProduct->product_type,
+                        'product_category' => $product['category_name'],
+                        'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                        'vat' => $request->input('vatTax'),
+                    ];
+                }
+
+                OrderProduct::query()->create($orderProduct);
+
+                Product::query()
+                    ->where('id', $product['product_id'])
+                    ->where('with_storehouse_management', 1)
+                    ->where('quantity', '>=', $quantity)
+                    ->decrement('quantity', $quantity);
+            }
+            // die(';;;');
+
+            if ($couponCode = $request->input('couponCode')) {
+                Discount::getFacadeRoot()->afterOrderPlaced($couponCode, $request->input('customer_id') ? $request->input('customer_id') : $customer_id);
+            }
+
+            if($request->input('customer_id')) {
+                $loggedInCustomer = Customer::where('id', $request->input('customer_id'))->first();
+            } else {
+                $loggedInCustomer = null;
+            }
+
+            $invoice = Invoice::query()->create([
+                'reference_type' => 'Botble\Ecommerce\Models\Order',
+                'reference_id' => $order->id,
+                'customer_name' => $loggedInCustomer ? $loggedInCustomer->name : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                'customer_email' => $loggedInCustomer ? $loggedInCustomer->email : $request->input('billingAddress.email'),
+                'customer_phone' => $loggedInCustomer ? $loggedInCustomer->phone : $request->input('billingAddress.mobile'),
+                'customer_address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                'sub_total' => $request->input('totalPrice') ? : 0,
+                'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
+                'shipping_amount' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)),
+                'shipping_amount_vat' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+                'service_amount' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)),
+                'service_amount_vat' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+                'vat' => $request->input('vatTax'),
+                'discount_amount' => $request->input('discount_amount') ? : 0,
+                'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
+                'coupon_code' => $request->input('couponCode'),
+                'discount_description' => $request->input('discount_description'),
+                'amount' => $request->input('finalPrice'),
+                'payment_id' => $order->payment_id,
+                'status' => $request->input('payment_status'),
+            ]);
+
+            foreach ($request->input('products') as $product) {
+                
+                $quantity = $product['quantity'] ? $product['quantity'] : 1;
+
+                $exisProduct = Product::where('id', $product['product_id'])->first();
+
+                $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+
+                $exisProduct->coupon = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+
+                if(!is_null($exisProduct->discount)) {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = $exisProduct->discount->value;
+                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'invoice_id' => $invoice->id,
+                        'reference_type' => 'Botble\Ecommerce\Models\Product',
+                        'reference_id' => $exisProduct->id,
+                        'name' => $exisProduct->name,
+                        'description' => $exisProduct->description,
+                        'image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'price' => $price,
+                        'sub_total' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'amount' => $gross_amount,
+                        'options' => json_encode($options),
+                    ];
+                } elseif(!is_null($exisProduct->coupon)) {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = $exisProduct->coupon->value;
+                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'invoice_id' => $invoice->id,
+                        'reference_type' => 'Botble\Ecommerce\Models\Product',
+                        'reference_id' => $exisProduct->id,
+                        'name' => $exisProduct->name,
+                        'description' => $exisProduct->description,
+                        'image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'price' => $price,
+                        'sub_total' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'amount' => $gross_amount,
+                        'options' => json_encode($options),
+                    ];
+                } elseif(!is_null($exisProduct->sale_price)) {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = $exisProduct->sale_price;
+                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                         'invoice_id' => $invoice->id,
+                        'reference_type' => 'Botble\Ecommerce\Models\Product',
+                        'reference_id' => $exisProduct->id,
+                        'name' => $exisProduct->name,
+                        'description' => $exisProduct->description,
+                        'image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'price' => $price,
+                        'sub_total' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'amount' => $gross_amount,
+                        'options' => json_encode($options),
+                    ];
+                } else {
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                    $total_amount = $price * $quantity;
+                    $discount_percent = 0;
+                    $discount_amount = 0.00;
+                    $net_amount = $total_amount - $discount_amount;
+                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                    $gross_amount = $net_amount + $tax_amount;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'invoice_id' => $invoice->id,
+                        'reference_type' => 'Botble\Ecommerce\Models\Product',
+                        'reference_id' => $exisProduct->id,
+                        'name' => $exisProduct->name,
+                        'description' => $exisProduct->description,
+                        'image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'price' => $price,
+                        'sub_total' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'amount' => $gross_amount,
+                        'options' => json_encode($options),
+                    ];
+                }
+
+                InvoiceItem::query()->create($orderProduct);
+            }
+
+            if($request->input('payment_method') == 'paytabs') {
+                $resp = $this->payTabsPayment($request, $data, $order);
+                if($resp['redirect_url']) {
+                    return response()->json([
+                        'message'          => 'Redirecting to Paytabs...',
+                        'order_id'         => $order->code,
+                        'payment_method'   => $request->input('payment_method'),
+                        'total'            => $order->amount,
+                        'sub_total'        => $order->sub_total,
+                        'shipping_amount'  => $order->shipping_amount,
+                        'products'         => $prod,
+                        'redirect_url'     => $resp['redirect_url']
+                    ]);
+                }
+            }
+
+            // $request['payment_status'] = 'completed';
+            $createPaymentForOrderService->execute(
+                $order,
+                $request->input('payment_method'),
+                'completed',
+                $customer_id
+            );
+
+            return response()->json([
+                'message'          => 'Order created successfully',
+                'order_id'         => $order->code,
+                'payment_method'   => $request->input('payment_method'),
+                'total'            => $order->amount,
+                'sub_total'        => $order->sub_total,
+                'shipping_amount'  => $order->shipping_amount,
+                'products'         => $prod
+            ]);
+        }
+    }
+
+    public function payTabsPayment(Request $request, $shippingData, $order) {
+        $paymentStr = '';
+        foreach ($request->input('products') as $product) {
+            $quantity = $product['quantity'] ? $product['quantity'] : 1;
+            $exisProduct = Product::select('name')->where('ec_products.id', $product['product_id'])->first();
+            $paymentStr .= $exisProduct->name. ' ('.$quantity.'), ';
+        }
+
+        $data = [
+            "tran_type"=> "sale",
+            "tran_class"=> "ecom",
+            "cart_id"=> explode('#', $order->code)[1],
+            "cart_currency"=> "AED",
+            "cart_amount"=> $request->input('finalPrice'),
+            "cart_description"=> $paymentStr,
+            "paypage_lang"=> "en",
+            "customer_details"=> [
+                "name"=> $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                "email"=> $request->input('billingAddress.email'),
+                "phone"=> $request->input('billingAddress.mobile'),
+                "street1"=> $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                "city"=> $request->input('billingAddress.emirates'),
+                "state"=> $request->input('billingAddress.emirates'),
+                "country"=> "AE",
+                // "zip"=> "12345"
+            ],
+            "shipping_details"=> [
+                "name"=> $shippingData['name'],
+                "email"=> $shippingData['email'],
+                "phone"=> $shippingData['phone'],
+                "street1"=> $shippingData['street1'],
+                "city"=> $shippingData['city'],
+                "state"=> $shippingData['state'],
+                "country"=> "AE",
+                // "zip"=> "54321"
+            ],
+            // "callback"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect",
+            // "return"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect"
+            "callback"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect",
+            "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect"
+        ];
+
+        // $PROFILE_ID = 48012;
+        $PROFILE_ID = 48353;
+        // $SERVER_KEY = 'SBJNLMDM92-HZKWN6WW6D-NTDHZ9RBMJ';
+        $SERVER_KEY = 'S6JNLMDMDL-HZM2DZDHLN-GW2NZ6DKK2';
+
+        $BASE_URL = 'https://secure.paytabs.com/payment/request';
+
+        $data['profile_id'] = $PROFILE_ID;
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $BASE_URL,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($data, true),
+            CURLOPT_HTTPHEADER => array(
+                'authorization:' . $SERVER_KEY,
+                'Content-Type:application/json'
+            ),
+        ));
+
+        $response = json_decode(curl_exec($curl), true);
+        curl_close($curl);
+        // print_r($response);
+        return $response;
+    }
+
+    public function payTabsPaymentRedirect(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        $customer = Customer::where('email', $request->input('customerEmail'))->first();
+        $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
+        // echo "<pre>";print_r($order);
+        $createPaymentForOrderService->execute(
+            $order,
+            'paytabs',
+            $request['respStatus'],
+            $customer->id,
+            $request->input('tranRef'),
+            $request['respMessage'],
+        );
+
+        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+    }
+
+    public function trackOrder(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_number'      => 'required',
+            'billing_email'      => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id')->join('payments', 'payments.order_id', 'ec_orders.id')->where('ec_orders.code', $request->input('order_number'))->where('ec_order_addresses.email', $request->input('billing_email'))->first();
+
+        if(!$order) {
+            return response()->json(['message' => 'Order not found']);
+        }
+
+        $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        return response()->json([
+            'message'          => 'Tracking Details Fetched successfully',
+            'order_id'         => $order->code,
+            'payment_method'   => $order->payment_channel,
+            'total'            => $order->amount,
+            'sub_total'        => $order->sub_total,
+            'shipping_amount'  => $order->shipping_amount,
+            'status'           => $order->status,
+            'created_at'       => $order->created_at,
+            'service_amount'   => $order->service_amount,
+            'vat_amount'       => $order->vat,
+            'tax_amount'       => $order->tax_amount,
+            'payment_status'   => $order->payment_status,
+            'products'         => $prod
+        ]);
+    }
+
+    public function orderDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_number'      => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->join('payments', 'payments.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $request->input('order_number'))->first();
+
+        if(!$order) {
+            return response()->json(['message' => 'Order not found']);
+        }
+
+        $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        return response()->json([
+            'message'          => 'Details Fetched successfully',
+            'order_id'         => $order->code,
+            'payment_method'   => $order->payment_channel,
+            'total'            => $order->amount,
+            'sub_total'        => $order->sub_total,
+            'shipping_amount'  => $order->shipping_amount,
+            'status'           => $order->status,
+            'created_at'       => $order->created_at,
+            'service_amount'   => $order->service_amount,
+            'vat_amount'       => $order->vat,
+            'tax_amount'       => $order->tax_amount,
+            'payment_status'   => $order->payment_status,
+            'products'         => $prod
+        ]);
+    }
+
+    public function validateCoupon(Request $request) {
+         $validator = Validator::make($request->all(), [
+            'couponCode'      => 'required',
+            'mobile_number' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $coupon = DiscountModel::where('code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+
+        if(!$coupon) {
+            return response()->json(['message' => 'Invalid Coupon Code']);
+        }
+
+        $mobile_verification = MobileVerification::where('phone', $request->input('mobile_number'))->first();
+
+        if(!$mobile_verification) {
+            return response()->json(['message' => 'Verify Mobile Number First']);
+        }
+
+        $customer = Customer::where('phone', $request->input('mobile_number'))->first();
+
+        if($customer) {
+            $customer_discount = DB::table('ec_customer_used_coupons')->where('customer_id', $customer->id)->where('discount_id', $coupon->id)->first();
+            if($customer_discount) {
+                return response()->json(['message' => 'You Have Already Used this Coupon Code']);
+            }
+        }
+
+        return response()->json([
+            'message'          => 'Details Fetched successfully',
+            'coupon'            => $coupon
+        ]);
+    }
+}
