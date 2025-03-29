@@ -73,5 +73,6 @@ class SimpleSliderItemController extends BaseController
         $simpleSliderItem = SimpleSliderItem::query()->findOrFail($id);
 
         return DeleteResourceAction::make($simpleSliderItem);
+        
     }
 }
