@@ -435,8 +435,9 @@ class OrderController extends Controller
                 //     ->where('with_storehouse_management', 1)
                 //     ->where('quantity', '>=', $quantity)
                 //     ->decrement('quantity', $quantity);
-                $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=FGD123456";
-                // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
+                
+                // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=FGD123456";
+                $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
 
                 $ch = curl_init();
 
