@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\DynamicSection;
 
 class DynamicSectionController extends Controller
 {
@@ -13,14 +14,19 @@ class DynamicSectionController extends Controller
     public function submit(Request $request)
 {
     $validated = $request->validate([
-        'input1' => 'required|string|max:255',
-        'input2' => 'required|string|max:255',
-        'input3' => 'required|string|max:255',
-        'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'section1_title' => 'required|string|max:255',
+        'section1_subtitle' => 'required|string|max:255',
+        'section1_description' => 'required|string|max:255',
+        'image' => 'required|max:2048', 
     ]);
+    // $imagePath = $request->file('image')->store('images', 'public'); // Store the image in the 'public/images' directory
 
-    // Handle the inputs and image upload logic here
-    // Example: Save the image and inputs to the database
+    DynamicSection::create([
+        'title' => $validated['section1_title'],
+        'subtitle' => $validated['section1_subtitle'],
+        'description' => $validated['section1_description'],
+        'image' => $validated['image'], 
+    ]);
 
     return redirect()->back()->with('success', 'Form submitted successfully!');
 }

@@ -6,28 +6,39 @@
 
     <div class="section-1">
         <h2>Section 1</h2>
+        @if(session('success'))
+            <p style="color: green;">{{ session('success') }}</p>
+        @endif
         <form action='{{ route('dynamic.section.submit')}}' method="POST" enctype="multipart/form-data">
             @csrf
             <div class="form-group">
-                <label for="input1">Input Text 1</label>
-                <input type="text" name="input1" id="input1" class="form-control" placeholder="Enter text for Input 1">
+                <label for="device_type_2">Select Device Type</label>
+                <select name="device_type_2" id="device_type_2" class="form-control">
+                    <option value="mobile">Mobile</option>
+                    <option value="desktop">Desktop</option>
+                </select>
             </div>
             <div class="form-group">
-                <label for="input2">Input Text 2</label>
-                <input type="text" name="input2" id="input2" class="form-control" placeholder="Enter text for Input 2">
+                <label for="section1_title">Title</label>
+                <input type="text" name="section1_title" id="section1_title" class="form-control" placeholder="Enter title for section 1">
+            </div>
+           
+            <div class="form-group">
+                <label for="section1_subtitle">Subtitle</label>
+                <input type="text" name="section1_subtitle" id="section1_subtitle" class="form-control" placeholder="Enter text for Input 2">
+            </div>
+           
+            <div class="form-group">
+                <label for="section1_description">Description</label>
+                <input type="text" name="section1_description" id="section1_description" class="form-control" placeholder="Enter text for Input 3">
             </div>
             <div class="form-group">
-                <label for="input3">Input Text 3</label>
-                <input type="text" name="input3" id="input3" class="form-control" placeholder="Enter text for Input 3">
+                <label for="image">Upload Image</label>
+                <div>
+                    {!! Form::mediaImage('image', null, ['class' => 'form-control', 'required' => true]) !!}
+                </div>
             </div>
-           <div class="form-group">
-    <label for="image">Upload Image</label>
-    <div>
-        <!-- {!! Form::mediaImage('image', null, ['class' => 'form-control', 'required' => true]) !!} -->
-        <input type="file" name="image" id="image" class="form-control" required>
-    </div>
-</div>
-
+            
             <button type="submit" class="btn btn-primary">Submit</button>
         </form>
     </div>
