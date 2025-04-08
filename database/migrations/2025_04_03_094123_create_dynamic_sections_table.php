@@ -9,10 +9,12 @@ return new class extends Migration {
     {
         Schema::create('dynamic_sections', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
-            $table->string('subtitle');
+            $table->string('heading');
             $table->string('description');
+            $table->string('link'); // URL for the link
             $table->string('image'); // Path for the uploaded image
+            $table->string('video1');
+            $table->string('video2');
             $table->timestamps();
         });
     }
