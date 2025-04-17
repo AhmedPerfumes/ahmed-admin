@@ -52,7 +52,7 @@ class ProductController extends Controller
             }
             
             if (!isset($subCategory)) {
-                if($category == 'HAIR MIST') {
+                if ($category == 'HAIR MIST') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_product_labels.name as label_name', 'ec_product_labels.color as label_color', 'ec_products.sale_price')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
@@ -64,25 +64,39 @@ class ProductController extends Controller
                         ->where('ec_product_category_product.category_id', 6)
                         ->orderBy('ec_product_category_product.product_id', 'desc')
                         ->get();
-
-                        foreach ($productCategory->products as $key => $val) {
-                            $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->first();
-                            $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
+                
+                    foreach ($productCategory->products as $key => $val) {
+                        $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->first();
+                
+                        $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
                             ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
-                            // ->where('ec_orders.status', 'completed') // Optional: filter by order status
                             ->where('product_id', $val->product_id)
                             ->groupBy('product_id')
-                            // ->orderBy('total_sales', 'desc')
-                            // ->limit(10) // Optional: limit to top 10
                             ->first();
-
-                            $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
-
-                            $vals = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
-
-                            $val->coupon = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
-                        }
-                } elseif($category == 'EXTRAIT DE PARFUM') {
+                
+                        $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
+                
+                        // Assign discount without code
+                        $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')
+                            ->where('product_id', $val->product_id)
+                            ->whereNull('code')
+                            ->whereDate('start_date', '<=', now())
+                            ->whereDate('end_date', '>=', now())
+                            ->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')
+                            ->first();
+                
+                        // Assign coupon with code
+                        $val->coupon = DiscountProduct::select('code', 'value', 'start_date', 'end_date')
+                            ->where('product_id', $val->product_id)
+                            ->whereNotNull('code')
+                            ->whereDate('start_date', '<=', now())
+                            ->whereDate('end_date', '>=', now())
+                            ->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')
+                            ->first();
+                    }
+                }
+                
+                elseif($category == 'EXTRAIT DE PARFUM') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_product_labels.name as label_name', 'ec_product_labels.color as label_color', 'ec_products.sale_price')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
@@ -112,7 +126,8 @@ class ProductController extends Controller
 
                             $val->coupon = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
                         }
-                } elseif($category == 'GIFT SETS') {
+                } 
+                elseif($category == 'GIFT SETS') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_product_labels.name as label_name', 'ec_product_labels.color as label_color', 'ec_products.sale_price')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')

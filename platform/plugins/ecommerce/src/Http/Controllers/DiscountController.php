@@ -36,6 +36,9 @@ class DiscountController extends BaseController
 
     public function create()
     {
+        
+       
+        
         $this->pageTitle(trans('plugins/ecommerce::discount.create'));
 
         Assets::usingVueJS()
@@ -51,10 +54,20 @@ class DiscountController extends BaseController
 
     public function store(DiscountRequest $request)
     {
+
         /**
          * @var Discount $discount
          */
         $discount = Discount::query()->create($request->validated());
+        
+
+        if ($request->input('target')=='all-orders') {
+            
+            // Attach all products to the discount
+            $allProductIds = Product::query()->pluck('id')->all();
+            // echo "<pre>";print_r($allProductIds);die;
+            $discount->products()->attach($allProductIds);
+        } else {
 
         if ($discount) {
             if ($productCollections = $request->input('product_collections')) {
@@ -127,6 +140,7 @@ class DiscountController extends BaseController
 
                 $discount->customers()->attach(array_unique($customers));
             }
+        }
         }
 
         event(new CreatedContentEvent(DISCOUNT_MODULE_SCREEN_NAME, $request, $discount));
