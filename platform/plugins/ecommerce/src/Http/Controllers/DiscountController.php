@@ -67,7 +67,8 @@ class DiscountController extends BaseController
             $allProductIds = Product::query()->pluck('id')->all();
             // echo "<pre>";print_r($allProductIds);die;
             $discount->products()->attach($allProductIds);
-        } else {
+        } 
+        else {
 
         if ($discount) {
             if ($productCollections = $request->input('product_collections')) {
