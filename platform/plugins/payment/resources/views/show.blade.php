@@ -71,6 +71,11 @@
                                 <x-slot:title>{{ trans('plugins/payment::payment.status') }}</x-slot:title>
                                 {!! BaseHelper::clean($payment->status->toHtml()) !!}
                             </x-core::datagrid.item>
+
+                            <x-core::datagrid.item>
+                                <x-slot:title>Description</x-slot:title>
+                                {{ $payment->description }}
+                            </x-core::datagrid.item>
                         </x-core::datagrid>
 
                         {!! $detail !!}
