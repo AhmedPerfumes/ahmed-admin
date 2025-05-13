@@ -42,7 +42,14 @@ class ProductCategoryController extends Controller
         // $shipping_service_charges = ShippingRule::select('price')->get();
 
         // return response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges]);
-        return response()->json($productCategories);
+        $response = response()->json($productCategories)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
+        ->setEtag(md5(json_encode($productCategories)));
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
     }
 
     public function getProductCategoriesTemp(Request $request)
@@ -74,7 +81,15 @@ class ProductCategoryController extends Controller
         $home_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'desktop')->orderBy('order', 'asc')->get();
         $home_mobile_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'mobile')->orderBy('order', 'asc')->get();
 
-        return response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders]);
+        $response = response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
+        ->setEtag(md5(json_encode(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders])));
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
+
         // return response()->json($productCategories);
     }
 
@@ -110,7 +125,14 @@ class ProductCategoryController extends Controller
                 ->where('parent_id', 0)
                 ->first();
                 // print_r($prod);die();
-            return response()->json($cat);
+            $response = response()->json($cat)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
+            ->setEtag(md5(json_encode($cat)));
+
+            if ($response->isNotModified(request())) {
+                return $response;
+            }
+
+            return $response;
         } else {
             $subCat =  DB::table('ec_product_categories')
                 // ->join ('ec_product_category_product', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
@@ -131,7 +153,14 @@ class ProductCategoryController extends Controller
                 ->where('parent_id', '!=', 0)
                 ->first();
                 // print_r($prod);die();
-            return response()->json($subCat);
+            $response = response()->json($subCat)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
+            ->setEtag(md5(json_encode($subCat)));
+
+            if ($response->isNotModified(request())) {
+                return $response;
+            }
+
+            return $response;
         }
     }
 }
