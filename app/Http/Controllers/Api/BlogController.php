@@ -18,7 +18,13 @@ class BlogController extends Controller
 
         $blogs = Post::select('id', 'name', 'description', 'image', 'created_at')->where('status', 'published')->paginate($limit);
 
-        return response()->json($blogs);
+         $response = response()->json($blogs)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($blogs)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
     }
 
 
@@ -44,7 +50,13 @@ class BlogController extends Controller
         //     ]);
         // }
 
-        return response()->json($blog);
+        $response = response()->json($blog)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($blog)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
     }
 
     public function getBlogSEO(Request $request)
@@ -72,6 +84,12 @@ class BlogController extends Controller
         //     ]);
         // }
 
-        return response()->json($blg);
+        $response = response()->json($blg)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($blg)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
     }
 }

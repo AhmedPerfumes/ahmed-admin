@@ -316,6 +316,10 @@ class OrderController extends Controller
 
                 // print_r($exisProduct);
 
+                if((isset($product['is_gift']) && $product['is_gift'] == true)) {
+                    $exisProduct->is_gift = 1;
+                }
+
                 array_push($prod, $exisProduct);
 
                 // $discount_price = '';
@@ -413,6 +417,38 @@ class OrderController extends Controller
                         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                         'vat' => $request->input('vatTax'),
                     ];
+                } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
+                    $price = 0.00;
+                    $total_amount = 0.00;
+                    $discount_percent = 0.00;
+                    $discount_amount = 0.00;
+                    $net_amount = 0.00;
+                    $tax_amount = 0.00;
+                    $gross_amount = 0.00;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'order_id' => $order->id,
+                        'product_id' => $product['product_id'],
+                        'product_name' => $exisProduct->name,
+                        'product_image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'weight' => $exisProduct->weight,
+                        'price' => $price,
+                        'total_amount' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'product_options' => [],
+                        'options' => json_encode($options),
+                        'product_type' => $exisProduct->product_type,
+                        'product_category' => '',
+                        'product_subcategory' => '',
+                        'vat' => 0.00,
+                        'is_gift' => 1
+                    ];
                 } else {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = $price * $quantity;
@@ -454,13 +490,15 @@ class OrderController extends Controller
                     ->where('quantity', '>=', $quantity)
                     ->decrement('quantity', $quantity);
                 
-                // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=FGD123456";
-                // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
+                // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=123456";
+                // // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
 
                 // $ch = curl_init();
 
                 // curl_setopt($ch, CURLOPT_URL, $url);
                 // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                // // Set the request method to POST
+                // curl_setopt($ch, CURLOPT_POST, true);
                 // curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 //     "Accept: application/json",
                 //     "Company: UAE", 
@@ -589,7 +627,7 @@ class OrderController extends Controller
                     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                 
                     $orderProduct = [
-                         'invoice_id' => $invoice->id,
+                        'invoice_id' => $invoice->id,
                         'reference_type' => 'Botble\Ecommerce\Models\Product',
                         'reference_id' => $exisProduct->id,
                         'name' => $exisProduct->name,
@@ -605,6 +643,34 @@ class OrderController extends Controller
                         'gross_amount' => $gross_amount,
                         'amount' => $gross_amount,
                         'options' => json_encode($options),
+                    ];
+                } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
+                    $price = 0.00;
+                    $total_amount = 0.00;
+                    $discount_percent = 0.00;
+                    $discount_amount = 0.00;
+                    $net_amount = 0.00;
+                    $tax_amount = 0.00;
+                    $gross_amount = 0.00;
+                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                    $orderProduct = [
+                        'invoice_id' => $invoice->id,
+                        'reference_type' => 'Botble\Ecommerce\Models\Product',
+                        'reference_id' => $exisProduct->id,
+                        'name' => $exisProduct->name,
+                        'description' => $exisProduct->description,
+                        'image' => $exisProduct->image,
+                        'qty' => $quantity,
+                        'price' => $price,
+                        'sub_total' => $total_amount,
+                        'discount_percent' => $discount_percent,
+                        'discount_amount' => $discount_amount,
+                        'net_amount' => $net_amount,
+                        'tax_amount' => $tax_amount,
+                        'gross_amount' => $gross_amount,
+                        'amount' => $gross_amount,
+                        'options' => json_encode($options)
                     ];
                 } else {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
@@ -713,14 +779,14 @@ class OrderController extends Controller
             ],
             // "callback"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect",
             // "return"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect"
-            "callback"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect",
-            "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect"
+            "callback"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
+            "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
         ];
 
-        // $PROFILE_ID = 48012;
-        $PROFILE_ID = 48353;
-        // $SERVER_KEY = 'SBJNLMDM92-HZKWN6WW6D-NTDHZ9RBMJ';
-        $SERVER_KEY = 'S6JNLMDMDL-HZM2DZDHLN-GW2NZ6DKK2';
+        $PROFILE_ID = 48012;
+        // $PROFILE_ID = 48353;
+        $SERVER_KEY = 'SBJNLMDM92-HZKWN6WW6D-NTDHZ9RBMJ';
+        // $SERVER_KEY = 'S6JNLMDMDL-HZM2DZDHLN-GW2NZ6DKK2';
 
         $BASE_URL = 'https://secure.paytabs.com/payment/request';
 
@@ -747,14 +813,16 @@ class OrderController extends Controller
     }
 
     public function payTabsPaymentRedirect(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-        $customer = Customer::where('email', $request->input('customerEmail'))->first();
-        $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
+        // echo "<pre>";print_r($request->all());die;
+        // $customer = Customer::where('email', $request->input('customerEmail'))->first();
+        // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
+        $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
         // echo "<pre>";print_r($order);
         $createPaymentForOrderService->execute(
             $order,
             'paytabs',
             $request['respStatus'],
-            $customer->id,
+            $order->user_id,
             $request->input('tranRef'),
             $request['respMessage'],
         );

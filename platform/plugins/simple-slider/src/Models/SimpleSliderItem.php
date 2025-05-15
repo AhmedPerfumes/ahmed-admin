@@ -26,7 +26,7 @@ class SimpleSliderItem extends BaseModel
         'title' => SafeContent::class,
         'description' => SafeContent::class,
         'link' => SafeContent::class,
-        'sub_title' => SafeContent::class,
+         'sub_title' => SafeContent::class,
         'season' => SafeContent::class,
     ];
 
