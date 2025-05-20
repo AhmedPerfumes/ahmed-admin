@@ -420,7 +420,7 @@ class OrderController extends Controller
                 } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
                     $price = 0.00;
                     $total_amount = 0.00;
-                    $discount_percent = 0.00;
+                    $discount_percent = 100;
                     $discount_amount = 0.00;
                     $net_amount = 0.00;
                     $tax_amount = 0.00;
@@ -446,8 +446,9 @@ class OrderController extends Controller
                         'product_type' => $exisProduct->product_type,
                         'product_category' => '',
                         'product_subcategory' => '',
-                        'vat' => 0.00,
-                        'is_gift' => 1
+                        'vat' => $request->input('vatTax'),
+                        'is_gift' => 1,
+                        'campaign' => 'free_gift_eid_2025_campaign',
                     ];
                 } else {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
@@ -647,7 +648,7 @@ class OrderController extends Controller
                 } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
                     $price = 0.00;
                     $total_amount = 0.00;
-                    $discount_percent = 0.00;
+                    $discount_percent = 100;
                     $discount_amount = 0.00;
                     $net_amount = 0.00;
                     $tax_amount = 0.00;
