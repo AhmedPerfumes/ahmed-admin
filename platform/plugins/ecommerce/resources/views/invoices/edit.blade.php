@@ -112,6 +112,9 @@
                                 <x-core::table.header.cell>
                                     {{ __('Total') }}
                                 </x-core::table.header.cell>
+                                <x-core::table.header.cell>
+                                    Tax Amount
+                                </x-core::table.header.cell>
                             </x-core::table.header>
 
                             <x-core::table.body>
@@ -191,14 +194,22 @@
                                                 @endif
                                             </x-core::table.body.cell>
                                             <x-core::table.body.cell>
-                                                {{ $invoiceItem->amount_format }}
+                                                <!-- {{ $invoiceItem->amount_format }} -->
+                                                {{ $invoiceItem->discount_percent != 0 ? format_price($invoiceItem->price - ($invoiceItem->price / 100 * ($invoiceItem->discount_percent))) : format_price($invoiceItem->price) }}
                                             </x-core::table.body.cell>
                                             <x-core::table.body.cell>
                                                 {{ $invoiceItem->qty }}
                                             </x-core::table.body.cell>
                                             <x-core::table.body.cell class="money">
                                                 <strong>
-                                                    {{ $invoiceItem->total_format }}
+                                                    <!-- {{ $invoiceItem->total_format }} -->
+                                                    {{ $invoiceItem->net_amount }}
+                                                </strong>
+                                            </x-core::table.body.cell>
+                                            <x-core::table.body.cell class="money">
+                                                <strong>
+                                                    <!-- {{ $invoiceItem->total_format }} -->
+                                                    {{ $invoiceItem->tax_amount }}
                                                 </strong>
                                             </x-core::table.body.cell>
                                     </x-core::table.body.row>
@@ -207,7 +218,7 @@
 
                             <x-core::table.footer>
                                 <x-core::table.body.row>
-                                    <x-core::table.body.cell colspan="4"></x-core::table.body.cell>
+                                    <x-core::table.body.cell colspan="5"></x-core::table.body.cell>
                                     <x-core::table.body.cell>
                                         {{ trans('plugins/ecommerce::invoice.detail.quantity') }}
                                     </x-core::table.body.cell>
@@ -216,7 +227,7 @@
                                     </x-core::table.body.cell>
                                 </x-core::table.body.row>
                                 <x-core::table.body.row>
-                                    <x-core::table.body.cell colspan="4"></x-core::table.body.cell>
+                                    <x-core::table.body.cell colspan="5"></x-core::table.body.cell>
                                     <x-core::table.body.cell>
                                         {{ trans('plugins/ecommerce::invoice.detail.sub_total') }}
                                     </x-core::table.body.cell>
@@ -226,7 +237,7 @@
                                 </x-core::table.body.row>
                                 @if ($invoice->tax_amount > 0)
                                     <x-core::table.body.row>
-                                        <x-core::table.body.cell colspan="4"></x-core::table.body.cell>
+                                        <x-core::table.body.cell colspan="5"></x-core::table.body.cell>
                                         <x-core::table.body.cell>
                                             {{ trans('plugins/ecommerce::invoice.detail.tax') }}
                                         </x-core::table.body.cell>
@@ -236,7 +247,7 @@
                                     </x-core::table.body.row>
                                 @endif
                                 <x-core::table.body.row>
-                                    <x-core::table.body.cell colspan="4"></x-core::table.body.cell>
+                                    <x-core::table.body.cell colspan="5"></x-core::table.body.cell>
                                     <x-core::table.body.cell>
                                         {{ trans('plugins/ecommerce::invoice.detail.shipping_fee') }}
                                     </x-core::table.body.cell>
@@ -245,7 +256,7 @@
                                     </x-core::table.body.cell>
                                 </x-core::table.body.row>
                                 <x-core::table.body.row>
-                                    <x-core::table.body.cell colspan="4"></x-core::table.body.cell>
+                                    <x-core::table.body.cell colspan="5"></x-core::table.body.cell>
                                     <x-core::table.body.cell>
                                         {{ trans('plugins/ecommerce::invoice.detail.discount') }}
                                     </x-core::table.body.cell>
@@ -254,7 +265,7 @@
                                     </x-core::table.body.cell>
                                 </x-core::table.body.row>
                                 <x-core::table.body.row>
-                                    <x-core::table.body.cell colspan="4"></x-core::table.body.cell>
+                                    <x-core::table.body.cell colspan="5"></x-core::table.body.cell>
                                     <x-core::table.body.cell>
                                         {{ trans('plugins/ecommerce::invoice.detail.grand_total') }}
                                     </x-core::table.body.cell>
@@ -263,7 +274,7 @@
                                     </x-core::table.body.cell>
                                 </x-core::table.body.row>
                                 <x-core::table.body.row>
-                                    <x-core::table.body.cell colspan="4"></x-core::table.body.cell>
+                                    <x-core::table.body.cell colspan="5"></x-core::table.body.cell>
                                     <x-core::table.body.cell>
                                         {{ trans('plugins/ecommerce::invoice.total_amount') }}
                                     </x-core::table.body.cell>

@@ -244,7 +244,7 @@
         <th class="heading-quantity">{{ 'plugins/ecommerce::products.form.quantity'|trans }}</th>
         <th class="heading-price">{{ 'plugins/ecommerce::products.form.price'|trans }}</th>
         <th class="heading-subtotal">{{ 'plugins/ecommerce::products.form.total'|trans }}</th>
-        <th class="heading-subtotal">VAT</th>
+        <th class="heading-subtotal">Tax Amount</th>
     </tr>
     </thead>
     <tbody>

@@ -14,7 +14,7 @@
                 {{ format_price($order->sub_total) }}
             </x-core::table.body.cell>
         </x-core::table.body.row>
-        <x-core::table.body.row>
+        {{-- <x-core::table.body.row>
             <x-core::table.body.cell>
                 {{ trans('plugins/ecommerce::order.discount') }}
                 @if ($order->coupon_code)
@@ -30,7 +30,7 @@
             <x-core::table.body.cell>
                 {{ format_price($order->discount_amount) }}
             </x-core::table.body.cell>
-        </x-core::table.body.row>
+        </x-core::table.body.row> --}}
         @if ($order->shipping_method_name)
             <x-core::table.body.row>
                 <x-core::table.body.cell>
