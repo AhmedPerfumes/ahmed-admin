@@ -368,8 +368,6 @@ class CreatePaymentForOrderService
                 </tbody>
             </table>';
 
-            echo '<pre>';print_r($body);die;
-
             $mail->Body   = $body;
 
             $mail->send();

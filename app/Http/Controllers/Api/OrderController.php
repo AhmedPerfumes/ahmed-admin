@@ -418,10 +418,10 @@ class OrderController extends Controller
                         'vat' => $request->input('vatTax'),
                     ];
                 } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                    $price = 0.00;
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = 0.00;
                     $discount_percent = 100;
-                    $discount_amount = 0.00;
+                    $discount_amount = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $net_amount = 0.00;
                     $tax_amount = 0.00;
                     $gross_amount = 0.00;
@@ -646,10 +646,10 @@ class OrderController extends Controller
                         'options' => json_encode($options),
                     ];
                 } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                    $price = 0.00;
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = 0.00;
                     $discount_percent = 100;
-                    $discount_amount = 0.00;
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $net_amount = 0.00;
                     $tax_amount = 0.00;
                     $gross_amount = 0.00;
