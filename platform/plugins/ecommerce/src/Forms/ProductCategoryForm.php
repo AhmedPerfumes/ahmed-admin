@@ -53,6 +53,7 @@ class ProductCategoryForm extends FormAbstract
             )
             ->add('status', SelectField::class, StatusFieldOption::make()->toArray())
             ->add('image', MediaImageField::class)
+            ->add('mobile_image', MediaImageField::class)
             ->add(
                 'icon',
                 $this->getFormHelper()->hasCustomField('themeIcon') ? 'themeIcon' : 'text',
@@ -70,9 +71,19 @@ class ProductCategoryForm extends FormAbstract
                     'text' => __('It will replace Icon Font if it is present.'),
                 ],
                 'wrapper' => [
-                    'style' => 'display: block;',
+                    'style' => 'display: inline-block;',
                 ],
             ])
+            ->add('menu_image2', MediaImageField::class, [
+                'label' => __('Icon image2'),
+                'help_block' => [
+                    'text' => __('It will replace Icon Font if it is present.'),
+                ],
+                'wrapper' => [
+                    'style' => 'display: inline-block;',
+                ],
+            ])
+            
             ->add(
                 'is_featured',
                 OnOffField::class,
