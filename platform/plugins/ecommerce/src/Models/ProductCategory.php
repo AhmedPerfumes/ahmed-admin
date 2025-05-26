@@ -32,9 +32,12 @@ class ProductCategory extends BaseModel implements HasTreeCategoryContract
         'order',
         'status',
         'image',
+        'mobile_image',
         'is_featured',
         'icon',
         'icon_image',
+        'menu_image2'
+
     ];
 
     protected $casts = [

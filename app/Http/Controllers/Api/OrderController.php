@@ -389,8 +389,9 @@ class OrderController extends Controller
                 } elseif(!is_null($exisProduct->sale_price)) {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = $price * $quantity;
-                    $discount_percent = $exisProduct->sale_price;
-                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
+                    $discount_percent = 0;
+                    $discount_amount = $total_amount - ($sale_price * $quantity);
                     $net_amount = $total_amount - $discount_amount;
                     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
                     $gross_amount = $net_amount + $tax_amount;
@@ -418,10 +419,10 @@ class OrderController extends Controller
                         'vat' => $request->input('vatTax'),
                     ];
                 } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                    $price = 0.00;
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = 0.00;
-                    $discount_percent = 0.00;
-                    $discount_amount = 0.00;
+                    $discount_percent = 100;
+                    $discount_amount = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $net_amount = 0.00;
                     $tax_amount = 0.00;
                     $gross_amount = 0.00;
@@ -446,8 +447,9 @@ class OrderController extends Controller
                         'product_type' => $exisProduct->product_type,
                         'product_category' => '',
                         'product_subcategory' => '',
-                        'vat' => 0.00,
-                        'is_gift' => 1
+                        'vat' => $request->input('vatTax'),
+                        'is_gift' => 1,
+                        'campaign' => 'free_gift_eid_2025_campaign',
                     ];
                 } else {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
@@ -619,8 +621,9 @@ class OrderController extends Controller
                 } elseif(!is_null($exisProduct->sale_price)) {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = $price * $quantity;
-                    $discount_percent = $exisProduct->sale_price;
-                    $discount_amount = ($total_amount / 100) * $discount_percent;
+                    $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
+                    $discount_percent = 0;
+                    $discount_amount = $total_amount - ($sale_price * $quantity);
                     $net_amount = $total_amount - $discount_amount;
                     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
                     $gross_amount = $net_amount + $tax_amount;
@@ -645,10 +648,10 @@ class OrderController extends Controller
                         'options' => json_encode($options),
                     ];
                 } elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                    $price = 0.00;
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = 0.00;
-                    $discount_percent = 0.00;
-                    $discount_amount = 0.00;
+                    $discount_percent = 100;
+                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $net_amount = 0.00;
                     $tax_amount = 0.00;
                     $gross_amount = 0.00;

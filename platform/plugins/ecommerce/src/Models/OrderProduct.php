@@ -39,6 +39,7 @@ class OrderProduct extends BaseModel
         'vat',
         'discount_amount',
         'is_gift',
+        'campaign',
     ];
 
     protected $casts = [

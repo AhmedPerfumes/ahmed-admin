@@ -1,6 +1,7 @@
 <?php
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SmsaController;
+use App\Http\Controllers\DynamicSectionController;
 
 // Define a route group with a prefix
 Route::prefix('admin/ecommerce/smsa')->group(function () {
@@ -13,3 +14,22 @@ Route::prefix('admin/ecommerce/smsa')->group(function () {
     Route::post('/bulkPrint', [SmsaController::class, 'bulkPrint'])->name('smsa.bulk-print');
     Route::get('/track/{awb}', [SmsaController::class, 'track'])->name('smsa.track');
 });
+
+Route::prefix('admin/ecommerce/dynamic')->group(function () {
+    Route::get('/', [DynamicSectionController::class, 'index'])->name('dynamic.index');
+    Route::post('/submit', [DynamicSectionController::class, 'submit'])->name('newsletter.submit');
+    Route::delete('/admin/dynamic-section/{id}', [DynamicSectionController::class, 'destroy'])->name('dynamic-section.destroy');
+
+
+
+
+
+
+
+
+
+
+    
+});
+
+

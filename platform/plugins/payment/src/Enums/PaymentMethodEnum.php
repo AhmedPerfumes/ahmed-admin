@@ -13,6 +13,7 @@ class PaymentMethodEnum extends Enum
     public const COD = 'cod';
     public const BANK_TRANSFER = 'bank_transfer';
     public const PAYTABS = 'paytabs';
+    public const ONLINE = 'online';
 
     public static $langPath = 'plugins/payment::payment.methods';
 
