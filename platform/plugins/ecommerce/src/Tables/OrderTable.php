@@ -58,14 +58,14 @@ class OrderTable extends TableAbstract
 
                 return $item->payment->status->label() ? BaseHelper::clean(
                     $item->payment->status->toHtml()
-                ) : '&mdash;';
+                ) : '<span class="badge bg-danger text-danger-fg">Cancelled</span>';
             })
             ->editColumn('payment_method', function (Order $item) {
                 if (! is_plugin_active('payment')) {
                     return '&mdash;';
                 }
 
-                return BaseHelper::clean($item->payment->payment_channel->label() ?: '&mdash;');
+                return BaseHelper::clean($item->payment->payment_channel->label() ?: 'Online');
             })
             ->formatColumn('amount', PriceFormatter::class)
             ->editColumn('shipping_amount', function (Order $item) {

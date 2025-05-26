@@ -28,6 +28,8 @@ class PaymentStatusEnum extends Enum
 
     public const FAILED = 'failed';
 
+    public const CANCELLED = 'cancelled';
+
     public static $langPath = 'plugins/payment::payment.statuses';
 
     public function toHtml(): HtmlString|string
