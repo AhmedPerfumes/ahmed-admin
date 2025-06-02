@@ -90,13 +90,55 @@ class CreatePaymentForOrderService
             $p = "E89_6C3";
             $password = $passw.$pass.$p;
 
-            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Please wait for confirmation call! Your Total Bill = '. floatval($order->amount) .'AED"')."&msgtype=16");
+            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Your Total Amount (Incl. VAT) : '. floatval($order->amount) .'AED"')."&msgtype=16");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 
             $result = curl_exec($ch);
 
             curl_close ($ch);
+
+            $curl = curl_init();
+
+            curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://waba.myinboxmedia.in/api/sendwaba',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS =>'{
+                "ProfileId": "MIM2400074",
+                "APIKey": "#JpXt4fbMCFj",
+                "MobileNumber": 971'.ltrim($shipping_data->phone, $shipping_data->phone[0]).',
+                "templateName": "ordersucessnotification",
+                "Parameters": [
+                    "'.$order->code.'",
+                    '.floatval($order->amount).'      
+                ],
+                "HeaderType": "Text",
+                "Text": "",
+                "MediaUrl": "",
+                "Latitude": 0,
+                "Longitude": 0,
+                "isTemplate": "true",
+                "ButtonOrListJSON": "",
+                "SubClientCode": "",
+                "HeaderParameter": "",
+                "CTAButtonURLParameter":"",
+                "CTAButtonURLParameter2" : ""
+            }',
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json'
+            ),
+            ));
+
+            $response = curl_exec($curl);
+
+
+            curl_close($curl);
 
             $mail = new PHPMailer(true);
         
@@ -209,7 +251,7 @@ class CreatePaymentForOrderService
                                                                                                                                 </td>
                                                                                                                             </tr>';
                                                                                                                         }
-                                                                                                                      } else if($value->sale_price != 0) {
+                                                                                                                    } else if($value->product_category == 'Collections') {
                                                                                                                         $body .= '<tr>
                                                                                                                             <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
                                                                                                                                 <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
@@ -218,10 +260,10 @@ class CreatePaymentForOrderService
                                                                                                                                 <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
                                                                                                                             </td>
                                                                                                                             <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                                <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * 1.05) - ((($value->price * 1.05) / 100) * $value->sale_price) * $value->qty), 2).'</div>
+                                                                                                                                <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round($value->gross_amount, 2).'</div>
                                                                                                                             </td>
                                                                                                                         </tr>';
-                                                                                                                      } else {
+                                                                                                                    } else {
                                                                                                                         $body .= '<tr>
                                                                                                                         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
                                                                                                                             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
@@ -233,7 +275,7 @@ class CreatePaymentForOrderService
                                                                                                                             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * 1.05) * $value->qty), 2).'</div>
                                                                                                                         </td>
                                                                                                                         </tr>';
-                                                                                                                      }
+                                                                                                                    }
                                                                                                                 }
                                                                                                                 
                                                                                                                 $body .= '<tr>
