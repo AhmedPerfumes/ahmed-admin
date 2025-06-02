@@ -42,7 +42,7 @@ class PostForm extends FormAbstract
                 DatePickerField::class,
                 DatePickerFieldOption::make()
                     ->label('Post Date')
-                    ->defaultValue(BaseHelper::formatDate(Carbon::now()->addMonth()))
+                    ->defaultValue(BaseHelper::formatDate(Carbon::now()))
                     ->toArray()
             )
             ->add('name', TextField::class, NameFieldOption::make()->required()->toArray())
