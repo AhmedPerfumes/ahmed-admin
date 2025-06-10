@@ -67,6 +67,47 @@ class AuthController extends Controller
         }
         curl_close ($ch);
 
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+        CURLOPT_URL => 'https://waba.myinboxmedia.in/api/sendwaba',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_POSTFIELDS =>'{
+            "ProfileId": "MIM2400074",
+            "APIKey": "#JpXt4fbMCFj",
+            "MobileNumber": 971'.ltrim($request->mobile, $request->mobile[0]).',
+            "templateName": "websiteauthentication",
+            "Parameters": [
+                '.$otp.'      
+            ],
+            "HeaderType": "Text",
+            "Text": "",
+            "MediaUrl": "",
+            "Latitude": 0,
+            "Longitude": 0,
+            "isTemplate": "true",
+            "ButtonOrListJSON": "",
+            "SubClientCode": "",
+            "HeaderParameter": "",
+            "CTAButtonURLParameter":"",
+            "CTAButtonURLParameter2" : ""
+        }',
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json'
+            ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        // echo $response;
+
         $customer->otp = $otp;
         $customer->save();
 
@@ -251,9 +292,9 @@ class AuthController extends Controller
             "CTAButtonURLParameter":"",
             "CTAButtonURLParameter2" : ""
         }',
-        CURLOPT_HTTPHEADER => array(
-            'Content-Type: application/json'
-        ),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json'
+            ),
         ));
 
         $response = curl_exec($curl);
