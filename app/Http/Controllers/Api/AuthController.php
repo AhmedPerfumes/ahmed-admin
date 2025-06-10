@@ -145,8 +145,11 @@ class AuthController extends Controller
             $mobile_verification->otp = 0;
             $mobile_verification->save();
 
+            $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->first();
+
             return response()->json([
-                'message'       => 'OTP Verified Successfully'
+                'message'       => 'OTP Verified Successfully',
+                'customer'          => $customer ? false : true
             ]);
         } else {
             $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
