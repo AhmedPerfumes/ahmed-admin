@@ -250,7 +250,7 @@ class AuthController extends Controller
             return response()->json($validator->errors());
         }        
 
-        $otp = rand(111111, 999999);
+        $otp = rand(1111, 9999);
 
         $ch = curl_init();
 
