@@ -57,5 +57,6 @@ Route::middleware('customLogs')->group(function () {
 
     // Contact Route
     Route::post('/contact', [ContactController::class, 'contact']);
+    Route::post('/feedback', [ContactController::class, 'feedback']);
     Route::post('/campaign', [ContactController::class, 'campaign']);
 });
