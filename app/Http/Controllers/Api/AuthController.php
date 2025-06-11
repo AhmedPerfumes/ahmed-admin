@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Validator;
 use Botble\Ecommerce\Models\Customer;
 use Botble\Ecommerce\Models\MobileVerification;
 use Illuminate\Support\Facades\Auth;
+use Botble\Ecommerce\Models\Discount as DiscountModel;
+use Botble\Ecommerce\Models\OrderAddress;
 
 class AuthController extends Controller
 {
@@ -145,11 +147,14 @@ class AuthController extends Controller
             $mobile_verification->otp = 0;
             $mobile_verification->save();
 
-            $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->first();
+            $customer = OrderAddress::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->first();
+
+            $coupon = DiscountModel::where('code', 'WELCOME10')->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
 
             return response()->json([
                 'message'       => 'OTP Verified Successfully',
-                'customer'          => $customer ? false : true
+                'customer'          => $customer ? false : true,
+                'coupon'            => $coupon
             ]);
         } else {
             $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
