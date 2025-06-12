@@ -511,7 +511,7 @@ class OrderController extends Controller
                 //         'product_subcategory' => '',
                 //         'vat' => $request->input('vatTax'),
                 //         'is_gift' => 1,
-                //         'campaign' => 'free_gift_eid_2025_campaign',
+                //         'campaign' => 'free_gift_fathers_day_2025_campaign',
                 //     ];
                 // }
                 else {
