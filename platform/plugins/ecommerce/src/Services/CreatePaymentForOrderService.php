@@ -299,7 +299,7 @@ class CreatePaymentForOrderService
                                                                                                                 </tr>
                                                                                                                 <tr>
                                                                                                                     <th style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;" colspan="2">
-                                                                                                                        <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">Service Fee:</div>
+                                                                                                                        <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">Service Fee: '.($paymentMethod == 'cod' ? '(Including COD Charges)' : '').'</div>
                                                                                                                     </th>
                                                                                                                     <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
                                                                                                                         <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round(($order->service_amount * 1.05), 2).'</div>
