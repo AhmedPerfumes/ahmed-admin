@@ -50,7 +50,9 @@ class Order extends BaseModel
         'shipping_amount_vat',
         'service_amount',
         'service_amount_vat',
-        'vat'
+        'vat',
+        'cod_charge',
+        'cod_charge_vat',
     ];
 
     protected $casts = [

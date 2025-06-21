@@ -247,7 +247,7 @@ class CreatePaymentForOrderService
                                                                                                                                     <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
                                                                                                                                 </td>
                                                                                                                                 <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * 1.05) - ((($value->price * 1.05) / 100) * $value->discount_percent) * $value->qty), 2).'</div>
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * 1.05 - ($value->price * 1.05 * $value->discount_percent / 100)) * $value->qty), 2).'</div>
                                                                                                                                 </td>
                                                                                                                             </tr>';
                                                                                                                         }
@@ -299,13 +299,23 @@ class CreatePaymentForOrderService
                                                                                                                 </tr>
                                                                                                                 <tr>
                                                                                                                     <th style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;" colspan="2">
-                                                                                                                        <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">Service Fee: '.($paymentMethod == 'cod' ? '(Including COD Charges)' : '').'</div>
+                                                                                                                        <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">Service Fee: </div>
                                                                                                                     </th>
                                                                                                                     <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
                                                                                                                         <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round(($order->service_amount * 1.05), 2).'</div>
                                                                                                                     </td>
-                                                                                                                </tr>
-                                                                                                                <tr>
+                                                                                                                </tr>';
+                                                                                                                if ($order->cod_charge != '0.00') {
+                                                                                                                    $body .= '<tr>
+                                                                                                                        <th style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;" colspan="2">
+                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">COD Charges: </div>
+                                                                                                                        </th>
+                                                                                                                        <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round(($order->cod_charge * 1.05), 2).'</div>
+                                                                                                                        </td>
+                                                                                                                    </tr>';
+                                                                                                                }
+                                                                                                                $body .= '<tr>
                                                                                                                     <th style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;" colspan="2">
                                                                                                                         <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">Payment method:</div>
                                                                                                                     </th>

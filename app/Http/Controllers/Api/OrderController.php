@@ -206,11 +206,15 @@ class OrderController extends Controller
         //     'user_id' => $customer_id,
         //     'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
         //     'shipping_option' => $request->input('shipping_option'),
-        //     'shipping_amount' => $request->input('shippingPrice') ? : 0,
-        //     'tax_amount' => (($request->input('finalPrice') - 3) / 100) * 5 ? : 0,
+        //     'shipping_amount' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)),
+        //     'shipping_amount_vat' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+        //     'service_amount' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)),
+        //     'service_amount_vat' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+        //     'vat' => $request->input('vatTax'),
+        //     'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('codPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
         //     'sub_total' => $request->input('totalPrice') ? : 0,
         //     'amount' => $request->input('finalPrice') ? : 0,
-        //     'coupon_code' => $request->input('coupon_code'),
+        //     'coupon_code' => $request->input('couponCode'),
         //     'discount_amount' => $request->input('discount_amount') ? : 0,
         //     'promotion_amount' => $request->input('promotion_amount') ? : 0,
         //     'discount_description' => $request->input('discount_description'),
@@ -218,7 +222,9 @@ class OrderController extends Controller
         //     'is_confirmed' => 1,
         //     'is_finished' => 1,
         //     'status' => OrderStatusEnum::PROCESSING,
-        //     'order_lang' => $request->input('locale'),
+        //     'lang' => $request->input('locale'),
+        //     'cod_charge' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)),
+        //     'cod_charge_vat' => $request->input('codPriceVat') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
         // ]);die();
         $order = Order::create([
             'user_id' => $customer_id,
@@ -229,7 +235,7 @@ class OrderController extends Controller
             'service_amount' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)),
             'service_amount_vat' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
             'vat' => $request->input('vatTax'),
-            'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
+            'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('codPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
             'sub_total' => $request->input('totalPrice') ? : 0,
             'amount' => $request->input('finalPrice') ? : 0,
             'coupon_code' => $request->input('couponCode'),
@@ -241,6 +247,8 @@ class OrderController extends Controller
             'is_finished' => 1,
             'status' => OrderStatusEnum::PROCESSING,
             'lang' => $request->input('locale'),
+            'cod_charge' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)),
+            'cod_charge_vat' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
         ]);
 
         // echo "<pre>";print_r($order);die();
@@ -922,7 +930,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id')->join('payments', 'payments.order_id', 'ec_orders.id')->where('ec_orders.code', $request->input('order_number'))->where('ec_order_addresses.email', $request->input('billing_email'))->first();
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id')->join('payments', 'payments.order_id', 'ec_orders.id')->where('ec_orders.code', $request->input('order_number'))->where('ec_order_addresses.email', $request->input('billing_email'))->first();
 
         if(!$order) {
             return response()->json(['message' => 'Order not found']);
@@ -943,7 +951,8 @@ class OrderController extends Controller
             'vat_amount'       => $order->vat,
             'tax_amount'       => $order->tax_amount,
             'payment_status'   => $order->payment_status,
-            'products'         => $prod
+            'products'         => $prod,
+            'cod_charge'   => $order->cod_charge,
         ]);
     }
 
@@ -957,7 +966,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->join('payments', 'payments.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $request->input('order_number'))->first();
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->join('payments', 'payments.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $request->input('order_number'))->first();
 
         if(!$order) {
             return response()->json(['message' => 'Order not found']);
@@ -978,7 +987,8 @@ class OrderController extends Controller
             'vat_amount'       => $order->vat,
             'tax_amount'       => $order->tax_amount,
             'payment_status'   => $order->payment_status,
-            'products'         => $prod
+            'products'         => $prod,
+            'cod_charge'   => $order->cod_charge
         ]);
     }
 

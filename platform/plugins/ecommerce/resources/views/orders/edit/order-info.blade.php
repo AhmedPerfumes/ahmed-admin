@@ -43,6 +43,17 @@
                 </x-core::table.body.cell>
             </x-core::table.body.row>
         @endif
+        
+        @if ($order->payment->payment_channel == 'cod')
+            <x-core::table.body.row>
+                <x-core::table.body.cell>
+                    COD Charges
+                </x-core::table.body.cell>
+                <x-core::table.body.cell>
+                    {{ format_price($order->cod_charge * 1.05) }}
+                </x-core::table.body.cell>
+            </x-core::table.body.row>
+        @endif
         @if (EcommerceHelper::isTaxEnabled())
             <x-core::table.body.row>
                 <x-core::table.body.cell>
