@@ -25,8 +25,8 @@ class CreatePaymentForOrderService
         string $paymentStatus = PaymentStatusEnum::PENDING,
         string|int|null $customerId = null,
         ?string $chargeId = null,
-        ?string $description = null
-
+        ?string $description = null,
+        ?string $tran_total = null
     ): void {
         if (! is_plugin_active('payment')) {
             return;
@@ -52,7 +52,7 @@ class CreatePaymentForOrderService
         }
 
         $data = [
-            'amount' => $order->amount,
+            'amount' => $tran_total,
             'currency' => cms_currency()->getDefaultCurrency()->title,
             'payment_channel' => $paymentMethod,
             'status' => $paymentStat,
@@ -79,6 +79,10 @@ class CreatePaymentForOrderService
         $shipping_data = OrderAddress::where('order_id', $order->getKey())->first();
 
         $billing_data = Address::where('customer_id', $order->user_id)->first();
+
+        if($order->amount != $tran_total) {
+            
+        }
 
         $order_products = OrderProduct::where('order_id', $order->getKey())->get();
 

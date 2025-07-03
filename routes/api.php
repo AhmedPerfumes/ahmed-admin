@@ -46,6 +46,7 @@ Route::middleware('customLogs')->group(function () {
     // Order Routes
     Route::post('/storeOrder', [OrderController::class, 'storeOrder']);
     Route::post('/payTabsPaymentRedirect', [OrderController::class, 'payTabsPaymentRedirect']);
+    Route::post('/payTabsPaymentCallback', [OrderController::class, 'payTabsPaymentCallback']);
     Route::post('/trackOrder', [OrderController::class, 'trackOrder']);
     Route::post('/orderDetails', [OrderController::class, 'orderDetails']);
     Route::post('/validateCoupon', [OrderController::class, 'validateCoupon']);

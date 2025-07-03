@@ -283,7 +283,7 @@ class OrderController extends Controller
                     'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                 ]);
 
-                if($request->input('payment_method') == 'paytabs') {            
+                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'paytabs_discount') {            
                     $data = [
                         "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $loggedInCustomer->name,
                         "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $loggedInCustomer->email,
@@ -314,7 +314,7 @@ class OrderController extends Controller
                     'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                 ]);
 
-                if($request->input('payment_method') == 'paytabs') {
+                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'paytabs_discount') {
                     $data = [
                         "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
                         "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $request->input('billingAddress.email'),
@@ -794,7 +794,7 @@ class OrderController extends Controller
                 InvoiceItem::query()->create($orderProduct);
             }
 
-            if($request->input('payment_method') == 'paytabs') {
+            if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'paytabs_discount') {
                 $resp = $this->payTabsPayment($request, $data, $order);
                 if($resp['redirect_url']) {
                     return response()->json([
@@ -838,6 +838,17 @@ class OrderController extends Controller
             $paymentStr .= $exisProduct->name. ' ('.$quantity.'), ';
         }
 
+        $card_discounts = [];
+        if($request->input('payment_method') == 'paytabs_discount') {
+            $card_discounts = [
+                [
+                    "discount_cards" => "4111, 5200",
+                    "discount_percent" => "10.00",
+                    "discount_title" => "10% AED discount on cards start with 4111, 5200"
+                ],
+            ];
+        }
+
         $data = [
             "tran_type"=> "sale",
             "tran_class"=> "ecom",
@@ -868,8 +879,9 @@ class OrderController extends Controller
             ],
             // "callback"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect",
             // "return"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect"
-            // "callback"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
-            "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
+            "callback"=> "https://05eb-217-165-51-241.ngrok-free.app/api/payTabsPaymentCallback",
+            "return"=> "https://05eb-217-165-51-241.ngrok-free.app/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
+            "card_discounts" => $card_discounts
         ];
 
         $PROFILE_ID = 48012;
@@ -901,22 +913,46 @@ class OrderController extends Controller
         return $response;
     }
 
-    public function payTabsPaymentRedirect(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+    public function payTabsPaymentRedirect(Request $request) {
         // echo "<pre>";print_r($request->all());die;
         // $customer = Customer::where('email', $request->input('customerEmail'))->first();
         // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
         $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
         // echo "<pre>";print_r($order);
+        // $createPaymentForOrderService->execute(
+        //     $order,
+        //     'paytabs',
+        //     $request['respStatus'],
+        //     $order->user_id,
+        //     $request->input('tranRef'),
+        //     $request['respMessage'],
+        // );
+
+        $paymentStatus = $request['respStatus'] == 'A' ? 'completed' : 'failed';
+
+        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code).''.'&payment_status='.base64_encode($paymentStatus));exit();
+    }
+
+    public function payTabsPaymentCallback(Request $request, CreatePaymentForOrderService $createPaymentForOrderService)
+    {
+        // echo "<pre>";print_r($request->all());die;
+        // Validate and log PayTabs response
+        // \Log::info('PayTabs Callback:', $request->all());
+        $order = Order::where('code', '#'.$request->input('cart_id'))->orderBy('id', 'desc')->first();
+        // Verify the transaction using PayTabs API (optional but recommended)
+        // Process order status update, etc.
+
         $createPaymentForOrderService->execute(
             $order,
             'paytabs',
-            $request['respStatus'],
+            $request['payment_result']['response_status'],
             $order->user_id,
-            $request->input('tranRef'),
-            $request['respMessage'],
+            $request->input('tran_ref'),
+            $request['payment_result']['response_message'],
+            $request->input('tran_total'),
         );
 
-        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+        return response()->json(['status' => 'received']);
     }
 
     public function trackOrder(Request $request)
@@ -966,7 +1002,9 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->join('payments', 'payments.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $request->input('order_number'))->first();
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'ec_orders.cod_charge')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')
+        // ->join('payments', 'payments.order_id', 'ec_orders.id', 'left')
+        ->where('ec_orders.code', $request->input('order_number'))->first();
 
         if(!$order) {
             return response()->json(['message' => 'Order not found']);
@@ -977,7 +1015,7 @@ class OrderController extends Controller
         return response()->json([
             'message'          => 'Details Fetched successfully',
             'order_id'         => $order->code,
-            'payment_method'   => $order->payment_channel,
+            'payment_method'   => '0000',
             'total'            => $order->amount,
             'sub_total'        => $order->sub_total,
             'shipping_amount'  => $order->shipping_amount,
@@ -986,7 +1024,7 @@ class OrderController extends Controller
             'service_amount'   => $order->service_amount,
             'vat_amount'       => $order->vat,
             'tax_amount'       => $order->tax_amount,
-            'payment_status'   => $order->payment_status,
+            'payment_status'   => '0000',
             'products'         => $prod,
             'cod_charge'   => $order->cod_charge
         ]);
