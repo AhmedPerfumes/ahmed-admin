@@ -30,6 +30,8 @@ Route::middleware('customLogs')->group(function () {
 
     Route::get('/customer', [AuthController::class, 'getCustomer']);
 
+    Route::post('/submitReview', [AuthController::class, 'submitReview']);
+
     // Product Category Routes
     Route::withoutMiddleware('customLogs')->post('/productCategories', [ProductCategoryController::class, 'getProductCategories']);
     Route::withoutMiddleware('customLogs')->post('/productCategoriesTemp', [ProductCategoryController::class, 'getProductCategoriesTemp']);

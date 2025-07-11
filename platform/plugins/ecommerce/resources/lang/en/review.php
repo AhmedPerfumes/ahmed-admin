@@ -5,7 +5,7 @@ return [
     'view' => 'View review ":name"',
     'create_review' => 'Create Review',
     'comment' => 'Comment',
-    'product' => 'Product',
+    'product' => 'Order_id',
     'customer' => 'Customer',
     'user' => 'User',
     'star' => 'Star',
