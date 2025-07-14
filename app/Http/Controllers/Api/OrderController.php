@@ -821,6 +821,9 @@ class OrderController extends Controller
             return response()->json([
                 'message'          => 'Order created successfully',
                 'order_id'         => $order->code,
+                'id'                => $order->id,
+                'customer_name'=> $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                'name'              => $order->customer_name,
                 'payment_method'   => $request->input('payment_method'),
                 'total'            => $order->amount,
                 'sub_total'        => $order->sub_total,
@@ -1024,7 +1027,9 @@ class OrderController extends Controller
             'service_amount'   => $order->service_amount,
             'vat_amount'       => $order->vat,
             'tax_amount'       => $order->tax_amount,
-            'payment_status'   => '0000',
+            'payment_status'   => $order->payment_status,
+            'id'                =>   $order->id,
+            'customer_name'=> $order->name,
             'products'         => $prod,
             'cod_charge'   => $order->cod_charge
         ]);
