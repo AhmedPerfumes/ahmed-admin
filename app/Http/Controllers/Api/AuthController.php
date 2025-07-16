@@ -331,23 +331,23 @@ class AuthController extends Controller
         ]);
     }
     public function submitReview(Request $request)
-{
-    
-    Review::create([
-        'product_id'     => $request?->order_id, // or set if needed
-        // 'customer_id'    => $request?->id,
-        'customer_name'  => $request?->customer_name ?? 'Guest',
-        // 'customer_email' => null,
-        'star'           => $request->star ?? 0,
-        'comment'        => $request->comment ?? '',
-        // 'status'         => 'published', // or 'pending' if needed
-    ]);
+    {
+        
+        Review::create([
+            'product_id'     => $request?->order_id, // or set if needed
+            // 'customer_id'    => $request?->id,
+            'customer_name'  => $request?->customer_name ?? 'Guest',
+            // 'customer_email' => null,
+            'star'           => $request->star ?? 0,
+            'comment'        => $request->comment ?? '',
+            // 'status'         => 'published', // or 'pending' if needed
+        ]);
 
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Review submitted successfully.',
-    ]);
-}
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Review submitted successfully.',
+        ]);
+    }
 
 
 }
