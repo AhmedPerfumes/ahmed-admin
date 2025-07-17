@@ -246,7 +246,7 @@ class OrderController extends Controller
             'discount_amount' => $request->input('discount_amount') ? : 0,
             'promotion_amount' => $request->input('promotion_amount') ? : 0,
             'discount_description' => $request->input('discount_description'),
-            'description' => $request->input('note'),
+            // 'description' => $request->input('note'),
             'is_confirmed' => 1,
             'is_finished' => 1,
             'status' => OrderStatusEnum::PROCESSING,
@@ -912,7 +912,7 @@ class OrderController extends Controller
             // "callback"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect",
             // "return"=> "https://phpstack-667016-4904984.cloudwaysapps.com/public/api/payTabsPaymentRedirect"
             // "callback"=> "https://d2dd-217-165-51-241.ngrok-free.app/api/payTabsPaymentCallback",
-            "return"=> "https://d2dd-217-165-51-241.ngrok-free.app/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
+            "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
             // "card_discounts" => $card_discounts
         ];
 
