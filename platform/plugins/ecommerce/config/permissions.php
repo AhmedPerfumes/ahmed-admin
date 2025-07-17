@@ -189,7 +189,7 @@ return [
      * Product attributes
      */
     [
-        'name' => 'Product Attributes',
+        'name' => 'Top Header',
         'flag' => 'product-attributes.index',
         'parent_flag' => 'plugins.ecommerce',
     ],

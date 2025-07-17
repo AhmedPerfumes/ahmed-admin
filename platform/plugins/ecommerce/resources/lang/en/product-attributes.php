@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'name' => 'Product attributes',
+    'name' => 'Top Headers',
     'create' => 'New product attribute',
     'edit' => 'Edit product attribute',
     'intro' => [
