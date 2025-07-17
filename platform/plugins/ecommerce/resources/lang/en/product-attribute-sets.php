@@ -52,7 +52,7 @@ return [
     'is_default' => 'Is default?',
     'title' => 'Title',
     'slug' => 'Slug',
-    'color' => 'Color',
+    'color' => 'Link',
     'image' => 'Image',
     'remove' => 'Remove',
     'add_new_attribute' => 'Add new attribute',
