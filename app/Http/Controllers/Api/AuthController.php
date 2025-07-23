@@ -148,13 +148,15 @@ class AuthController extends Controller
             $mobile_verification->otp = 0;
             $mobile_verification->save();
 
-            $customer = OrderAddress::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->first();
+            $customer = OrderAddress::select('ec_order_addresses.id', 'name', 'email', 'phone')->join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->mobile)->get();
+
+            // echo "<pre>";print_r($customer);
 
             $coupon = DiscountModel::where('code', 'WELCOME10')->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
 
             return response()->json([
                 'message'       => 'OTP Verified Successfully',
-                'customer'          => $customer ? false : true,
+                'customer'          => !$customer->isEmpty() ? false : true,
                 'coupon'            => $coupon
             ]);
         } else {
