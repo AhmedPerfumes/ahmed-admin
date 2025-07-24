@@ -61,4 +61,9 @@ Route::middleware('customLogs')->group(function () {
     Route::post('/contact', [ContactController::class, 'contact']);
     Route::post('/feedback', [ContactController::class, 'feedback']);
     Route::post('/campaign', [ContactController::class, 'campaign']);
+
+    Route::post('/customerDetails', [OrderController::class, 'customerDetails']);
+    Route::get('/customerOrders', [OrderController::class, 'customerOrders']);
+    Route::post('/customerOrderDetails', [OrderController::class, 'customerOrderDetails']);
+    Route::post('/customerCouponDetails', [OrderController::class, 'customerCouponDetails']);
 });

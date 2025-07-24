@@ -26,6 +26,7 @@ use Botble\Ecommerce\Models\Discount as DiscountModel;
 use Botble\Ecommerce\Models\MobileVerification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Botble\Ecommerce\Models\DiscountCustomer;
 
 class OrderController extends Controller
 {
@@ -1127,6 +1128,170 @@ class OrderController extends Controller
         return response()->json([
             'message'          => 'Details Fetched successfully',
             'coupon'            => $coupon
+        ]);
+    }
+
+    public function customerDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_id'      => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $customer = Customer::select('id', 'name', 'email', 'phone')->where('id', $request->input('customer_id'))->first();
+
+        if(!$customer) {
+            return response()->json(['message' => 'Customer not found']);
+        }
+
+        $address = Address::where('customer_id', $customer->id)->get();
+
+        return response()->json([
+            'message' => 'Details Fetched successfully',
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_email' => $customer->email,
+            'customer_mobile' => $customer->phone,
+            'addresses' => $address
+        ]);
+    }
+
+    public function customerOrders(Request $request)
+    {
+        // Customer/user ID (required for total filtering)
+        $customerId = $request->input('customer_id');
+
+        if (!$customerId) {
+            return response()->json(['message' => 'Customer Id is required']);
+        }
+
+        // Main columns
+        $columns = [
+            'ec_orders.id',
+            'ec_orders.code',
+            'ec_orders.created_at',
+            'ec_orders.status',
+            'ec_orders.amount',
+            'ec_orders.tax_amount',
+            'payments.payment_channel'
+        ];
+
+        // Total: All records for the given customer
+        $total = Order::where('ec_orders.user_id', $customerId)->count();
+
+        // Filtered Query
+        $filteredQuery = Order::select('ec_orders.id')
+            ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
+            ->where('ec_orders.user_id', $customerId);
+
+        $dataQuery = Order::select(
+                'ec_orders.id',
+                'ec_orders.code',
+                'ec_orders.created_at',
+                'ec_orders.status',
+                'ec_orders.amount',
+                'ec_orders.tax_amount',
+                'payments.payment_channel'
+            )
+            ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
+            ->where('ec_orders.user_id', $customerId);
+
+        // Search filters
+        if ($request->filled('code')) {
+            $filteredQuery->where('ec_orders.code', 'like', '%' . $request->code . '%');
+            $dataQuery->where('ec_orders.code', 'like', '%' . $request->code . '%');
+        }
+
+        if ($request->filled('status')) {
+            $filteredQuery->where('ec_orders.status', 'like', '%' . $request->status . '%');
+            $dataQuery->where('ec_orders.status', 'like', '%' . $request->status . '%');
+        }
+
+        if ($request->filled('created_at')) {
+            $filteredQuery->whereDate('ec_orders.created_at', $request->created_at);
+            $dataQuery->whereDate('ec_orders.created_at', $request->created_at);
+        }
+
+        if ($request->filled('payment_channel')) {
+            $filteredQuery->where('payments.payment_channel', 'like', '%' . $request->payment_channel . '%');
+            $dataQuery->where('payments.payment_channel', 'like', '%' . $request->payment_channel . '%');
+        }
+
+        // Sorting
+        $orderBy = $request->input('orderBy', 'ec_orders.id');
+        $orderDir = $request->input('orderDir', 'desc');
+        if (in_array($orderBy, $columns)) {
+            $dataQuery->orderBy($orderBy, $orderDir);
+        }
+
+        // Pagination
+        $page = (int) $request->input('page', 1);
+        $pageSize = (int) $request->input('pageSize', 10);
+
+        $filteredTotal = $filteredQuery->distinct('ec_orders.id')->count('ec_orders.id');
+
+        $orders = $dataQuery
+            ->skip(($page - 1) * $pageSize)
+            ->take($pageSize)
+            ->get();
+
+        // Add link column
+        $orders->transform(function ($order) {
+            $order->link = '/order-tracking';
+            return $order;
+        });
+
+        return response()->json([
+            'data' => $orders,
+            'total' => $total,
+            'filtered' => $filteredTotal
+        ]);
+    }
+
+    public function customerOrderDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_id'      => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $order_products = OrderProduct::select('id', 'product_name', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
+
+        if($order_products->isEmpty()) {
+            return response()->json(['message' => 'Order Products not found']);
+        }
+
+        return response()->json([
+            'message' => 'Details Fetched successfully',
+            'order_products' => $order_products
+        ]);
+    }
+
+    public function customerCouponDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_id'      => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $customer_coupon = DiscountCustomer::select('ec_discounts.id', 'code', 'start_date', 'end_date', 'total_used')->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')->where('target', 'customer')->where('customer_id', $request->input('customer_id'))->get();
+
+        if($customer_coupon->isEmpty()) {
+            return response()->json(['message' => 'Coupon not found']);
+        }
+
+        return response()->json([
+            'message' => 'Details Fetched successfully',
+            'customer_coupon' => $customer_coupon
         ]);
     }
 }
