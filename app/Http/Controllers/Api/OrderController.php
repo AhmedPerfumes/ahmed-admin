@@ -1144,17 +1144,100 @@ class OrderController extends Controller
         $customer = Customer::select('id', 'name', 'email', 'phone')->where('id', $request->input('customer_id'))->first();
 
         if(!$customer) {
-            return response()->json(['message' => 'Customer not found']);
+            return response()->json(['message' => 'Customer Not Found']);
         }
-
-        $address = Address::where('customer_id', $customer->id)->get();
 
         return response()->json([
             'message' => 'Details Fetched successfully',
             'customer_id' => $customer->id,
             'customer_name' => $customer->name,
             'customer_email' => $customer->email,
-            'customer_mobile' => $customer->phone,
+            'customer_mobile' => $customer->phone
+        ]);
+    }
+
+    public function customerUpdate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_id'      => 'required',
+            'customer_name' => 'required',
+            'customer_email' => 'required|email',
+            'customer_mobile' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }            
+
+        $customer = Customer::find($request->input('customer_id'));
+
+        if (!$customer) {
+            return response()->json(['message' => 'Customer Not Found']);
+        }
+
+        $customer->name = $request->input('customer_name');
+        $customer->email = $request->input('customer_email');
+        $customer->phone = $request->input('customer_mobile');
+        $customer->save();
+
+        return response()->json([
+            'message' => 'Customer Updated Successfully',
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_email' => $customer->email,
+            'customer_mobile' => $customer->phone
+        ]);
+    }
+
+    public function customerAddressDetails(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_id'      => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+
+        $address = Address::where('customer_id', $request->input('customer_id'))->get();
+
+        if($address->isEmpty()) {
+            return response()->json(['message' => 'Customer Address Not Found']);
+        }
+
+        return response()->json([
+            'message' => 'Details Fetched Successfully',
+            'addresses' => $address
+        ]);
+    }
+
+    public function customerAddressUpdate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'address_id'      => 'required',
+            'state' => 'required',
+            'city' => 'required',
+            'address' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }            
+
+        $address = Address::find($request->input('address_id'));
+
+        if (!$address) {
+            return response()->json(['message' => 'Customer Address Not Found']);
+        }
+
+        $address->state = $request->input('state');
+        $address->city = $request->input('city');
+        $address->address = $request->input('address');
+        $address->is_default = $request->input('is_default');
+        $address->save();
+
+        return response()->json([
+            'message' => 'Customer Address Updated Successfully',
             'addresses' => $address
         ]);
     }
@@ -1165,7 +1248,7 @@ class OrderController extends Controller
         $customerId = $request->input('customer_id');
 
         if (!$customerId) {
-            return response()->json(['message' => 'Customer Id is required']);
+            return response()->json(['message' => 'Customer Id is Required']);
         }
 
         // Main columns
@@ -1264,7 +1347,7 @@ class OrderController extends Controller
         $order_products = OrderProduct::select('id', 'product_name', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
 
         if($order_products->isEmpty()) {
-            return response()->json(['message' => 'Order Products not found']);
+            return response()->json(['message' => 'Order Products Not Found']);
         }
 
         return response()->json([
@@ -1286,11 +1369,11 @@ class OrderController extends Controller
         $customer_coupon = DiscountCustomer::select('ec_discounts.id', 'code', 'start_date', 'end_date', 'total_used')->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')->where('target', 'customer')->where('customer_id', $request->input('customer_id'))->get();
 
         if($customer_coupon->isEmpty()) {
-            return response()->json(['message' => 'Coupon not found']);
+            return response()->json(['message' => 'Coupon Not Found']);
         }
 
         return response()->json([
-            'message' => 'Details Fetched successfully',
+            'message' => 'Details Fetched Successfully',
             'customer_coupon' => $customer_coupon
         ]);
     }
