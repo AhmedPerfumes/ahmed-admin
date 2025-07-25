@@ -1257,8 +1257,8 @@ class OrderController extends Controller
             'ec_orders.code',
             'ec_orders.created_at',
             'ec_orders.status',
-            'ec_orders.amount',
-            'ec_orders.tax_amount',
+            // 'ec_orders.amount',
+            // 'ec_orders.tax_amount',
             'payments.payment_channel'
         ];
 
@@ -1275,8 +1275,8 @@ class OrderController extends Controller
                 'ec_orders.code',
                 'ec_orders.created_at',
                 'ec_orders.status',
-                'ec_orders.amount',
-                'ec_orders.tax_amount',
+                // 'ec_orders.amount',
+                // 'ec_orders.tax_amount',
                 'payments.payment_channel'
             )
             ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
@@ -1350,9 +1350,12 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order Products Not Found']);
         }
 
+        $order_address = OrderAddress::select('id', 'name', 'phone', 'email', 'state', 'city', 'address')->where('order_id', $request->input('order_id'))->get();
+
         return response()->json([
             'message' => 'Details Fetched successfully',
-            'order_products' => $order_products
+            'order_products' => $order_products,
+            'order_address' => $order_address,
         ]);
     }
 
