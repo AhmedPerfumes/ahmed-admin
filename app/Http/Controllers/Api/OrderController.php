@@ -1356,7 +1356,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $order_products = OrderProduct::select('id', 'product_name', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
+        $order_products = OrderProduct::select('id', 'product_name', 'product_image', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
 
         if($order_products->isEmpty()) {
             return response()->json(['message' => 'Order Products Not Found']);
