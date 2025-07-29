@@ -96,7 +96,7 @@ class OrderController extends Controller
                 if (!$requestHasDiscount && $dbHasDiscount) {
                     // Request says there should be no discount, but one exists in DB
                     return response()->json([
-                        'discountMessage' => 'One or more Products were removed. Please add them again to continue. Request'
+                        'discountMessage' => 'One or more Products were removed. Please add them again to continue. Request'.$product['product_id']
                     ]);
                 }
 
@@ -109,7 +109,7 @@ class OrderController extends Controller
 
                     if (!$match) {
                         return response()->json([
-                            'discountMessage' => 'One or more Products were removed. Please add them again to continue. Value'
+                            'discountMessage' => 'One or more Products were removed. Please add them again to continue. Value'.$product['product_id']
                         ]);
                     }
                 }
@@ -127,11 +127,23 @@ class OrderController extends Controller
             if(!$coupon) {
                 return response()->json(['couponMessage' => 'Invalid Coupon Code']);
             }
-            $order_address = OrderAddress::where('phone', $request->input('billingAddress.mobile'))->first();
-            // echo $order_address;
-            if($order_address) {
-                $order = Order::where('id', $order_address->order_id)->first();
-                $customer_discount = DB::table('ec_customer_used_coupons')->where('customer_id', $order->user_id)->where('discount_id', $coupon->id)->first();
+            // $order_address = OrderAddress::where('phone', $request->input('billingAddress.mobile'))->first();
+            // // echo $order_address;
+            // if($order_address) {
+            //     $order = Order::where('id', $order_address->order_id)->first();
+            //     $customer_discount = DB::table('ec_customer_used_coupons')->where('customer_id', $order->user_id)->where('discount_id', $coupon->id)->first();
+            //     if($customer_discount) {
+            //         return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
+            //     }
+            // }
+
+            $customer = OrderAddress::join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->input('billingAddress.mobile'))->get();
+
+            if(!$customer->isEmpty()) {
+                if(strtolower($request->input('couponCode')) == 'welcome10') {
+                    return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
+                }
+                $customer_discount = DB::table('ec_customer_used_coupons')->where('customer_id', $customer[0]->customer_id)->where('discount_id', $coupon->id)->first();
                 if($customer_discount) {
                     return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
                 }
@@ -552,7 +564,7 @@ class OrderController extends Controller
                         'product_subcategory' => '',
                         'vat' => $request->input('vatTax'),
                         'is_gift' => 1,
-                        'campaign' => 'bogo_2025_campaign',
+                        'campaign' => $product['campaign'],
                     ];
                 }
                 else {
