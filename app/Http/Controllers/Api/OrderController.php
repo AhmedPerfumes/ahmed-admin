@@ -1175,6 +1175,7 @@ class OrderController extends Controller
             'customer_name' => 'required',
             'customer_email' => 'required|email',
             'customer_mobile' => 'required',
+            'customer_password' => 'required',
         ]);
 
         if ($validator->fails()) {
@@ -1190,6 +1191,7 @@ class OrderController extends Controller
         $customer->name = $request->input('customer_name');
         $customer->email = $request->input('customer_email');
         $customer->phone = $request->input('customer_mobile');
+        $customer->password = Hash::make($request->input('customer_password'));
         $customer->save();
 
         return response()->json([
@@ -1217,6 +1219,12 @@ class OrderController extends Controller
             return response()->json(['message' => 'Customer Address Not Found']);
         }
 
+        if ($address->count() == 1) {
+            $original = $address->first()->replicate(); // clone the model
+            $original->id = -1; // change ID
+            $address->push($original); // add to collection
+        }
+
         return response()->json([
             'message' => 'Details Fetched Successfully',
             'addresses' => $address
@@ -1234,7 +1242,22 @@ class OrderController extends Controller
 
         if ($validator->fails()) {
             return response()->json($validator->errors());
-        }            
+        }
+
+        if($request->input('address_id') == -1) {
+            Address::create([
+                'state' => $request->input('state'),
+                'city' => $request->input('city'),
+                'address' => $request->input('address'),
+                'customer_id' => $request->input('customer_id'),
+                'is_default' => $request->input('is_default')
+            ]);
+
+            return response()->json([
+                'message' => 'Customer Address Updated Successfully',
+                'addresses' => $address
+            ]);
+        }
 
         $address = Address::find($request->input('address_id'));
 

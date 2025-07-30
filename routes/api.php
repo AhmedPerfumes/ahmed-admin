@@ -17,7 +17,7 @@ use App\Http\Controllers\Api\ContactController;
 |
 */ 
 // Auth Routes
-Route::middleware('customLogs')->group(function () {
+Route::middleware(['customLogs'])->group(function () {
     Route::post('/signup', [AuthController::class, 'signup']);
 
     Route::post('/verifyOTP', [AuthController::class, 'verifyOTP']);
