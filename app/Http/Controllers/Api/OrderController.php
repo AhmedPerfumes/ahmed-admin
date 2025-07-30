@@ -1238,6 +1238,10 @@ class OrderController extends Controller
             'state' => 'required',
             'city' => 'required',
             'address' => 'required',
+            'customer_id' => 'required',
+            'name' => 'required',
+            'email' => 'required|email',
+            'mobile' => 'required',
         ]);
 
         if ($validator->fails()) {
