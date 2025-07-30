@@ -1249,7 +1249,7 @@ class OrderController extends Controller
         }
 
         if($request->input('address_id') == -1) {
-            Address::create([
+            $address = Address::create([
                 'name'      => $request->input('name'),
                 'email'     => $request->input('email'),
                 'phone'     => $request->input('mobile'),
