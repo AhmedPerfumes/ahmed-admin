@@ -1411,7 +1411,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $customer_coupon = DiscountCustomer::select('ec_discounts.id', 'code', 'start_date', 'end_date', 'total_used')->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')->where('target', 'customer')->where('customer_id', $request->input('customer_id'))->get();
+        $customer_coupon = DiscountCustomer::select('ec_discounts.id', 'code', 'value', 'start_date', 'end_date', 'total_used')->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')->where('target', 'customer')->where('customer_id', $request->input('customer_id'))->get();
 
         if($customer_coupon->isEmpty()) {
             return response()->json(['message' => 'Coupon Not Found']);
@@ -1420,6 +1420,34 @@ class OrderController extends Controller
         return response()->json([
             'message' => 'Details Fetched Successfully',
             'customer_coupon' => $customer_coupon
+        ]);
+    }
+
+    public function customerPasswordCheck(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_id'      => 'required',
+            'customer_password' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
+        }
+        
+        $customer = Customer::find($request->input('customer_id'));
+
+        if (!$customer) {
+            return response()->json(['message' => 'Customer Not Found']);
+        }
+
+        $customer_password = Hash::check($request->input('customer_password'), $customer->password);
+
+        if (!Hash::check($request->input('customer_password'), $customer->password)) {
+            return response()->json(['message' => 'Incorrect Password']);
+        }
+
+        return response()->json([
+            'message' => 'Customer Found Successfully',
         ]);
     }
 }
