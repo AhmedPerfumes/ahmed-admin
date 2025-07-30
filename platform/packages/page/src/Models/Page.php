@@ -27,6 +27,7 @@ class Page extends BaseModel
         'name',
         'content',
         'image',
+        'mobile_image',
         'template',
         'description',
         'status',

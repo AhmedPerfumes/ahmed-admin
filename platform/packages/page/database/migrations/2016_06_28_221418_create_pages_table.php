@@ -13,6 +13,7 @@ return new class () extends Migration {
             $table->longText('content')->nullable();
             $table->foreignId('user_id')->index()->nullable();
             $table->string('image')->nullable();
+            $table->string('mobile_image')->nullable();
             $table->string('template', 60)->nullable();
             $table->tinyInteger('is_featured')->default(0);
             $table->string('description', 400)->nullable();

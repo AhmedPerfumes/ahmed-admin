@@ -42,6 +42,7 @@ class PageForm extends FormAbstract
                     );
             })
             ->add('image', MediaImageField::class)
+            ->add('mobile_image', MediaImageField::class)
             ->setBreakFieldPoint('status');
     }
 }

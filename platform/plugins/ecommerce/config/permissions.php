@@ -186,7 +186,7 @@ return [
         'parent_flag' => 'product-attribute-sets.index',
     ],
     /**
-     * Product attributes
+     *  
      */
     [
         'name' => 'Top Header',

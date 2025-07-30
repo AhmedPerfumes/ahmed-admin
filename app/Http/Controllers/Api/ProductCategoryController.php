@@ -10,6 +10,7 @@ use Botble\Ecommerce\Models\ShippingRule;
 use Botble\Ecommerce\Models\Tax;
 use Botble\Ecommerce\Models\Currency;
 use Botble\SimpleSlider\Models\SimpleSliderItem;
+use Botble\Page\Models\Page;
 use Botble\Media\Models\MediaFile;
 use Illuminate\Support\Facades\DB;
 use Botble\Ecommerce\Models\ProductAttribute;
@@ -81,11 +82,12 @@ class ProductCategoryController extends Controller
         $currency = Currency::select('symbol')->where('is_default', 1)->first();
         $home_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'desktop')->orderBy('order', 'asc')->get();
         $home_mobile_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'mobile')->orderBy('order', 'asc')->get();
-        $dynamic_sections= DB::table('dynamic_sections')->select('heading', 'description','link','image','video1','video2')->get();
+        // $dynamic_sections= DB::table('dynamic_sections')->select('heading', 'description','link','image','video1','video2')->get();
+        $pop_up = Page::select('name','content','description','image','mobile_image')->get();
         $top_header=ProductAttribute::select('title','color')->get();
 
-        $response = response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders, 'dynamic_sections' => $dynamic_sections, 'top_header' => $top_header])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
-        ->setEtag(md5(json_encode(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders, 'dynamic_sections' => $dynamic_sections, 'top_header' => $top_header])));
+        $response = response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders, 'top_header' => $top_header, 'pop_up' => $pop_up])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
+        ->setEtag(md5(json_encode(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders,  'top_header' => $top_header, 'pop_up' => $pop_up])));
 
         if ($response->isNotModified(request())) {
             return $response;
