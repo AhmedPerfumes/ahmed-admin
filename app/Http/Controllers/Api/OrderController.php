@@ -271,6 +271,26 @@ class OrderController extends Controller
         //     'cod_charge' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)),
         //     'cod_charge_vat' => $request->input('codPriceVat') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
         // ]);die();
+        $userId = $customer_id;
+        $now = Carbon::now();
+        $fiveMinutesAgo = Carbon::now()->subMinutes(5);
+
+        // Optionally, get order contents for matching (e.g. same total or cart hash)
+        $total = $request->input('finalPrice'); // Example field
+
+        $existingOrder = Order::where('user_id', $userId)
+            ->where('amount', $total)
+            ->where('created_at', '>=', $fiveMinutesAgo)
+            ->whereHas('payment', function ($query) {
+                $query->where('status', 'completed');
+            })
+            ->first();
+
+        if ($existingOrder) {
+            return response()->json([
+                'duplicateOrderMessage' => 'Duplicate order detected. Order Id: ' . $existingOrder->code
+            ]);
+        }
         $order = Order::create([
             'user_id' => $customer_id,
             'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
