@@ -71,6 +71,12 @@ class ProductForm extends FormAbstract
             ->setValidatorClass(ProductRequest::class)
             ->setFormOption('files', true)
             ->add('name', TextField::class, NameFieldOption::make()->required()->toArray())
+            ->add('name_ar', TextField::class, NameFieldOption::make()
+    ->label(trans('core/base::forms.name_ar'))
+    ->placeholder(trans('core/base::forms.name_ar_placeholder'))
+    ->required()
+    ->toArray()
+)
             ->add(
                 'description',
                 EditorField::class,
@@ -78,8 +84,18 @@ class ProductForm extends FormAbstract
                     ->label(trans('core/base::forms.description'))
                     ->placeholder(trans('core/base::forms.description_placeholder'))->toArray()
             )
+            ->add('description_ar', EditorField::class, EditorFieldOption::make()
+    ->label(trans('core/base::forms.description_ar'))
+    ->placeholder(trans('core/base::forms.description_ar_placeholder'))
+    ->toArray()
+)
+
             ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->toArray())
+            ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->toArray())
+
             ->add('fragrance_notes', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes')->allowedShortcodes()->toArray())
+            ->add('fragrance_notes_ar', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes (Arabic)')->allowedShortcodes()->toArray())
+
             ->add('images[]', MediaImagesField::class, [
                 'label' => trans('plugins/ecommerce::products.form.image'),
                 'values' => $productId ? $this->getModel()->images : [],
