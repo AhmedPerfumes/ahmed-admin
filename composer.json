@@ -82,9 +82,7 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": [
-                "laravel/dusk"
-            ]
+            "dont-discover": []
         },
         "merge-plugin": {
             "include": [
