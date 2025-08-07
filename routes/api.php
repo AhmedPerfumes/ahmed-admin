@@ -17,7 +17,7 @@ use App\Http\Controllers\Api\ContactController;
 |
 */ 
 // Auth Routes
-Route::middleware(['customLogs'])->group(function () {
+Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::post('/signup', [AuthController::class, 'signup']);
 
     Route::post('/verifyOTP', [AuthController::class, 'verifyOTP']);
@@ -47,7 +47,7 @@ Route::middleware(['customLogs'])->group(function () {
 
     // Order Routes
     Route::post('/storeOrder', [OrderController::class, 'storeOrder']);
-    Route::post('/payTabsPaymentRedirect', [OrderController::class, 'payTabsPaymentRedirect']);
+    Route::withoutMiddleware('restrict.domains')->post('/payTabsPaymentRedirect', [OrderController::class, 'payTabsPaymentRedirect']);
     Route::post('/trackOrder', [OrderController::class, 'trackOrder']);
     Route::post('/orderDetails', [OrderController::class, 'orderDetails']);
     Route::post('/validateCoupon', [OrderController::class, 'validateCoupon']);
@@ -70,4 +70,6 @@ Route::middleware(['customLogs'])->group(function () {
     Route::post('/customerOrderDetails', [OrderController::class, 'customerOrderDetails']);
     Route::post('/customerCouponDetails', [OrderController::class, 'customerCouponDetails']);
     Route::post('/customerPasswordCheck', [OrderController::class, 'customerPasswordCheck']);
+
+    Route::get('/getFilters', [ProductController::class, 'getFilters']);
 });

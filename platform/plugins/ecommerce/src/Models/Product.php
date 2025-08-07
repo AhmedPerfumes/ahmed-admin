@@ -42,9 +42,13 @@ class Product extends BaseModel
 
     protected $fillable = [
         'name',
+        'name_ar',
         'description',
+        'description_ar',
         'content',
+        'content_ar',
         'fragrance_notes',
+        'fragrance_notes_ar',
         'image', // Featured image
         'images',
         'video_media',
