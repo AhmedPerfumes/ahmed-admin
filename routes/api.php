@@ -70,4 +70,6 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::post('/customerOrderDetails', [OrderController::class, 'customerOrderDetails']);
     Route::post('/customerCouponDetails', [OrderController::class, 'customerCouponDetails']);
     Route::post('/customerPasswordCheck', [OrderController::class, 'customerPasswordCheck']);
+
+    Route::get('/getFilters', [ProductController::class, 'getFilters']);
 });
