@@ -174,7 +174,7 @@ class AuthController extends Controller
             $token = $customer->createToken('auth_token')->plainTextToken;
 
             return response()->json([
-                'message'       => 'Customer Registered Successfully',
+                'message'       => $request->flag == 'fpassword' ? 'OTP Verified Successfully' : 'Customer Registered Successfully',
                 'data'          => $customer,
                 'access_token'  => $token,
                 'token_type'    => 'Bearer'
