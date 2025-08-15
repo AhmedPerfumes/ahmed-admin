@@ -45,6 +45,12 @@ class OrderController extends Controller
         foreach ($request->input('products') as $product) {
             $exisProduct = Product::where('id', $product['product_id'])->first();
             // echo $exisProduct->quantity .'<'. $product['quantity'];
+            if (!$exisProduct) {
+                return response()->json([
+                    'notFound' => 'Product not found '.$product['product_name']
+                ], 500);
+            }
+            
             if($exisProduct->quantity < $product['quantity']) {
                 return response()->json([
                     'qtyMessage'          => $product['product_name'].' is Out Of Stock.'
@@ -1190,37 +1196,66 @@ class OrderController extends Controller
 
     public function customerUpdate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+
+        if($request->flag == 'fpassword') {
+            $validator = Validator::make($request->all(), [
             'customer_id'      => 'required',
-            'customer_name' => 'required',
-            'customer_email' => 'required|email',
-            'customer_mobile' => 'required',
             'customer_password' => 'required',
-        ]);
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }            
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }
 
-        $customer = Customer::find($request->input('customer_id'));
+            $customer = Customer::find($request->input('customer_id'));
 
-        if (!$customer) {
-            return response()->json(['message' => 'Customer Not Found']);
+            if (!$customer) {
+                return response()->json(['message' => 'Customer Not Found']);
+            }
+
+            $customer->password = Hash::make($request->input('customer_password'));
+            $customer->save();
+
+            return response()->json([
+                'message' => 'Password Updated Successfully',
+                'customer_id' => $customer->id,
+                'customer_name' => $customer->name,
+                'customer_email' => $customer->email,
+                'customer_mobile' => $customer->phone
+            ]);
+        } else {
+            $validator = Validator::make($request->all(), [
+                'customer_id'      => 'required',
+                'customer_name' => 'required',
+                'customer_email' => 'required|email',
+                'customer_mobile' => 'required',
+                'customer_password' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }            
+
+            $customer = Customer::find($request->input('customer_id'));
+
+            if (!$customer) {
+                return response()->json(['message' => 'Customer Not Found']);
+            }
+
+            $customer->name = $request->input('customer_name');
+            $customer->email = $request->input('customer_email');
+            $customer->phone = $request->input('customer_mobile');
+            $customer->password = Hash::make($request->input('customer_password'));
+            $customer->save();
+
+            return response()->json([
+                'message' => 'Customer Updated Successfully',
+                'customer_id' => $customer->id,
+                'customer_name' => $customer->name,
+                'customer_email' => $customer->email,
+                'customer_mobile' => $customer->phone
+            ]);
         }
-
-        $customer->name = $request->input('customer_name');
-        $customer->email = $request->input('customer_email');
-        $customer->phone = $request->input('customer_mobile');
-        $customer->password = Hash::make($request->input('customer_password'));
-        $customer->save();
-
-        return response()->json([
-            'message' => 'Customer Updated Successfully',
-            'customer_id' => $customer->id,
-            'customer_name' => $customer->name,
-            'customer_email' => $customer->email,
-            'customer_mobile' => $customer->phone
-        ]);
     }
 
     public function customerAddressDetails(Request $request)
