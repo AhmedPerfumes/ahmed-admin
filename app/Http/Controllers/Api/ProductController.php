@@ -169,7 +169,8 @@ class ProductController extends Controller
                                 ];
                             }
                         }
-                } 
+                }
+
                 elseif($category == 'GIFT SETS') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
@@ -226,6 +227,7 @@ class ProductController extends Controller
                             }
                         }
                 }
+                
                 elseif($category == 'ONLINE EXCLUSIVE') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description','ec_products.quantity as product_qty', 'ec_products.sale_price')
