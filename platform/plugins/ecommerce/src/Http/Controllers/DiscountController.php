@@ -10,6 +10,7 @@ use Botble\Base\Supports\Breadcrumb;
 use Botble\Ecommerce\Http\Requests\DiscountRequest;
 use Botble\Ecommerce\Models\Discount;
 use Botble\Ecommerce\Models\Product;
+use Botble\Ecommerce\Models\DiscountProduct;
 use Botble\Ecommerce\Tables\DiscountTable;
 use Botble\JsValidation\Facades\JsValidator;
 use Botble\Media\Facades\RvMedia;
@@ -61,13 +62,30 @@ class DiscountController extends BaseController
         $discount = Discount::query()->create($request->validated());
         
 
-        if ($request->input('target')=='all-orders') {
-            
-            // Attach all products to the discount
-            $allProductIds = Product::query()->pluck('id')->all();
-            // echo "<pre>";print_r($allProductIds);die;
-            $discount->products()->attach($allProductIds);
-        } 
+ if ($request->input('target') == 'all-orders') {
+
+    // 1. Get all product IDs
+    $allProductIds = Product::query()->pluck('id')->toArray();
+
+    // 2. Get product IDs that already have a discount
+    $discountedProductIds = DiscountProduct::pluck('product_id')->toArray();
+
+    // 3. Get product IDs that have a sale price
+    $onSaleProductIds = Product::query()
+        ->whereNotNull('sale_price')
+        ->where('sale_price', '>', 0)
+        ->pluck('id')
+        ->toArray();
+
+    // 4. Exclude products that have discounts or sale prices
+    $excludedProductIds = array_unique(array_merge($discountedProductIds, $onSaleProductIds));
+    $eligibleProductIds = array_diff($allProductIds, $excludedProductIds);
+
+    dd($eligibleProductIds);
+
+    // 5. Attach the discount only to eligible products
+    $discount->products()->attach($eligibleProductIds);
+}
         else {
 
         if ($discount) {
