@@ -1,1 +1,53 @@
-(()=>{"use strict";$(document).ready((function(){$(document).on("click",".btn-payout-button",(function(o){o.preventDefault(),o.stopPropagation();var t=$(o.currentTarget);t.addClass("button-loading"),$.ajax({type:"POST",url:t.prop("href"),success:function(o){o.error?Botble.showError(o.message):(Botble.showSuccess(o.message),t.closest(".widget.meta-boxes").remove(),window.location.reload()),t.removeClass("button-loading")},error:function(o){t.removeClass("button-loading"),Botble.handleError(o)}})}));var o;o=$("#payout-transaction-detail"),$.ajax({type:"GET",url:o.data("url"),success:function(t){t.error?o.html(""):o.html(t.data.html)},error:function(o){console.log(o)}})}))})();
+/******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
+/*!*****************************************************************************!*\
+  !*** ./platform/plugins/paypal-payout/resources/assets/js/paypal-payout.js ***!
+  \*****************************************************************************/
+
+
+$(document).ready(function () {
+  $(document).on('click', '.btn-payout-button', function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    var $this = $(event.currentTarget);
+    $this.addClass('button-loading');
+    $.ajax({
+      type: 'POST',
+      url: $this.prop('href'),
+      success: function success(res) {
+        if (!res.error) {
+          Botble.showSuccess(res.message);
+          $this.closest('.widget.meta-boxes').remove();
+          window.location.reload();
+        } else {
+          Botble.showError(res.message);
+        }
+        $this.removeClass('button-loading');
+      },
+      error: function error(res) {
+        $this.removeClass('button-loading');
+        Botble.handleError(res);
+      }
+    });
+  });
+  var loadPayPalPayoutInfo = function loadPayPalPayoutInfo() {
+    var $transactionDetail = $('#payout-transaction-detail');
+    $.ajax({
+      type: 'GET',
+      url: $transactionDetail.data('url'),
+      success: function success(res) {
+        if (!res.error) {
+          $transactionDetail.html(res.data.html);
+        } else {
+          $transactionDetail.html('');
+        }
+      },
+      error: function error(res) {
+        console.log(res);
+      }
+    });
+  };
+  loadPayPalPayoutInfo();
+});
+/******/ })()
+;
