@@ -43,26 +43,26 @@
         .form-check-input {
             &.check-blue {
                 &:checked {
-                   background-color: #0099ff;
+                    background-color: #007bff;
                 }
                 &:focus {
-                    background-color: #000000;
+                    border-color: #007bff;
                 }
             }
             &.check-danger {
                 &:checked {
-                    background-color: #ff0000;
+                    background-color: #da1010;
                 }
                 &:focus {
-                     background-color: #ffffff;
+                    border-color: #da1010;
                 }
             }
             &.check-success {
                 &:checked {
-                    background-color: green;
+                    background-color: #76c50f;
                 }
                 &:focus {
-                    border-color: green;
+                    border-color: #76c50f;
                 }
             }
             &.check-yellow {

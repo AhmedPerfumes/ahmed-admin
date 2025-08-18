@@ -704,7 +704,7 @@
                                     </svg>
                                 </span>
                             </div>
-                            <div class="input-icon">
+                            <!-- <div class="input-icon">
                                 <input
                                     type="text"
                                     placeholder="hh:mm"
@@ -730,7 +730,7 @@
                                         <path d="M12 7v5l3 3" />
                                     </svg>
                                 </span>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                     <div class="mb-3 position-relative">
@@ -773,7 +773,7 @@
                                     </svg>
                                 </span>
                             </div>
-                            <div class="input-icon">
+                            <!-- <div class="input-icon">
                                 <input
                                     type="text"
                                     placeholder="hh:mm"
@@ -800,7 +800,7 @@
                                         <path d="M12 7v5l3 3" />
                                     </svg>
                                 </span>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                     <div class="position-relative">
