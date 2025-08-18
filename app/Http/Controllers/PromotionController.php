@@ -13,13 +13,16 @@ use App\Models\DiscountProduct;
 use App\Models\DiscountCategory;
 use App\Models\CouponRule;
 use App\Models\CouponProduct;
+use App\Models\CouponCustomer;
 use App\Models\CouponCategory;
 use App\Models\FocRule;
 use App\Models\FocProduct;
 use App\Models\FocCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule; // Added import for Rule class
 use Botble\Ecommerce\Models\Product;
+use Botble\Ecommerce\Models\Customer;
 use Carbon\Carbon;
 
 class PromotionController extends Controller
@@ -27,11 +30,66 @@ class PromotionController extends Controller
     public function create()
     {
         $products = Product::select('id', 'name', 'price')->get()->toArray();
-        return view('promotions.create', compact('products'));
+        $customers = Customer::select('id', 'name')->get()->toArray();
+        // Get IDs of products associated with active coupon promotions
+        $today = Carbon::today();
+        // $discountedProductIds = DB::table('coupon_rules')
+        //     ->join('promotions', 'coupon_rules.promotion_id', '=', 'promotions.id')
+        //     ->where('promotions.start_date', '<=', $today)
+        //     ->where('promotions.end_date', '>=', $today)
+        //     ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+        //     ->pluck('coupon_products.product_id')
+        //     ->unique()
+        //     ->values()
+        //     ->toArray();
+        $discountedProductIds = DB::table('promotions')
+            ->where('promotions.start_date', '<=', $today)
+            ->where('promotions.end_date', '>=', $today)
+            ->where('promotions.type', 'coupon')
+            ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
+            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+            ->select('coupon_products.product_id')
+            ->union(
+                DB::table('promotions')
+                    ->where('promotions.start_date', '<=', $today)
+                    ->where('promotions.end_date', '>=', $today)
+                    ->where('promotions.type', 'discount')
+                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
+                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+                    ->select('discount_products.product_id')
+            )
+            ->pluck('product_id')
+            ->unique()
+            ->values()
+            ->toArray();
+        return view('promotions.create', compact('products', 'customers', 'discountedProductIds'));
     }
 
     public function store(Request $request)
     {
+        // echo "<pre>";print_r($request->all());die;
+        $today = Carbon::today();
+        $discountedProductIds = DB::table('promotions')
+            ->where('promotions.start_date', '<=', $today)
+            ->where('promotions.end_date', '>=', $today)
+            ->where('promotions.type', 'coupon')
+            ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
+            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+            ->select('coupon_products.product_id')
+            ->union(
+                DB::table('promotions')
+                    ->where('promotions.start_date', '<=', $today)
+                    ->where('promotions.end_date', '>=', $today)
+                    ->where('promotions.type', 'discount')
+                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
+                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+                    ->select('discount_products.product_id')
+            )
+            ->pluck('product_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
         $request->validate([
             'name' => 'required|string|max:255',
             'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc'])],
@@ -60,10 +118,10 @@ class PromotionController extends Controller
                     $this->storeBuyXGetYRules($promotion, $request);
                     break;
                 case 'discount':
-                    $this->storeDiscountRules($promotion, $request);
+                    $this->storeDiscountRules($promotion, $request, $discountedProductIds);
                     break;
                 case 'coupon':
-                    $this->storeCouponRules($promotion, $request);
+                    $this->storeCouponRules($promotion, $request, $discountedProductIds);
                     break;
                 case 'foc':
                     $this->storeFocRules($promotion, $request);
@@ -121,25 +179,25 @@ class PromotionController extends Controller
         }
 
         // Store buy categories
-        foreach ($request->input('conditions.buy_x_get_y.category_ids', []) as $categoryId) {
-            BuyXGetYCategory::create([
-                'rule_id' => $rule->id,
-                'category_id' => $categoryId,
-                'type' => 'buy',
-            ]);
-        }
+        // foreach ($request->input('conditions.buy_x_get_y.category_ids', []) as $categoryId) {
+        //     BuyXGetYCategory::create([
+        //         'rule_id' => $rule->id,
+        //         'category_id' => $categoryId,
+        //         'type' => 'buy',
+        //     ]);
+        // }
 
         // Store free categories
-        foreach ($request->input('rewards.buy_x_get_y.free_category_ids', []) as $categoryId) {
-            BuyXGetYCategory::create([
-                'rule_id' => $rule->id,
-                'category_id' => $categoryId,
-                'type' => 'free',
-            ]);
-        }
+        // foreach ($request->input('rewards.buy_x_get_y.free_category_ids', []) as $categoryId) {
+        //     BuyXGetYCategory::create([
+        //         'rule_id' => $rule->id,
+        //         'category_id' => $categoryId,
+        //         'type' => 'free',
+        //     ]);
+        // }
     }
 
-    private function storeDiscountRules(Promotion $promotion, Request $request)
+    private function storeDiscountRules(Promotion $promotion, Request $request, $discountedProductIds)
     {
         $applyTo = $request->input('conditions.discount.apply_to');
         $rule = DiscountRule::create([
@@ -179,7 +237,8 @@ class PromotionController extends Controller
             }
         } elseif ($applyTo === 'all') {
             $allProductIds = Product::query()->pluck('id')->all();
-            foreach ($allProductIds as $productId) {
+            $eligibleProductIds = array_diff($allProductIds, $discountedProductIds);
+            foreach ($eligibleProductIds as $productId) {
                 DiscountProduct::create([
                     'discount_rule_id' => $rule->id,
                     'product_id' => $productId,
@@ -187,23 +246,33 @@ class PromotionController extends Controller
             }
         }
 
-        foreach ($request->input('conditions.discount.category_ids', []) as $categoryId) {
-            DiscountCategory::create([
-                'discount_rule_id' => $rule->id,
-                'category_id' => $categoryId,
-            ]);
-        }
+        // foreach ($request->input('conditions.discount.category_ids', []) as $categoryId) {
+        //     DiscountCategory::create([
+        //         'discount_rule_id' => $rule->id,
+        //         'category_id' => $categoryId,
+        //     ]);
+        // }
     }
 
-    private function storeCouponRules(Promotion $promotion, Request $request)
+    private function storeCouponRules(Promotion $promotion, Request $request, $discountedProductIds)
     {
+        // echo "<pre>";print_r($request->all());die;
+        $applyTo = $request->input('conditions.coupon.apply_to');
+        $percentage = null;
+
+        if ($applyTo === 'all') {
+            $percentage = $request->input('rewards.coupon.percentage');
+        } elseif ($applyTo === 'group') {
+            $percentage = $request->input('rewards.coupon.group_percentage');
+        } elseif ($applyTo === 'customer') {
+            $percentage = $request->input('rewards.coupon.customer_percentage');
+        }
+
         $rule = CouponRule::create([
             'promotion_id' => $promotion->id,
             'coupon_code' => $request->input('coupon_code'),
-            'apply_to' => $request->input('conditions.coupon.apply_to'),
-            'percentage' => $request->input('conditions.coupon.apply_to') === 'all' 
-                ? $request->input('rewards.coupon.percentage') 
-                : $request->input('rewards.coupon.group_percentage'),
+            'apply_to' => $applyTo,
+            'percentage' => $percentage,
         ]);
 
         if ($request->input('conditions.coupon.apply_to') === 'group') {
@@ -215,11 +284,34 @@ class PromotionController extends Controller
             }
         }
 
-        foreach ($request->input('conditions.coupon.category_ids', []) as $categoryId) {
-            CouponCategory::create([
-                'coupon_rule_id' => $rule->id,
-                'category_id' => $categoryId,
-            ]);
+        // foreach ($request->input('conditions.coupon.category_ids', []) as $categoryId) {
+        //     CouponCategory::create([
+        //         'coupon_rule_id' => $rule->id,
+        //         'category_id' => $categoryId,
+        //     ]);
+        // }
+
+        elseif ($request->input('conditions.coupon.apply_to') === 'customer') {
+            // foreach ($request->input('conditions.coupon.customer_ids', []) as $customerId) {
+            //     CouponCustomer::create([
+            //         'coupon_rule_id' => $rule->id,
+            //         'customer_id' => $customerId,
+            //     ]);
+            // }
+            $customerIds = $request->input('conditions.coupon.customer_ids', []);
+            $rule->customers()->sync($customerIds);
+        }
+        // $customerIds = $request->input('conditions.coupon.customer_ids', []);
+        // $rule->customers()->sync($customerIds);
+        elseif ($request->input('conditions.coupon.apply_to') === 'all') {
+            $allProductIds = Product::query()->pluck('id')->all();
+            $eligibleProductIds = array_diff($allProductIds, $discountedProductIds);
+            foreach ($eligibleProductIds as $productId) {
+                CouponProduct::create([
+                    'coupon_rule_id' => $rule->id,
+                    'product_id' => $productId,
+                ]);
+            }
         }
     }
 
@@ -238,11 +330,11 @@ class PromotionController extends Controller
             ]);
         }
 
-        foreach ($request->input('rewards.foc.free_category_ids', []) as $categoryId) {
-            FocCategory::create([
-                'foc_rule_id' => $rule->id,
-                'category_id' => $categoryId,
-            ]);
-        }
+        // foreach ($request->input('rewards.foc.free_category_ids', []) as $categoryId) {
+        //     FocCategory::create([
+        //         'foc_rule_id' => $rule->id,
+        //         'category_id' => $categoryId,
+        //     ]);
+        // }
     }
 }

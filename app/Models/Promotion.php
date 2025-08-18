@@ -165,6 +165,11 @@ class CouponRule extends Model
     {
         return $this->hasMany(CouponCategory::class, 'coupon_rule_id');
     }
+
+    public function customers()
+    {
+        return $this->belongsToMany(\Botble\Ecommerce\Models\Customer::class, 'coupon_customers', 'coupon_rule_id', 'customer_id');
+    }
 }
 
 class CouponProduct extends Model

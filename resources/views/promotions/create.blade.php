@@ -49,7 +49,10 @@
                                     <label for="bogo_product_ids" class="form-label">Buy Product</label>
                                     <select name="bogo_product_ids_temp" id="bogo_product_ids" class="form-select">
                                         @foreach ($products as $product)
-                                            <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                            <option value="{{ $product['id'] }}"
+                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                            </option>
                                         @endforeach
                                         {{-- <option value="1">Product 1</option>
                                         <option value="2">Product 2</option>
@@ -60,7 +63,10 @@
                                     <label for="bogo_free_product_ids" class="form-label">Free Product</label>
                                     <select name="bogo_free_product_ids_temp" id="bogo_free_product_ids" class="form-select">
                                         @foreach ($products as $product)
-                                            <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                            <option value="{{ $product['id'] }}"
+                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                            </option>
                                         @endforeach
                                         {{-- <option value="1">Product 1</option>
                                         <option value="2">Product 2</option>
@@ -94,7 +100,10 @@
                                     <label for="buy_x_product_ids" class="form-label">Products (Buy)</label>
                                     <select name="conditions[buy_x_get_y][product_ids][]" id="buy_x_product_ids" multiple class="form-select">
                                         @foreach ($products as $product)
-                                            <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                            <option value="{{ $product['id'] }}"
+                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                            </option>
                                         @endforeach
                                         {{-- <option value="1">Product 1</option>
                                         <option value="2">Product 2</option>
@@ -105,7 +114,10 @@
                                     <label for="get_y_product_ids" class="form-label">Free Products</label>
                                     <select name="rewards[buy_x_get_y][free_product_ids][]" id="get_y_product_ids" multiple class="form-select">
                                         @foreach ($products as $product)
-                                            <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                            <option value="{{ $product['id'] }}"
+                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                            </option>
                                         @endforeach
                                         {{-- <option value="1">Product 1</option>
                                         <option value="2">Product 2</option>
@@ -149,7 +161,10 @@
                                         <label for="discount_product_ids" class="form-label">Product</label>
                                         <select name="discount_product_ids_temp" id="discount_product_ids" class="form-select">
                                             @foreach ($products as $product)
-                                                <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                                <option value="{{ $product['id'] }}"
+                                                    @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                    {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                                </option>
                                             @endforeach
                                             {{-- <option value="1">Product 1</option>
                                             <option value="2">Product 2</option>
@@ -207,7 +222,10 @@
                                         <label for="discount_group_product_ids" class="form-label">Products</label>
                                         <select name="conditions[discount][group_product_ids][]" id="discount_group_product_ids" multiple class="form-select">
                                             @foreach ($products as $product)
-                                                <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                                <option value="{{ $product['id'] }}"
+                                                    @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                    {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                                </option>
                                             @endforeach
                                             {{-- <option value="1">Product 1</option>
                                             <option value="2">Product 2</option>
@@ -239,6 +257,15 @@
                                     <select name="conditions[coupon][apply_to]" id="coupon_apply_to" class="form-select">
                                         <option value="all">All Products</option>
                                         <option value="group">Group Products</option>
+                                        <option value="customer">Customer</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="coupon_customer_ids_field" style="display: none;">
+                                    <label for="coupon_customer_ids" class="form-label">Customers</label>
+                                    <select name="conditions[coupon][customer_ids][]" id="coupon_customer_ids" multiple class="form-select">
+                                        @foreach($customers as $customer)
+                                            <option value="{{ $customer['id'] }}">{{ $customer['name'] }}</option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div id="coupon_all_products_field" style="display: block;">
@@ -252,7 +279,10 @@
                                         <label for="coupon_group_product_ids" class="form-label">Products</label>
                                         <select name="conditions[coupon][group_product_ids][]" id="coupon_group_product_ids" multiple class="form-select">
                                             @foreach ($products as $product)
-                                                <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                                <option value="{{ $product['id'] }}"
+                                                    @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                    {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                                </option>
                                             @endforeach
                                             {{-- <option value="1">Product 1</option>
                                             <option value="2">Product 2</option>
@@ -262,6 +292,12 @@
                                     <div class="mb-3">
                                         <label for="coupon_group_percent" class="form-label">Coupon Percent</label>
                                         <input type="number" step="0.01" name="rewards[coupon][group_percentage]" id="coupon_group_percent" class="form-control">
+                                    </div>
+                                </div>
+                                <div id="coupon_customer_field" style="display: none;">
+                                    <div class="mb-3">
+                                        <label for="coupon_customer_percent" class="form-label">Coupon Percent (Customer)</label>
+                                        <input type="number" step="0.01" name="rewards[coupon][customer_percentage]" id="coupon_customer_percent" class="form-control">
                                     </div>
                                 </div>
                                 {{-- <div class="mb-3">
@@ -287,7 +323,10 @@
                                     <label for="foc_product_ids" class="form-label">Free Products</label>
                                     <select name="rewards[foc][free_product_ids][]" id="foc_product_ids" multiple class="form-select">
                                         @foreach ($products as $product)
-                                            <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                                            <option value="{{ $product['id'] }}"
+                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                            </option>
                                         @endforeach
                                         {{-- <option value="1">Product 1</option>
                                         <option value="2">Product 2</option>
@@ -342,6 +381,9 @@
                 maxItems: 10
             });
             const couponGroupSelect = new TomSelect('#coupon_group_product_ids', {
+                maxItems: 10
+            });
+            const couponCustomerSelect = new TomSelect('#coupon_customer_ids', {
                 maxItems: 10
             });
             const bogoProductSelect = new TomSelect('#bogo_product_ids', { maxItems: 1 });
@@ -576,7 +618,20 @@
                         alert('Coupon Code is required.');
                         return;
                     }
-                    if (applyTo === 'all') {
+                    if (applyTo === 'customer') {
+                        const customerIds = document.getElementById('coupon_customer_ids').tomselect.getValue();
+                        if (customerIds.length === 0) {
+                            event.preventDefault();
+                            alert('At least one customer must be selected for Customer Coupon.');
+                            return;
+                        }
+                        const customerPercent = parseFloat(document.getElementById('coupon_customer_percent').value);
+                        if (isNaN(customerPercent) || customerPercent <= 0) {
+                            event.preventDefault();
+                            alert('Coupon Percent for Customer must be a positive number.');
+                            return;
+                        }
+                    } else if (applyTo === 'all') {
                         const couponPercent = parseFloat(document.getElementById('coupon_all').value);
                         if (isNaN(couponPercent) || couponPercent <= 0) {
                             event.preventDefault();
@@ -662,7 +717,11 @@
             const applyTo = document.getElementById('coupon_apply_to').value;
             const allProductsField = document.getElementById('coupon_all_products_field');
             const groupFields = document.getElementById('coupon_group_fields');
+            const customerField = document.getElementById('coupon_customer_field');
+            const customerIdsField = document.getElementById('coupon_customer_ids_field');
             allProductsField.style.display = applyTo === 'all' ? 'block' : 'none';
+            customerField.style.display = applyTo === 'customer' ? 'block' : 'none';
+            customerIdsField.style.display = applyTo === 'customer' ? 'block' : 'none';
             groupFields.style.display = applyTo === 'group' ? 'block' : 'none';
         }
 
