@@ -45,19 +45,29 @@ class PromotionController extends Controller
         $discountedProductIds = DB::table('promotions')
             ->where('promotions.start_date', '<=', $today)
             ->where('promotions.end_date', '>=', $today)
-            ->where('promotions.type', 'coupon')
-            ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
-            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
-            ->select('coupon_products.product_id')
-            ->union(
-                DB::table('promotions')
-                    ->where('promotions.start_date', '<=', $today)
-                    ->where('promotions.end_date', '>=', $today)
-                    ->where('promotions.type', 'discount')
-                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
-                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-                    ->select('discount_products.product_id')
-            )
+            ->whereIn('promotions.type', ['coupon', 'discount', 'bogo', 'buy_x_get_y'])
+            ->leftJoin('coupon_rules', function ($join) {
+                $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
+                    ->where('promotions.type', '=', 'coupon');
+            })
+            ->leftJoin('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+            ->leftJoin('discount_rules', function ($join) {
+                $join->on('promotions.id', '=', 'discount_rules.promotion_id')
+                    ->where('promotions.type', '=', 'discount');
+            })
+            ->leftJoin('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+            // ->leftJoin('bogo_rules', function ($join) {
+            //     $join->on('promotions.id', '=', 'bogo_rules.promotion_id')
+            //         ->where('promotions.type', '=', 'bogo');
+            // })
+            ->leftJoin('buy_x_get_y_rules', function ($join) {
+                $join->on('promotions.id', '=', 'buy_x_get_y_rules.promotion_id')
+                    ->where('promotions.type', '=', 'buy_x_get_y');
+            })
+            ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
+            // ->selectRaw('COALESCE(coupon_products.product_id, discount_products.product_id, bogo_rules.buy_product_id, bogo_rules.free_product_id, buy_x_get_y_products.product_id) as product_id')
+            ->selectRaw('COALESCE(coupon_products.product_id, discount_products.product_id, buy_x_get_y_products.product_id) as product_id')
+            ->havingRaw('product_id IS NOT NULL')
             ->pluck('product_id')
             ->unique()
             ->values()
@@ -111,9 +121,9 @@ class PromotionController extends Controller
             ]);
 
             switch ($request->type) {
-                case 'bogo':
-                    $this->storeBogoRules($promotion, $request);
-                    break;
+                // case 'bogo':
+                //     $this->storeBogoRules($promotion, $request);
+                //     break;
                 case 'buy_x_get_y':
                     $this->storeBuyXGetYRules($promotion, $request);
                     break;
@@ -136,21 +146,21 @@ class PromotionController extends Controller
         }
     }
 
-    private function storeBogoRules(Promotion $promotion, Request $request)
-    {
-        $productIds = $request->input('conditions.bogo.product_ids', []);
-        $freeProductIds = $request->input('rewards.bogo.free_product_ids', []);
+    // private function storeBogoRules(Promotion $promotion, Request $request)
+    // {
+    //     $productIds = $request->input('conditions.bogo.product_ids', []);
+    //     $freeProductIds = $request->input('rewards.bogo.free_product_ids', []);
 
-        foreach ($productIds as $index => $buyProductId) {
-            if (isset($freeProductIds[$index])) {
-                BogoRule::create([
-                    'promotion_id' => $promotion->id,
-                    'buy_product_id' => $buyProductId,
-                    'free_product_id' => $freeProductIds[$index],
-                ]);
-            }
-        }
-    }
+    //     foreach ($productIds as $index => $buyProductId) {
+    //         if (isset($freeProductIds[$index])) {
+    //             BogoRule::create([
+    //                 'promotion_id' => $promotion->id,
+    //                 'buy_product_id' => $buyProductId,
+    //                 'free_product_id' => $freeProductIds[$index],
+    //             ]);
+    //         }
+    //     }
+    // }
 
     private function storeBuyXGetYRules(Promotion $promotion, Request $request)
     {
