@@ -1229,7 +1229,7 @@ class OrderController extends Controller
                 'customer_name' => 'required',
                 'customer_email' => 'required|email',
                 'customer_mobile' => 'required',
-                'customer_password' => 'required',
+                // 'customer_password' => 'required',
             ]);
 
             if ($validator->fails()) {
@@ -1245,8 +1245,21 @@ class OrderController extends Controller
             $customer->name = $request->input('customer_name');
             $customer->email = $request->input('customer_email');
             $customer->phone = $request->input('customer_mobile');
-            $customer->password = Hash::make($request->input('customer_password'));
+            if(isset($request->customer_password) && !empty($request->customer_password)) {
+                $customer->password = Hash::make($request->input('customer_password'));
+            }
             $customer->save();
+
+            $addresses = Address::where('customer_id', $request->input('customer_id'))->get();
+
+            if(!$addresses->isEmpty()) {
+                foreach ($addresses as $key => $address) {
+                    $address->name = $request->input('customer_name');
+                    $address->email = $request->input('customer_email');
+                    $address->phone = $request->input('customer_mobile');
+                    $address->save();
+                }   
+            }
 
             return response()->json([
                 'message' => 'Customer Updated Successfully',
