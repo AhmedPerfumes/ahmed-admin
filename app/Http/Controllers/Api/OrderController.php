@@ -27,6 +27,7 @@ use Botble\Ecommerce\Models\MobileVerification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Botble\Ecommerce\Models\DiscountCustomer;
+use App\Models\Promotion;
 
 class OrderController extends Controller
 {
@@ -129,7 +130,7 @@ class OrderController extends Controller
         // echo implode(',', $barcodes);die;
         $coupon_code = $request->input('couponCode');
         if(isset($coupon_code) && !empty($request->input('couponCode'))) {
-            $coupon = DiscountModel::where('code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+            $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
             if(!$coupon) {
                 return response()->json(['couponMessage' => 'Invalid Coupon Code']);
             }
@@ -1139,7 +1140,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $coupon = DiscountModel::where('code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+        $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
 
         if(!$coupon) {
             return response()->json(['message' => 'Invalid Coupon Code']);
@@ -1162,6 +1163,8 @@ class OrderController extends Controller
                 return response()->json(['message' => 'You Have Already Used this Coupon Code']);
             }
         }
+
+        $coupon->value = intval($coupon->value);
 
         return response()->json([
             'message'          => 'Details Fetched successfully',
