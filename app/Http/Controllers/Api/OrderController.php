@@ -1304,22 +1304,21 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'address_id'      => 'required',
-            'state' => 'required',
-            'city' => 'required',
-            'address' => 'required',
-            'customer_id' => 'required',
-            'name' => 'required',
-            'email' => 'required|email',
-            'mobile' => 'required',
-        ]);
-
         if ($validator->fails()) {
             return response()->json($validator->errors());
         }
 
         if($request->input('address_id') == -1) {
+            $validator = Validator::make($request->all(), [
+                'address_id'      => 'required',
+                'state' => 'required',
+                'city' => 'required',
+                'address' => 'required',
+                'customer_id' => 'required',
+                'name' => 'required',
+                'email' => 'required|email',
+                'mobile' => 'required',
+            ]);
             $address = Address::create([
                 'name'      => $request->input('name'),
                 'email'     => $request->input('email'),
@@ -1335,6 +1334,17 @@ class OrderController extends Controller
                 'message' => 'Customer Address Updated Successfully',
                 'addresses' => $address
             ]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address_id'      => 'required',
+            'state' => 'required',
+            'city' => 'required',
+            'address' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
         }
 
         $address = Address::find($request->input('address_id'));
