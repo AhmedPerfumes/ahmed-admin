@@ -466,6 +466,7 @@
                 const discountAmount = document.getElementById('discount_result').value;
                 const finalPrice = document.getElementById('discount_final_price').value;
                 if (productId && discountValue && productPrice && discountAmount && finalPrice) {
+                    console.log('add_discount_rule Click', productPrice, discountAmount, finalPrice);
                     if (discountValue <= 0) {
                         alert('Discount value must be greater than 0.');
                         return;
@@ -474,10 +475,10 @@
                         alert('Discount amount cannot be negative.');
                         return;
                     }
-                    if (finalPrice < 0) {
-                        alert('Final price cannot be negative.');
-                        return;
-                    }
+                    // if (finalPrice < 0) {
+                    //     alert('Final price cannot be negative.');
+                    //     return;
+                    // }
                     addDiscountRule(productId, discountType, discountValue, productPrice, discountAmount, finalPrice);
                     discountSelect.clear();
                     document.getElementById('discount_percent').value = '';
@@ -601,11 +602,11 @@
                                 alert('Discount amount cannot be negative.');
                                 return;
                             }
-                            if (finalPrice < 0) {
-                                event.preventDefault();
-                                alert('Final price cannot be negative.');
-                                return;
-                            }
+                            // if (finalPrice < 0) {
+                            //     event.preventDefault();
+                            //     alert('Final price cannot be negative.');
+                            //     return;
+                            // }
                         }
                     }
                 }
@@ -753,23 +754,23 @@
                     const percentage = parseFloat(percentInput.value) || 0;
                     const discountAmount = (price * percentage) / 100;
                     const finalPrice = price - discountAmount;
-                    if (finalPrice < 0) {
-                        alert('Final price cannot be negative.');
-                        discountResultInput.value = '';
-                        finalPriceInput.value = '';
-                        return;
-                    }
+                    // if (finalPrice < 0) {
+                    //     alert('Final price cannot be negative.');
+                    //     discountResultInput.value = '';
+                    //     finalPriceInput.value = '';
+                    //     return;
+                    // }
                     discountResultInput.value = discountAmount.toFixed(2);
                     finalPriceInput.value = finalPrice.toFixed(2);
                 } else if (discountType === 'amount') {
                     const amount = parseFloat(amountInput.value) || 0;
                     const finalPrice = price - amount;
-                    if (finalPrice < 0) {
-                        alert('Final price cannot be negative.');
-                        discountResultInput.value = '';
-                        finalPriceInput.value = '';
-                        return;
-                    }
+                    // if (finalPrice < 0) {
+                    //     alert('Final price cannot be negative.');
+                    //     discountResultInput.value = '';
+                    //     finalPriceInput.value = '';
+                    //     return;
+                    // }
                     discountResultInput.value = amount.toFixed(2);
                     finalPriceInput.value = finalPrice.toFixed(2);
                 }
