@@ -1304,10 +1304,6 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
-
         if($request->input('address_id') == -1) {
             $validator = Validator::make($request->all(), [
                 'address_id'      => 'required',
@@ -1319,6 +1315,11 @@ class OrderController extends Controller
                 'email' => 'required|email',
                 'mobile' => 'required',
             ]);
+
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }
+            
             $address = Address::create([
                 'name'      => $request->input('name'),
                 'email'     => $request->input('email'),
