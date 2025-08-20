@@ -102,6 +102,25 @@ class ProductRequest extends Request
             'cross_sale_products.*.price_type' => ['nullable', 'string', Rule::in(CrossSellPriceType::values())],
             'minimum_order_quantity' => ['nullable', 'numeric', 'min:0'],
             'maximum_order_quantity' => ['nullable', 'numeric', 'min:0'],
+
+            // ✅ Custom fields
+            'itemCategory_1' => ['nullable', 'string', 'max:255'],
+            'itemCategory_2' => ['nullable', 'string', 'max:255'],
+            'itemCategory_3' => ['nullable', 'string', 'max:255'],
+            'itemCategory_4' => ['nullable', 'string', 'max:255'],
+            'itemCategory_5' => ['nullable', 'string', 'max:255'],
+            'itemFamily'     => ['nullable', 'string', 'max:255'],
+            'note_1'         => ['nullable', 'string', 'max:255'],
+            'note_2'         => ['nullable', 'string', 'max:255'],
+            'note_3'         => ['nullable', 'string', 'max:255'],
+            'item_profile'   => ['nullable', 'string', 'max:255'],
+            'item_classification' => ['nullable', 'string', 'max:255'],
+            'sillage'        => ['nullable', 'string', 'max:255'],
+            'longevity'      => ['nullable', 'string', 'max:255'],
+            'how_to_use'     => ['nullable', 'string'],
+            'occasion'       => ['nullable', 'string', 'max:255'],
+            'size'           => ['nullable', 'string', 'max:100'],
+            'ingredients'     => ['nullable', 'string'],
         ];
 
         if (EcommerceHelper::isEnabledProductOptions()) {
