@@ -72,4 +72,6 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::post('/customerPasswordCheck', [OrderController::class, 'customerPasswordCheck']);
 
     Route::get('/getFilters', [ProductController::class, 'getFilters']);
+
+    Route::get('/freeGiftProductss', [ProductController::class, 'freeGiftProducts']);
 });

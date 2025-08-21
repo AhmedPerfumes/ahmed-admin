@@ -711,7 +711,7 @@ class OrderController extends Controller
                         'product_category' => $product['category_name'],
                         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                         'vat' => $request->input('vatTax'),
-                        'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : NULL,
+                        'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : $request->input('couponCode'),
                     ];
                 }
                 // elseif(!is_null($exisProduct->sale_price)) {
@@ -876,7 +876,28 @@ class OrderController extends Controller
             // echo $response;
 
             if ($couponCode = $request->input('couponCode')) {
-                Discount::getFacadeRoot()->afterOrderPlaced($couponCode, $request->input('customer_id') ? $request->input('customer_id') : $customer_id);
+                // Discount::getFacadeRoot()->afterOrderPlaced($couponCode, $request->input('customer_id') ? $request->input('customer_id') : $customer_id);
+
+                $now = Carbon::now();
+
+                $coupon = DB::table('coupon_rules')
+                ->join('promotions', 'promotions.id', '=', 'coupon_rules.promotion_id')
+                ->where('coupon_code', $couponCode)
+                ->where('type', 'coupon')
+                ->where('start_date', '<=', $now)
+                ->Where('end_date', '>', $now)
+                ->select('coupon_rules.id', 'coupon_rules.promotion_id')
+                ->first();
+
+                if ($coupon) {
+                    DB::table('coupon_rules')->where('id', $coupon->id)->increment('total_used');
+                    $promotionId = $coupon->promotion_id;
+
+                    DB::table('ec_customer_used_coupons')->insert([
+                        'customer_id' => $request->input('customer_id') ?? $customer_id,
+                        'discount_id' => $promotionId
+                    ]);
+                }
             }
 
             if($request->input('customer_id')) {
@@ -1462,7 +1483,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
+        $coupon = Promotion::select('promotions.id', 'type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
 
         if(!$coupon) {
             return response()->json(['message' => 'Invalid Coupon Code']);
@@ -1475,6 +1496,8 @@ class OrderController extends Controller
         }
 
         $customer = OrderAddress::join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->input('mobile_number'))->get();
+
+        // echo "<pre>";print_r($customer);die;
 
         if(!$customer->isEmpty()) {
             if(strtolower($request->input('couponCode')) == 'welcome10') {
