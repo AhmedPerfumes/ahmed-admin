@@ -1870,28 +1870,30 @@ class ProductController extends Controller
 
     public function freeGiftProducts(Request $request)
     {
-        $threshold = DB::table('foc_rules')->where('type', 'foc')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('promotions', 'promotions.id', '=', 'foc_rules.promotion_id')->select('name', 'foc_rules.id', 'min_threshold AS min', 'max_threshold As max')->first();
+        $thresholds = DB::table('foc_rules')->where('type', 'foc')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('promotions', 'promotions.id', '=', 'foc_rules.promotion_id')->select('name', 'foc_rules.id', 'min_threshold AS min', 'max_threshold As max')->orderBy('min', 'asc')->get();
 
-        if(!$threshold) {
+        if($thresholds->isEmpty()) {
             return response()->json(['thresholds' => []])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => []])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
         }
-
-        $gifts = DB::table('foc_products')->where('foc_rule_id', $threshold->id)->join('ec_products', 'ec_products.id', '=', 'foc_products.product_id')->select('foc_products.product_id', 'ec_products.name', 'ec_products.price', 'ec_products.images')->get();
-        foreach ($gifts as $gift) {
-            $giftData[] = [
-                'product_id' => $gift->product_id,
-                'product_name' => $gift->name,
-                'price' => 0,
-                'image' => json_decode($gift->images)[0],
-                'is_gift' => true,
-                'discount' => null,
-                'coupon' => [],
-                'campaign' => 'summer_vibes_2025_campaign'
-            ];
+        foreach ($thresholds as $threshold) {
+            $giftData = [];
+            $gifts = DB::table('foc_products')->where('foc_rule_id', $threshold->id)->join('ec_products', 'ec_products.id', '=', 'foc_products.product_id')->select('foc_products.product_id', 'ec_products.name', 'ec_products.price', 'ec_products.images')->get();
+            foreach ($gifts as $gift) {
+                $giftData[] = [
+                    'product_id' => $gift->product_id,
+                    'product_name' => $gift->name,
+                    'price' => 0,
+                    'image' => json_decode($gift->images)[0],
+                    'is_gift' => true,
+                    'discount' => null,
+                    'coupon' => [],
+                    'campaign' => strtolower(str_replace(' ', '_', $threshold->name)).'_2025_campaign'
+                ];
+            }
+            $threshold->gifts = $giftData;
         }
-        $threshold->gifts = $giftData;
 
-        $response = response()->json(['thresholds' => [$threshold]])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => [$threshold]])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+        $response = response()->json(['thresholds' => $thresholds])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => $thresholds])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
         if ($response->isNotModified(request())) {
             return $response;
