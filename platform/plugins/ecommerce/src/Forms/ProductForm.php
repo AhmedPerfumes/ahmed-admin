@@ -71,6 +71,12 @@ class ProductForm extends FormAbstract
             ->setValidatorClass(ProductRequest::class)
             ->setFormOption('files', true)
             ->add('name', TextField::class, NameFieldOption::make()->required()->toArray())
+            ->add('name_ar', TextField::class, NameFieldOption::make()
+    ->label(trans('core/base::forms.name_ar'))
+    ->placeholder(trans('core/base::forms.name_ar_placeholder'))
+    ->required()
+    ->toArray()
+)
             ->add(
                 'description',
                 EditorField::class,
@@ -78,8 +84,36 @@ class ProductForm extends FormAbstract
                     ->label(trans('core/base::forms.description'))
                     ->placeholder(trans('core/base::forms.description_placeholder'))->toArray()
             )
+            ->add('description_ar', EditorField::class, EditorFieldOption::make()
+    ->label(trans('core/base::forms.description_ar'))
+    ->placeholder(trans('core/base::forms.description_ar_placeholder'))
+    ->toArray()
+)
+
             ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->toArray())
+            ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->toArray())
+
             ->add('fragrance_notes', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes')->allowedShortcodes()->toArray())
+            ->add('fragrance_notes_ar', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes (Arabic)')->allowedShortcodes()->toArray())
+
+            ->add('itemCategory_1', TextField::class, TextFieldOption::make()->label('Item Category 1')->toArray())
+            ->add('itemCategory_2', TextField::class, TextFieldOption::make()->label('Item Category 2')->toArray())
+            ->add('itemCategory_3', TextField::class, TextFieldOption::make()->label('Item Category 3')->toArray())
+            ->add('itemCategory_4', TextField::class, TextFieldOption::make()->label('Item Category 4')->toArray())
+            ->add('itemCategory_5', TextField::class, TextFieldOption::make()->label('Item Category 5')->toArray())
+            ->add('itemFamily', TextField::class, TextFieldOption::make()->label('Item Family')->toArray())
+            ->add('note_1', TextField::class, TextFieldOption::make()->label('Top Notes')->toArray())
+            ->add('note_2', TextField::class, TextFieldOption::make()->label('Middle Notes')->toArray())
+            ->add('note_3', TextField::class, TextFieldOption::make()->label('Base Notes')->toArray())
+            ->add('item_profile', EditorField::class, EditorFieldOption::make()->label('Item Profile')->toArray())
+            ->add('item_classification', TextField::class, TextFieldOption::make()->label('Item Classification')->toArray())
+            ->add('sillage', TextField::class, TextFieldOption::make()->label('Sillage')->toArray())
+            ->add('longevity', TextField::class, TextFieldOption::make()->label('Longevity')->toArray())
+            ->add('how_to_use', EditorField::class, EditorFieldOption::make()->label('How to Use')->toArray())
+            ->add('occasion', TextField::class, TextFieldOption::make()->label('Occasion')->toArray())
+            ->add('size', TextField::class, TextFieldOption::make()->label('Size')->toArray())
+            ->add('ingredients', EditorField::class, EditorFieldOption::make()->label('Ingredients')->toArray())
+
             ->add('images[]', MediaImagesField::class, [
                 'label' => trans('plugins/ecommerce::products.form.image'),
                 'values' => $productId ? $this->getModel()->images : [],

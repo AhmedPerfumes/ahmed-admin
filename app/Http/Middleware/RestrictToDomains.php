@@ -16,7 +16,8 @@ class RestrictToDomains
     public function handle(Request $request, Closure $next): Response
     {
         $allowedOrigins = [
-            'https://ae.ahmedalmaghribi.com',
+         
+            '*'
         ];
 
         $origin = $request->header('origin');

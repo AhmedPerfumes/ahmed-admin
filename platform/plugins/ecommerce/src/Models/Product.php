@@ -42,9 +42,13 @@ class Product extends BaseModel
 
     protected $fillable = [
         'name',
+        'name_ar',
         'description',
+        'description_ar',
         'content',
+        'content_ar',
         'fragrance_notes',
+        'fragrance_notes_ar',
         'image', // Featured image
         'images',
         'video_media',
@@ -74,6 +78,25 @@ class Product extends BaseModel
         'minimum_order_quantity',
         'maximum_order_quantity',
         'notify_attachment_updated',
+
+        // ✅ Custom fields
+        'itemCategory_1',
+        'itemCategory_2',
+        'itemCategory_3',
+        'itemCategory_4',
+        'itemCategory_5',
+        'itemFamily',
+        'note_1',
+        'note_2',
+        'note_3',
+        'item_profile',
+        'item_classification',
+        'sillage',
+        'longevity',
+        'how_to_use',
+        'occasion',
+        'size',
+        'ingredients',
     ];
 
     protected $appends = [
@@ -102,6 +125,25 @@ class Product extends BaseModel
         'generate_license_code' => 'bool',
         'notify_attachment_updated' => 'bool',
         'video_media' => 'json',
+
+        // ✅ Cast custom fields as SafeContent
+        'itemCategory_1' => SafeContent::class,
+        'itemCategory_2' => SafeContent::class,
+        'itemCategory_3' => SafeContent::class,
+        'itemCategory_4' => SafeContent::class,
+        'itemCategory_5' => SafeContent::class,
+        'itemFamily'     => SafeContent::class,
+        'note_1'         => SafeContent::class,
+        'note_2'         => SafeContent::class,
+        'note_3'         => SafeContent::class,
+        'item_profile'   => SafeContent::class,
+        'item_classification' => SafeContent::class,
+        'sillage'        => SafeContent::class,
+        'longevity'      => SafeContent::class,
+        'how_to_use'     => SafeContent::class,
+        'occasion'       => SafeContent::class,
+        'size'           => SafeContent::class,
+        'ingredients'     => SafeContent::class,
     ];
 
     protected static function booted(): void
