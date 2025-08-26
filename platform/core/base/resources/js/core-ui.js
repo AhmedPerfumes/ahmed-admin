@@ -1,11 +1,11 @@
-import '@tabler/core/src/js/src/autosize'
-import '@tabler/core/src/js/src/dropdown'
-import '@tabler/core/src/js/src/tooltip'
-import '@tabler/core/src/js/src/popover'
-import '@tabler/core/src/js/src/switch-icon'
-import '@tabler/core/src/js/src/tab'
+import '@tabler/core/js/src/autosize'
+import '@tabler/core/js/src/dropdown'
+import '@tabler/core/js/src/tooltip'
+import '@tabler/core/js/src/popover'
+import '@tabler/core/js/src/switch-icon'
+import '@tabler/core/js/src/tab'
 import * as bootstrap from 'bootstrap'
-import * as tabler from '@tabler/core/src/js/src/tabler'
+import * as tabler from '@tabler/core/js/src/tabler'
 
 globalThis.bootstrap = bootstrap
 globalThis.tabler = tabler

@@ -174,7 +174,7 @@ class AuthController extends Controller
             $token = $customer->createToken('auth_token')->plainTextToken;
 
             return response()->json([
-                'message'       => 'Customer Registered Successfully',
+                'message'       => $request->flag == 'fpassword' ? 'OTP Verified Successfully' : 'Customer Registered Successfully',
                 'data'          => $customer,
                 'access_token'  => $token,
                 'token_type'    => 'Bearer'
@@ -313,20 +313,33 @@ class AuthController extends Controller
         curl_close($curl);
         // echo $response;
 
-        $mobile_verification = MobileVerification::where('phone', $request->mobile)->get();
+        if($request->flag == 'fpassword') {
+            $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->first();
 
-        if ($mobile_verification) {
-            foreach ($mobile_verification as $key => $value) {
-                MobileVerification::where('phone', $value->phone)->delete();
+            if (!$customer) {
+                return response()->json([
+                    'message'       => 'Invalid Mobile Number',
+                ]);
             }
+
+            $customer->otp = $otp;
+            $customer->save();
+        } else {
+            $mobile_verification = MobileVerification::where('phone', $request->mobile)->get();
+
+            if ($mobile_verification) {
+                foreach ($mobile_verification as $key => $value) {
+                    MobileVerification::where('phone', $value->phone)->delete();
+                }
+            }
+
+            $Mobile_verification = MobileVerification::create([
+                'otp'     => $otp,
+                'phone'     => $request->mobile,
+            ]);
+
+            $Mobile_verification->save();
         }
-
-        $Mobile_verification = MobileVerification::create([
-            'otp'     => $otp,
-            'phone'     => $request->mobile,
-        ]);
-
-        $Mobile_verification->save();
 
         return response()->json([
             'message'          => 'OTP Sent on Above Mobile Number'

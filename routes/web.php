@@ -2,6 +2,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SmsaController;
 use App\Http\Controllers\DynamicSectionController;
+use App\Http\Controllers\promotionController;
 
 // Define a route group with a prefix
 Route::prefix('admin/ecommerce/smsa')->group(function () {
@@ -18,18 +19,10 @@ Route::prefix('admin/ecommerce/smsa')->group(function () {
 Route::prefix('admin/ecommerce/dynamic')->group(function () {
     Route::get('/', [DynamicSectionController::class, 'index'])->name('dynamic.index');
     Route::post('/submit', [DynamicSectionController::class, 'submit'])->name('newsletter.submit');
-    Route::delete('/admin/dynamic-section/{id}', [DynamicSectionController::class, 'destroy'])->name('dynamic-section.destroy');
-
-
-
-
-
-
-
-
-
-
-    
+    Route::delete('/admin/dynamic-section/{id}', [DynamicSectionController::class, 'destroy'])->name('dynamic-section.destroy'); 
 });
+
+Route::get('promotions/create', [PromotionController::class, 'create'])->name('promotions.create');
+Route::post('promotions', [PromotionController::class, 'store'])->name('promotions.store');
 
 

@@ -16,12 +16,13 @@ class RestrictToDomains
     public function handle(Request $request, Closure $next): Response
     {
         $allowedOrigins = [
-         
-            '*'
+            'http://localhost:3000',
         ];
 
         $origin = $request->header('origin');
         $referer = $request->header('referer');
+
+        echo $request->header;
 
         $isAllowed = false;
 

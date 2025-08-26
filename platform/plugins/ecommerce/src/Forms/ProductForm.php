@@ -77,6 +77,12 @@ class ProductForm extends FormAbstract
     ->required()
     ->toArray()
 )
+            ->add('name_ar', TextField::class, NameFieldOption::make()
+    ->label(trans('core/base::forms.name_ar'))
+    ->placeholder(trans('core/base::forms.name_ar_placeholder'))
+    ->required()
+    ->toArray()
+)
             ->add(
                 'description',
                 EditorField::class,
@@ -90,7 +96,15 @@ class ProductForm extends FormAbstract
     ->toArray()
 )
 
+            ->add('description_ar', EditorField::class, EditorFieldOption::make()
+    ->label(trans('core/base::forms.description_ar'))
+    ->placeholder(trans('core/base::forms.description_ar_placeholder'))
+    ->toArray()
+)
+
             ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->toArray())
+            ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->toArray())
+
             ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->toArray())
 
             ->add('fragrance_notes', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes')->allowedShortcodes()->toArray())
