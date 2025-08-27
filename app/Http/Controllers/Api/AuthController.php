@@ -23,16 +23,16 @@ class AuthController extends Controller
      */
     public function signup(Request $request) {
 
-        $validator = Validator::make($request->all(), [
-            'name'      => 'required|string|max:255',
-            'email'     => 'required|string|max:255',
-            'mobile'     => 'required|numeric',
-            'password'  => 'required|string'
-            ]);
+        // $validator = Validator::make($request->all(), [
+        //     'name'      => 'required|string|max:255',
+        //     'email'     => 'required|string|max:255',
+        //     'mobile'     => 'required|numeric',
+        //     'password'  => 'required|string'
+        //     ]);
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
+        // if ($validator->fails()) {
+        //     return response()->json($validator->errors());
+        // }
 
         $customer = Customer::where('email', $request->email)->orWhere('phone', $request->mobile)->first();
 
@@ -42,12 +42,12 @@ class AuthController extends Controller
             ]);
         }
 
-        $customer = Customer::create([
-            'name'      => $request->name,
-            'email'     => $request->email,
-            'phone'     => $request->mobile,
-            'password'  => Hash::make($request->password)
-        ]);
+        // $customer = Customer::create([
+        //     'name'      => $request->name,
+        //     'email'     => $request->email,
+        //     'phone'     => $request->mobile,
+        //     'password'  => Hash::make($request->password)
+        // ]);
 
         // $token = $customer->createToken('auth_token')->plainTextToken;
 
@@ -111,8 +111,13 @@ class AuthController extends Controller
         curl_close($curl);
         // echo $response;
 
-        $customer->otp = $otp;
-        $customer->save();
+        // $customer->otp = $otp;
+        // $customer->save();
+
+        $Mobile_verification = MobileVerification::create([
+            'otp'     => $otp,
+            'phone'     => $request->mobile,
+        ]);
 
         return response()->json([
             'message'          => 'OTP Sent on Above Mobile Number'
@@ -160,16 +165,34 @@ class AuthController extends Controller
                 'coupon'            => $coupon
             ]);
         } else {
-            $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
+            // $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
 
-            if (!$customer) {
+            // if (!$customer) {
+            //     return response()->json([
+            //         'message'       => 'Invalid Mobile Number or OTP',
+            //     ]);
+            // }
+
+            // $customer->otp = 0;
+            // $customer->save();
+
+             $mobile_verification = MobileVerification::where('phone', $request->mobile)->where('otp', $request->otp)->orderBy('id', 'desc')->first();
+
+            if (!$mobile_verification) {
                 return response()->json([
                     'message'       => 'Invalid Mobile Number or OTP',
                 ]);
             }
 
-            $customer->otp = 0;
-            $customer->save();
+            $mobile_verification->otp = 0;
+            $mobile_verification->save();
+
+            $customer = Customer::create([
+            'name'      => $request->name,
+            'email'     => $request->email,
+            'phone'     => $request->mobile,
+            'password'  => Hash::make($request->password)
+            ]);
 
             $token = $customer->createToken('auth_token')->plainTextToken;
 

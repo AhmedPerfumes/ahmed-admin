@@ -1610,8 +1610,8 @@ class OrderController extends Controller
             $validator = Validator::make($request->all(), [
                 'customer_id'      => 'required',
                 'customer_name' => 'required',
-                'customer_email' => 'required|email',
-                'customer_mobile' => 'required',
+                 'customer_email' => 'required|email|unique:ec_customers,email,' . $request->input('customer_id'),
+                'customer_mobile' => 'required|unique:ec_customers,phone,' . $request->input('customer_id'),
                 // 'customer_password' => 'required',
             ]);
 
