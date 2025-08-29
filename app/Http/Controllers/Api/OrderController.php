@@ -173,33 +173,33 @@ class OrderController extends Controller
                 // $exisProduct->discount = $discountFromDb;
             // }
 
-                $focFromDb = Promotion::where('type', 'foc')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
-                    ->whereHas('focRules', function ($query) {
-                        // $query->where('apply_to', '!=', 'individual');
-                    })
-                    ->whereHas('focRules.products', function ($query) use ($product) {
-                        $query->where('product_id', $product['product_id']);
-                    })
-                    ->with(['focRules' => function ($query) {
-                        // $query->where('apply_to', '!=', 'individual')
-                            $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold');
-                    }])
-                    ->first();
+                // $focFromDb = Promotion::where('type', 'foc')
+                //     ->whereDate('start_date', '<=', now())
+                //     ->whereDate('end_date', '>=', now())
+                //     ->whereHas('focRules', function ($query) {
+                //         // $query->where('apply_to', '!=', 'individual');
+                //     })
+                //     ->whereHas('focRules.products', function ($query) use ($product) {
+                //         $query->where('product_id', $product['product_id']);
+                //     })
+                //     ->with(['focRules' => function ($query) {
+                //         // $query->where('apply_to', '!=', 'individual')
+                //             $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold');
+                //     }])
+                //     ->first();
                     
-                $requestHasFOC = isset($product['is_gift']);
-                $dbHasFOC = !is_null($focFromDb);
+                // $requestHasFOC = isset($product['is_gift']);
+                // $dbHasFOC = !is_null($focFromDb);
 
-                // echo $requestHasFOC.'---'.$dbHasFOC;
+                // echo $requestHasFOC.'---'.$dbHasFOC.'---'.$product['product_id'];
                 // echo "\n";
 
-                if ($requestHasFOC && !$dbHasFOC) {
-                    // Request says there should be a discount, but none found in DB
-                    return response()->json([
-                        'focMessage' => 'One or more Products were removed. Please add them again to continue. DB'
-                    ]);
-                }
+                // if ($requestHasFOC && !$dbHasFOC) {
+                //     // Request says there should be a discount, but none found in DB
+                //     return response()->json([
+                //         'focMessage' => 'One or more Products were removed. Please add them again to continue. DB'
+                //     ]);
+                // }
 
                 // if (!$requestHasFOC && $dbHasFOC) {
                 //     // Request says there should be no discount, but one exists in DB
@@ -210,7 +210,8 @@ class OrderController extends Controller
 
             array_push($barcodes, $exisProduct->barcode);
         }
-        // echo implode(',', $barcodes);die;
+        // echo implode(',', $barcodes);
+        // die;
         $coupon_code = $request->input('couponCode');
         if(isset($coupon_code) && !empty($request->input('couponCode'))) {
             $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
@@ -1610,7 +1611,7 @@ class OrderController extends Controller
             $validator = Validator::make($request->all(), [
                 'customer_id'      => 'required',
                 'customer_name' => 'required',
-                 'customer_email' => 'required|email|unique:ec_customers,email,' . $request->input('customer_id'),
+                'customer_email' => 'required|email|unique:ec_customers,email,' . $request->input('customer_id'),
                 'customer_mobile' => 'required|unique:ec_customers,phone,' . $request->input('customer_id'),
                 // 'customer_password' => 'required',
             ]);
