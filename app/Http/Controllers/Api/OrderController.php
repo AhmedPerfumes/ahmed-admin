@@ -27,6 +27,7 @@ use Botble\Ecommerce\Models\MobileVerification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Botble\Ecommerce\Models\DiscountCustomer;
+use App\Models\Promotion;
 
 class OrderController extends Controller
 {
@@ -129,7 +130,7 @@ class OrderController extends Controller
         // echo implode(',', $barcodes);die;
         $coupon_code = $request->input('couponCode');
         if(isset($coupon_code) && !empty($request->input('couponCode'))) {
-            $coupon = DiscountModel::where('code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+            $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
             if(!$coupon) {
                 return response()->json(['couponMessage' => 'Invalid Coupon Code']);
             }
@@ -1139,7 +1140,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $coupon = DiscountModel::where('code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+        $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
 
         if(!$coupon) {
             return response()->json(['message' => 'Invalid Coupon Code']);
@@ -1162,6 +1163,8 @@ class OrderController extends Controller
                 return response()->json(['message' => 'You Have Already Used this Coupon Code']);
             }
         }
+
+        $coupon->value = intval($coupon->value);
 
         return response()->json([
             'message'          => 'Details Fetched successfully',
@@ -1229,7 +1232,7 @@ class OrderController extends Controller
                 'customer_name' => 'required',
                 'customer_email' => 'required|email',
                 'customer_mobile' => 'required',
-                'customer_password' => 'required',
+                // 'customer_password' => 'required',
             ]);
 
             if ($validator->fails()) {
@@ -1245,8 +1248,21 @@ class OrderController extends Controller
             $customer->name = $request->input('customer_name');
             $customer->email = $request->input('customer_email');
             $customer->phone = $request->input('customer_mobile');
-            $customer->password = Hash::make($request->input('customer_password'));
+            if(isset($request->customer_password) && !empty($request->customer_password)) {
+                $customer->password = Hash::make($request->input('customer_password'));
+            }
             $customer->save();
+
+            $addresses = Address::where('customer_id', $request->input('customer_id'))->get();
+
+            if(!$addresses->isEmpty()) {
+                foreach ($addresses as $key => $address) {
+                    $address->name = $request->input('customer_name');
+                    $address->email = $request->input('customer_email');
+                    $address->phone = $request->input('customer_mobile');
+                    $address->save();
+                }   
+            }
 
             return response()->json([
                 'message' => 'Customer Updated Successfully',
@@ -1288,22 +1304,22 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'address_id'      => 'required',
-            'state' => 'required',
-            'city' => 'required',
-            'address' => 'required',
-            'customer_id' => 'required',
-            'name' => 'required',
-            'email' => 'required|email',
-            'mobile' => 'required',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
-
         if($request->input('address_id') == -1) {
+            $validator = Validator::make($request->all(), [
+                'address_id'      => 'required',
+                'state' => 'required',
+                'city' => 'required',
+                'address' => 'required',
+                'customer_id' => 'required',
+                'name' => 'required',
+                'email' => 'required|email',
+                'mobile' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }
+            
             $address = Address::create([
                 'name'      => $request->input('name'),
                 'email'     => $request->input('email'),
@@ -1319,6 +1335,17 @@ class OrderController extends Controller
                 'message' => 'Customer Address Updated Successfully',
                 'addresses' => $address
             ]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address_id'      => 'required',
+            'state' => 'required',
+            'city' => 'required',
+            'address' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
         }
 
         $address = Address::find($request->input('address_id'));
