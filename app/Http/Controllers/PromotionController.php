@@ -28,11 +28,15 @@ use Carbon\Carbon;
 
 class PromotionController extends Controller
 {
-    public function index()
-    {
-        $promotions = Promotion::orderBy('start_date', 'desc')->get();
-        return view('promotions.index', compact('promotions'));
-    }
+   public function index()
+{
+    $promotions = Promotion::where('isDeleted', false)
+        ->orderBy('start_date', 'desc')
+        ->get();
+
+    return view('promotions.index', compact('promotions'));
+}
+
 
     public function create()
     {
@@ -444,7 +448,7 @@ class PromotionController extends Controller
     $ids = $request->input('ids', []);
 
     if (!empty($ids)) {
-        Promotion::whereIn('id', $ids)->delete();
+       Promotion::whereIn('id', $ids)->update(['isDeleted' => true]);
     }
 
     return redirect()->route('promotions.index')
@@ -455,7 +459,7 @@ class PromotionController extends Controller
    public function destroy($id)
 {
     $promotion = Promotion::findOrFail($id);
-    $promotion->delete();
+    $promotion->update(['isDeleted' => true]);
 
     return redirect()->route('promotions.index')
                      ->with('success', 'Promotion deleted successfully.');

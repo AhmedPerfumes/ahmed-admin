@@ -14,6 +14,7 @@ class Promotion extends BaseModel
         'name',
         'type',
         'description',
+        'isDeleted',
         'start_date',
         'end_date',
     ];
