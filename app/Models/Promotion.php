@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder; 
 
 use Botble\Base\Models\BaseModel;
 class Promotion extends BaseModel
@@ -25,6 +26,18 @@ class Promotion extends BaseModel
         'type' => 'string',
     ];
 
+   protected static function booted()
+    {
+        static::addGlobalScope('notDeleted', function ($builder) {
+            $builder->where('isDeleted', false);
+        });
+    }
+
+    // ✅ If you want to include deleted ones manually
+    public static function withDeleted()
+    {
+        return (new static)->newQueryWithoutScope('notDeleted');
+    }
     public function bogoRules()
     {
         return $this->hasMany(BogoRule::class);

@@ -45,6 +45,7 @@ class PromotionController extends Controller
         $today = Carbon::today();
         $discountedProductIds = DB::table('promotions')
             ->where('promotions.end_date', '>=', $today)
+            ->where('promotions.isDeleted', false) 
             ->where('promotions.type', 'coupon')
             ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
             ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
@@ -52,6 +53,7 @@ class PromotionController extends Controller
             ->union(
                 DB::table('promotions')
                     ->where('promotions.end_date', '>=', $today)
+                    ->where('promotions.isDeleted', false) 
                     ->where('promotions.type', 'discount')
                     ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
                     ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
@@ -69,6 +71,7 @@ class PromotionController extends Controller
         $today = Carbon::today();
         $discountedProductIds = DB::table('promotions')
            ->where('promotions.end_date', '>=', $today)
+           ->where('promotions.isDeleted', false)
             ->where('promotions.type', 'coupon')
             ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
             ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
@@ -77,6 +80,7 @@ class PromotionController extends Controller
                 DB::table('promotions')
                    ->where('promotions.end_date', '>=', $today)
                     ->where('promotions.type', 'discount')
+                    ->where('promotions.isDeleted', false)
                     ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
                     ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
                     ->select('discount_products.product_id')
@@ -289,6 +293,7 @@ class PromotionController extends Controller
         // Get IDs of products associated with active coupon or discount promotions (excluding the current promotion)
         $discountedProductIds = DB::table('promotions')
             ->where('promotions.end_date', '>=', $today)
+            ->where('promotions.isDeleted', false)
             ->where('promotions.id', '!=', $promotion->id)
             ->whereIn('promotions.type', ['coupon', 'discount'])
             ->join('coupon_rules', function ($join) {
@@ -301,6 +306,7 @@ class PromotionController extends Controller
                 DB::table('promotions')
                     ->where('promotions.end_date', '>=', $today)
                     ->where('promotions.id', '!=', $promotion->id)
+                    ->where('promotions.isDeleted', false)
                     ->where('promotions.type', 'discount')
                     ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
                     ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
@@ -369,6 +375,7 @@ class PromotionController extends Controller
         $today = Carbon::today();
         $discountedProductIds = DB::table('promotions')
             ->where('promotions.end_date', '>=', $today)
+            ->where('promotions.isDeleted', false)
             ->where('promotions.id', '!=', $promotion->id)
             ->whereIn('promotions.type', ['coupon', 'discount'])
             ->join('coupon_rules', function ($join) {
@@ -381,6 +388,7 @@ class PromotionController extends Controller
                 DB::table('promotions')
                      ->where('promotions.end_date', '>=', $today)
                     ->where('promotions.id', '!=', $promotion->id)
+                    ->where('promotions.isDeleted', false)
                     ->where('promotions.type', 'discount')
                     ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
                     ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
