@@ -72,4 +72,10 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::post('/customerPasswordCheck', [OrderController::class, 'customerPasswordCheck']);
 
     Route::get('/getFilters', [ProductController::class, 'getFilters']);
+
+    Route::get('/freeGiftProducts', [ProductController::class, 'freeGiftProducts']);
+
+    Route::get('/bogoProducts', [ProductController::class, 'bogoProducts']);
+
+    Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
 });

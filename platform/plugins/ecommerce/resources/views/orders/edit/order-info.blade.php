@@ -39,7 +39,7 @@
                     <span class="small d-block">{{ number_format(ecommerce_convert_weight($weight)) }} {{ ecommerce_weight_unit(true) }}</span>
                 </x-core::table.body.cell>
                 <x-core::table.body.cell>
-                    {{ format_price($order->shipping_amount * 1.05) }}
+                    {{ format_price($order->shipping_amount * (1 + $order->vat_amount / 100)) }}
                 </x-core::table.body.cell>
             </x-core::table.body.row>
         @endif
@@ -50,7 +50,7 @@
                     COD Charges
                 </x-core::table.body.cell>
                 <x-core::table.body.cell>
-                    {{ format_price($order->cod_charge * 1.05) }}
+                    {{ format_price($order->cod_charge * (1 + $order->vat / 100)) }}
                 </x-core::table.body.cell>
             </x-core::table.body.row>
         @endif
@@ -60,7 +60,7 @@
                     {{ trans('plugins/ecommerce::order.service_tax') }}
                 </x-core::table.body.cell>
                 <x-core::table.body.cell>
-                    {{ format_price($order->service_amount * 1.05) }}
+                    {{ format_price($order->service_amount * (1 + $order->vat / 100)) }}
                 </x-core::table.body.cell>
             </x-core::table.body.row>
         @endif

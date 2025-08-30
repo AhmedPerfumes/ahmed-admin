@@ -1867,4 +1867,330 @@ class ProductController extends Controller
 
         return $response;
     }
+
+    public function freeGiftProducts(Request $request)
+    {
+        $thresholds = DB::table('foc_rules')->where('type', 'foc')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('promotions', 'promotions.id', '=', 'foc_rules.promotion_id')->select('name', 'foc_rules.id', 'min_threshold AS min', 'max_threshold As max')->orderBy('min', 'asc')->get();
+
+        if($thresholds->isEmpty()) {
+            return response()->json(['thresholds' => []])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => []])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+        }
+        foreach ($thresholds as $threshold) {
+            $giftData = [];
+            $gifts = DB::table('foc_products')->where('foc_rule_id', $threshold->id)->join('ec_products', 'ec_products.id', '=', 'foc_products.product_id')->select('foc_products.product_id', 'ec_products.name', 'ec_products.price', 'ec_products.images')->get();
+            foreach ($gifts as $gift) {
+                $giftData[] = [
+                    'product_id' => $gift->product_id,
+                    'product_name' => $gift->name,
+                    'price' => 0,
+                    'image' => json_decode($gift->images)[0],
+                    'is_gift' => true,
+                    'discount' => null,
+                    'coupon' => [],
+                    'campaign' => strtolower(str_replace(' ', '_', $threshold->name)).'_'.now()->year.'_campaign',
+                    'type' => 'foc',
+                ];
+            }
+            $threshold->gifts = $giftData;
+        }
+
+        $response = response()->json(['thresholds' => $thresholds])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => $thresholds])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
+    }
+
+    // public function bogoProducts(Request $request)
+    // {
+    //     $cartProductIds = $request->input('cart_product_ids', []); // Array of product IDs in cart
+
+    //     $promotions = DB::table('promotions')->where('type', 'buy_x_get_y')->where('start_date', '<=', now())->where('end_date', '>=', now())->select('id', 'name')->get()->keyBy('id');
+
+    //     $campaign = strtolower(str_replace(' ', '_', $promotions[$promotions->first()->id]->name)).'_'.now()->year.'_campaign';
+
+    //     $results = [];
+
+    //     foreach ($promotions as $promotionId => $promotion) {
+
+    //         // Get rule for the promotion
+    //         $rule = DB::table('buy_x_get_y_rules')->where('promotion_id', $promotionId)->first();
+
+    //         $buyQuantity = $rule->buy_quantity;
+    //         $getQuantity = $rule->get_quantity;
+
+    //         // Get buy and free product IDs
+    //         $buyProductIds = DB::table('buy_x_get_y_rules')->where('rule_id', $rule->id)
+    //                             ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
+    //                             ->where('type', 'buy')
+    //                             ->pluck('product_id')
+    //                             ->toArray();
+
+    //         $freeProductIds = DB::table('buy_x_get_y_rules')->where('rule_id', $rule->id)
+    //                             ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
+    //                             ->where('type', 'free')
+    //                             ->pluck('product_id')
+    //                             ->toArray();
+
+    //         // Match buy products in cart
+    //         $matchedBuyProductIds = array_intersect($cartProductIds, $buyProductIds);
+
+    //         // echo json_encode($matchedBuyProductIds);
+
+    //         // Check if matchedBuyProductIds is empty
+    //         if (empty($matchedBuyProductIds)) {
+    //             $results[] = [
+    //                 'promotion_id' => $promotionId,
+    //                 'action' => 'auto_add_buy',
+    //                 // 'message' => "Auto-selected {$getQuantity} lowest priced product(s) from your cart as reward.",
+    //                 'free_products' => []
+    //             ];
+    //             continue; // Skip to the next promotion
+    //         }
+
+    //         // CASE 1 or 2: Free products exist
+    //         if (!empty($freeProductIds)) {
+    //             if($buyQuantity === 1) {
+    //                 $freeProducts = Product::whereIn('id', $matchedBuyProductIds)
+    //                     ->whereIn('id', $freeProductIds) // Ensure free product is in freeProductIds
+    //                     ->orderBy('price', 'asc')
+    //                     // ->take($getQuantity)
+    //                     ->get();
+    //             }
+    //             else {
+    //                 $freeProducts = Product::whereIn('id', $freeProductIds)
+    //                     ->orderBy('price', 'asc')
+    //                     // ->take($getQuantity)
+    //                     ->get();   
+    //             }
+
+    //             if ($getQuantity === 1) {
+    //                 // CASE 1: Auto-add 1 free product
+    //                 // $freeProducts = $freeProducts->take(1); // Limit to 1 for auto-add
+    //                 $results[] = [
+    //                     'promotion_id' => $promotionId,
+    //                     'action' => 'auto_add_free',
+    //                     'buy_quantity' => $buyQuantity,
+    //                     'get_quantity' => $getQuantity,
+    //                     'free_products' => $freeProducts->map(function ($product) use ($campaign, $buyQuantity, $getQuantity) {
+    //                         return [
+    //                             // 'buy_quantity' => $buyQuantity,
+    //                             // 'get_quantity' => $getQuantity,
+    //                             'product_id' => $product->id,
+    //                             'product_name' => $product->name,
+    //                             'price' => '0',
+    //                             'image' => $product->images[0],
+    //                             'is_gift' => true,
+    //                             'discount' => null,
+    //                             'coupon' => [],
+    //                             'campaign' => $campaign,
+    //                         ];
+    //                     })->toArray()
+    //                 ];
+    //             } else {
+    //                 // CASE 2: Customer chooses N free products
+    //                 $results[] = [
+    //                     'promotion_id' => $promotionId,
+    //                     'action' => 'choose_free',
+    //                     'message' => "Please choose {$getQuantity} free product(s).",
+    //                     'buy_quantity' => $buyQuantity,
+    //                     'get_quantity' => $getQuantity,
+    //                     'free_products' => $freeProducts->map(function ($product) use ($campaign, $buyQuantity, $getQuantity) {
+    //                         return [
+    //                             // 'buy_quantity' => $buyQuantity,
+    //                             // 'get_quantity' => $getQuantity,
+    //                             'product_id' => $product->id,
+    //                             'product_name' => $product->name,
+    //                             'price' => '0',
+    //                             'image' => $product->images[0],
+    //                             'is_gift' => true,
+    //                             'discount' => null,
+    //                             'coupon' => [],
+    //                             'campaign' => $campaign,
+    //                         ];
+    //                     })->toArray()
+    //                 ];
+    //             }
+    //         } else {
+    //             // CASE 3: No free products — pick cheapest from matched buy products
+    //             $eligibleBuyProducts = Product::whereIn('id', $matchedBuyProductIds)
+    //                 ->orderBy('price', 'asc')
+    //                 ->take($getQuantity)
+    //                 ->get();
+
+    //             $results[] = [
+    //                 'promotion_id' => $promotionId,
+    //                 'action' => 'auto_add_buy',
+    //                 'message' => "Auto-selected {$getQuantity} lowest priced product(s) from your cart as reward.",
+    //                 'buy_quantity' => $buyQuantity,
+    //                 'get_quantity' => $getQuantity,
+    //                 'free_products' => $eligibleBuyProducts->map(function ($product) use ($campaign, $buyQuantity, $getQuantity) {
+    //                     return [
+    //                         // 'buy_quantity' => $buyQuantity,
+    //                         // 'get_quantity' => $getQuantity,
+    //                         'product_id' => $product->id,
+    //                         'product_name' => $product->name,
+    //                         'price' => '0',
+    //                         'image' => $product->images[0],
+    //                         'is_gift' => true,
+    //                         'discount' => null,
+    //                         'coupon' => [],
+    //                         'campaign' => $campaign,
+    //                     ];
+    //                 })->toArray()
+    //             ];
+    //         }
+    //     }
+
+    //     return response()->json([
+    //         'results' => $results
+    //     ]);
+    // }
+
+    public function bogoProducts(Request $request)
+    {
+        try {
+            // Fetch active promotions with type 'buy_x_get_y' and join with rules and products
+            $promotions = DB::table('promotions')
+                ->select(
+                    'promotions.id as promotion_id',
+                    'promotions.name',
+                    'buy_x_get_y_rules.id as rule_id',
+                    'buy_x_get_y_rules.buy_quantity',
+                    'buy_x_get_y_rules.get_quantity',
+                    'buy_x_get_y_products.id as product_rule_id',
+                    'buy_x_get_y_products.product_id',
+                    'buy_x_get_y_products.type as product_type',
+                    'ec_products.name as product_name',
+                    'ec_products.price as product_price',
+                    'ec_products.image as product_image'
+                )
+                ->where('promotions.type', 'buy_x_get_y')
+                ->where('promotions.start_date', '<=', now())
+                ->where('promotions.end_date', '>=', now())
+                ->leftJoin('buy_x_get_y_rules', 'promotions.id', '=', 'buy_x_get_y_rules.promotion_id')
+                ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
+                ->leftJoin('ec_products', 'buy_x_get_y_products.product_id', '=', 'ec_products.id')
+                ->get();
+
+            // Handle empty promotions
+            if ($promotions->isEmpty()) {
+                // \Log::info('No active BOGO promotions found.');
+                return response()->json(['bogoProducts' => []], 200);
+            }
+
+            // Group promotions by promotion_id and rule_id
+            $groupedPromotions = $promotions->groupBy('promotion_id')->map(function ($promoGroup) {
+                $firstPromo = $promoGroup->first();
+                // Skip if no valid promotion data
+                if (!$firstPromo || !isset($firstPromo->name)) {
+                    // \Log::warning('Skipping promotion with missing data', ['promoGroup' => $promoGroup]);
+                    return [];
+                }
+
+                $rules = $promoGroup->groupBy('rule_id')->map(function ($ruleGroup) use ($firstPromo) {
+                    $firstRule = $ruleGroup->first();
+                    // Skip if no valid rule data
+                    if (!$firstRule || !isset($firstRule->rule_id)) {
+                        // \Log::warning('Skipping rule with missing data', ['ruleGroup' => $ruleGroup]);
+                        return null;
+                    }
+
+                    $buyProducts = $ruleGroup->filter(function ($row) {
+                        return $row->product_type === 'buy';
+                    })->map(function ($row) {
+                        return [
+                            'product_id' => $row->product_id,
+                            'product_name' => $row->product_name ?? 'Unknown',
+                            'price' => $row->product_price ?? 0,
+                            'image' => $row->product_image ?? '',
+                        ];
+                    })->values()->toArray();
+
+                    $freeProducts = $ruleGroup->filter(function ($row) {
+                        return $row->product_type === 'free';
+                    })->map(function ($row) {
+                        return [
+                            'product_id' => $row->product_id,
+                            'product_name' => $row->product_name ?? 'Unknown',
+                            'price' => 0,
+                            'image' => $row->product_image ?? '',
+                            'is_gift' => true,
+                            'discount' => null,
+                            'coupon' => [],
+                            'type' => 'bogo',
+                        ];
+                    })->values()->toArray();
+
+                    // Handle empty free_products: Copy all buy_products
+                    // if (empty($freeProducts) && !empty($buyProducts)) {
+                    //     $freeProducts = collect($buyProducts)->map(function ($product) {
+                    //         return [
+                    //             'product_id' => $product['product_id'],
+                    //             'product_name' => $product['product_name'],
+                    //             'price' => 0,
+                    //             'image' => $product['image'],
+                    //             'is_gift' => true,
+                    //             'discount' => null,
+                    //             'coupon' => [],
+                    //         ];
+                    //     })->values()->toArray();
+                    // }
+
+                    return [
+                        'id' => $firstRule->rule_id,
+                        'name' => $firstPromo->name,
+                        'buy_quantity' => $firstRule->buy_quantity ?? 1,
+                        'get_quantity' => $firstRule->get_quantity ?? 1,
+                        'buy_products' => $buyProducts,
+                        'free_products' => $freeProducts,
+                        'selection_rule' => $this->determineSelectionRule($firstRule, $firstPromo->name, !empty($freeProducts)),
+                        'campaign' => $firstPromo->name
+                            ? str_replace(' ', '_', strtolower($firstPromo->name)) . '_2025_campaign'
+                            : 'default_campaign_' . $firstRule->rule_id,
+                    ];
+                })->filter()->values()->toArray();
+
+                return $rules;
+            })->flatten(1)->toArray();
+
+            return response()->json([
+                'bogoProducts' => $groupedPromotions,
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching BOGO products: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'error' => 'Failed to fetch BOGO products',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Determine the selection rule based on buy and get quantities and free products availability.
+     *
+     * @param object $rule
+     * @param string $promotionName
+     * @param bool $hasFreeProducts
+     * @return string
+     */
+    private function determineSelectionRule($rule, $promotionName, $hasFreeProducts)
+    {
+        $buyQty = $rule->buy_quantity ?? 1;
+        $getQty = $rule->get_quantity ?? 1;
+
+        if ($buyQty == 1 && $getQty == 1) {
+            return 'same_product';
+        } elseif ($buyQty == 2 && $getQty == 2) {
+            return 'least_expensive';
+        } elseif ($buyQty == 3 && $getQty == 2) {
+            return $hasFreeProducts ? 'customer_select' : 'least_expensive';
+        } elseif ($buyQty > 1 && $getQty == 1) {
+            return 'auto_add';
+        }
+
+        return 'least_expensive';
+    }
 }
