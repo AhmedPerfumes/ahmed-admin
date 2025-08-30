@@ -170,48 +170,82 @@ class OrderController extends Controller
                 }
 
                 // All matched, assign discount
-                // $exisProduct->discount = $discountFromDb;
-            // }
+                    // $exisProduct->discount = $discountFromDb;
+                // }
 
-                // $focFromDb = Promotion::where('type', 'foc')
-                //     ->whereDate('start_date', '<=', now())
-                //     ->whereDate('end_date', '>=', now())
-                //     ->whereHas('focRules', function ($query) {
-                //         // $query->where('apply_to', '!=', 'individual');
-                //     })
-                //     ->whereHas('focRules.products', function ($query) use ($product) {
-                //         $query->where('product_id', $product['product_id']);
-                //     })
-                //     ->with(['focRules' => function ($query) {
-                //         // $query->where('apply_to', '!=', 'individual')
-                //             $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold');
-                //     }])
-                //     ->first();
+                $focFromDb = Promotion::where('type', 'foc')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('focRules', function ($query) {
+                        // $query->where('apply_to', '!=', 'individual');
+                    })
+                    ->whereHas('focRules.products', function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id']);
+                    })
+                    ->with(['focRules' => function ($query) {
+                        // $query->where('apply_to', '!=', 'individual')
+                            $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold');
+                    }])
+                    ->first();
                     
-                // $requestHasFOC = isset($product['is_gift']);
-                // $dbHasFOC = !is_null($focFromDb);
+                $requestHasFOC = isset($product['type']) && $product['type'] == 'foc';
+                $dbHasFOC = !is_null($focFromDb);
 
                 // echo $requestHasFOC.'---'.$dbHasFOC.'---'.$product['product_id'];
                 // echo "\n";
 
-                // if ($requestHasFOC && !$dbHasFOC) {
-                //     // Request says there should be a discount, but none found in DB
-                //     return response()->json([
-                //         'focMessage' => 'One or more Products were removed. Please add them again to continue. DB'
-                //     ]);
-                // }
+                if ($requestHasFOC && !$dbHasFOC) {
+                    // Request says there should be a discount, but none found in DB
+                    return response()->json([
+                        'focMessage' => 'One or more Products were removed. Please add them again to continue. DB'
+                    ]);
+                }
 
-                // if (!$requestHasFOC && $dbHasFOC) {
-                //     // Request says there should be no discount, but one exists in DB
-                //     return response()->json([
-                //         'focMessage' => 'One or more Products were removed. Please add them again to continue. Request '.$product['product_name']
-                //     ]);
-                // }
+                if (!$requestHasFOC && $dbHasFOC) {
+                    // Request says there should be no discount, but one exists in DB
+                    return response()->json([
+                        'focMessage' => 'One or more Products were removed. Please add them again to continue. Request '.$product['product_name']
+                    ]);
+                }
+
+                // Step 1: Determine if request says product is a BOGO free item
+                $requestHasBOGO = isset($product['type']) && $product['type'] == 'bogo' && isset($product['is_gift']);
+
+                // Step 2: Only run DB BOGO check if the request is for a BOGO free product
+                $bogoFromDb = null;
+
+                if ($requestHasBOGO) {
+                    // echo "bogo ".$product['product_name'];
+                    // echo "\n";
+                    $bogoFromDb = Promotion::where('type', 'buy_x_get_y')
+                        ->whereDate('start_date', '<=', now())
+                        ->whereDate('end_date', '>=', now())
+                        ->whereHas('buyXGetYRules.products', function ($query) use ($product) {
+                            $query->where('product_id', $product['product_id']);
+                                // ->where('type', 'free'); // Ensure it only matches "get" products
+                        })
+                        ->first();
+                }
+
+                // Step 3: Validate mismatch between request and DB
+                $dbHasBOGO = !is_null($bogoFromDb);
+
+                if ($requestHasBOGO && !$dbHasBOGO) {
+                    return response()->json([
+                        'bogoMessage' => 'One or more Products were removed. Please add them again to continue. DB'
+                    ]);
+                }
+
+                if (!$requestHasBOGO && $dbHasBOGO) {
+                    return response()->json([
+                        'bogoMessage' => 'One or more Products were removed. Please add them again to continue. Request ' . $product['product_name']
+                    ]);
+                }
 
             array_push($barcodes, $exisProduct->barcode);
         }
         // echo implode(',', $barcodes);
-        // die;
+        die;
         $coupon_code = $request->input('couponCode');
         if(isset($coupon_code) && !empty($request->input('couponCode'))) {
             $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
@@ -1912,5 +1946,32 @@ class OrderController extends Controller
         return response()->json([
             'message' => 'Customer Found Successfully',
         ]);
+    }
+
+    public function getCoupons(Request $request)
+    {
+        $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', '!=', 'customer')
+        // ->where('customer_id', $customer->id)
+        ->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+
+        // Manually transform into an array with formatted strings
+        $formattedCoupons = $coupons->map(function ($coupon) {
+            return [
+                'code'       => $coupon->code,
+                'value'      => $coupon->value,
+                'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                'end_date'   => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                // 'type'       => 'customer',
+            ];
+        })->toArray();
+
+        // $customer->coupon = $formattedCoupons;
+        $response = response()->json(['coupons' => $formattedCoupons])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode(['coupons' => $formattedCoupons])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
     }
 }

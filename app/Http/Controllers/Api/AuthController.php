@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Botble\Ecommerce\Models\Discount as DiscountModel;
 use Botble\Ecommerce\Models\OrderAddress;
 use Botble\Ecommerce\Models\Review;
-use Botble\Ecommerce\Models\Discount;
+// use Botble\Ecommerce\Models\Discount;
 
 class AuthController extends Controller
 {
@@ -215,7 +215,7 @@ class AuthController extends Controller
                 'password'  => Hash::make($request->password)
             ]);
 
-            $coupons = Discount::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+            $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
 
             // Manually transform into an array with formatted strings
             $formattedCoupons = $coupons->map(function ($coupon) {
@@ -266,7 +266,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $coupons = Discount::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+        $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
 
         // Manually transform into an array with formatted strings
         $formattedCoupons = $coupons->map(function ($coupon) {

@@ -1887,7 +1887,8 @@ class ProductController extends Controller
                     'is_gift' => true,
                     'discount' => null,
                     'coupon' => [],
-                    'campaign' => strtolower(str_replace(' ', '_', $threshold->name)).'_'.now()->year.'_campaign'
+                    'campaign' => strtolower(str_replace(' ', '_', $threshold->name)).'_'.now()->year.'_campaign',
+                    'type' => 'foc',
                 ];
             }
             $threshold->gifts = $giftData;
@@ -2076,7 +2077,7 @@ class ProductController extends Controller
 
             // Handle empty promotions
             if ($promotions->isEmpty()) {
-                \Log::info('No active BOGO promotions found.');
+                // \Log::info('No active BOGO promotions found.');
                 return response()->json(['bogoProducts' => []], 200);
             }
 
@@ -2085,7 +2086,7 @@ class ProductController extends Controller
                 $firstPromo = $promoGroup->first();
                 // Skip if no valid promotion data
                 if (!$firstPromo || !isset($firstPromo->name)) {
-                    \Log::warning('Skipping promotion with missing data', ['promoGroup' => $promoGroup]);
+                    // \Log::warning('Skipping promotion with missing data', ['promoGroup' => $promoGroup]);
                     return [];
                 }
 
@@ -2093,7 +2094,7 @@ class ProductController extends Controller
                     $firstRule = $ruleGroup->first();
                     // Skip if no valid rule data
                     if (!$firstRule || !isset($firstRule->rule_id)) {
-                        \Log::warning('Skipping rule with missing data', ['ruleGroup' => $ruleGroup]);
+                        // \Log::warning('Skipping rule with missing data', ['ruleGroup' => $ruleGroup]);
                         return null;
                     }
 
@@ -2119,6 +2120,7 @@ class ProductController extends Controller
                             'is_gift' => true,
                             'discount' => null,
                             'coupon' => [],
+                            'type' => 'bogo',
                         ];
                     })->values()->toArray();
 

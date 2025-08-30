@@ -76,4 +76,6 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::get('/freeGiftProducts', [ProductController::class, 'freeGiftProducts']);
 
     Route::get('/bogoProducts', [ProductController::class, 'bogoProducts']);
+
+    Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
 });
