@@ -36,7 +36,9 @@
         "vue-loader": "^17.3.0"
     },
     "dependencies": {
+        "@tabler/core": "^1.4.0",
         "axios": "^1.7.3",
+        "bootstrap": "^5.3.7",
         "cropperjs": "^1.6.2",
         "epic-spinners": "^2.0.0",
         "jquery": "^3.7.1",

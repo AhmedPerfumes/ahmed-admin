@@ -37,9 +37,6 @@ class DiscountController extends BaseController
 
     public function create()
     {
-        
-       
-        
         $this->pageTitle(trans('plugins/ecommerce::discount.create'));
 
         Assets::usingVueJS()
@@ -55,113 +52,92 @@ class DiscountController extends BaseController
 
     public function store(DiscountRequest $request)
     {
-
-        // echo "<pre>";print_r($request->all());die;
-
-        /**
-         * @var Discount $discount
-         */
         $discount = Discount::query()->create($request->validated());
 
         if ($request->input('target') == 'all-orders') {
+            $allProductIds = Product::query()->pluck('id')->all();
+
             if ($request->input('type') == 'coupon') {
                 $now = Carbon::now();
-
-                $allProductsIds = Product::select('id', 'name')
+                $allProductIds = Product::select('id')
                     ->where(function ($query) {
-                        $query->whereNull('sale_price')
-                            ->orWhere('sale_price', 0);
+                        $query->whereNull('sale_price')->orWhere('sale_price', 0);
                     })
                     ->whereDoesntHave('discounts', function ($q) use ($now) {
                         $q->where('start_date', '<=', $now)
-                        ->where(function ($q2) use ($now) {
-                            $q2->whereNull('end_date')->orWhere('end_date', '>=', $now);
-                        })
-                        // Optionally filter by type if needed:
-                        ->where('type', 'promotion');
+                            ->where(function ($q2) use ($now) {
+                                $q2->whereNull('end_date')->orWhere('end_date', '>=', $now);
+                            })
+                            ->where('type', 'promotion');
                     })
                     ->pluck('id')
                     ->all();
-                    // ->get()->toArray();
-                // echo "<pre>";print_r($allProductIds);die;
-                $discount->products()->attach($allProductsIds);
-            } else {
-                $allProductIds = Product::query()->pluck('id')->all();
-                // echo "<pre>";print_r($allProductIds);die;
-                $discount->products()->attach($allProductIds);
             }
+
+            $discount->products()->attach($allProductIds);
         } else {
-            if ($discount) {
-                if ($productCollections = $request->input('product_collections')) {
-                    if (! is_array($productCollections)) {
-                        $productCollections = [$productCollections];
-                        $discount->productCollections()->attach($productCollections);
-                    }
+            if ($productCollections = $request->input('product_collections')) {
+                if (!is_array($productCollections)) {
+                    $productCollections = [$productCollections];
                 }
+                $discount->productCollections()->attach($productCollections);
+            }
 
-                if (($productCategories = $request->input('product_categories')) && ! is_array($productCategories)) {
+            if ($productCategories = $request->input('product_categories')) {
+                if (!is_array($productCategories)) {
                     $productCategories = [$productCategories];
-                    $discount->productCategories()->attach($productCategories);
+                }
+                $discount->productCategories()->attach($productCategories);
+            }
+
+            if ($products = $request->input('products')) {
+                if (is_string($products) && Str::contains($products, ',')) {
+                    $products = explode(',', $products);
+                }
+                if (!is_array($products)) {
+                    $products = [$products];
                 }
 
-                if ($products = $request->input('products')) {
-                    if (is_string($products) && Str::contains($products, ',')) {
-                        $products = explode(',', $products);
+                foreach ($products as $productId) {
+                    $product = Product::query()->find($productId);
+                    if (!$product || $product->is_variation) {
+                        unset($products[array_search($productId, $products)]);
+                        continue;
                     }
-
-                    if (! is_array($products)) {
-                        $products = [$products];
-                    }
-
-                    foreach ($products as $productId) {
-                        /**
-                         * @var Product $product
-                         */
-                        $product = Product::query()->find($productId);
-
-                        if (! $product || $product->is_variation) {
-                            Arr::forget($products, $productId);
-                        }
-
-                        $products = array_merge($products, $product->variations()->pluck('product_id')->all());
-                    }
-
-                    $discount->products()->attach(array_unique($products));
+                    $products = array_merge($products, $product->variations()->pluck('product_id')->all());
                 }
 
-                if ($variants = $request->input('variants')) {
-                    if (is_string($variants) && Str::contains($variants, ',')) {
-                        $variants = explode(',', $variants);
-                    }
+                $discount->products()->attach(array_unique($products));
+            }
 
-                    if (! is_array($variants)) {
-                        $variants = [$variants];
-                    }
-
-                    foreach ($variants as $variantId) {
-                        $product = Product::query()->find($variantId);
-
-                        if (! $product || ! $product->is_variation || ! $product->original_product->id) {
-                            Arr::forget($products, $product->getKey());
-                        }
-
-                        $variants = array_merge($variants, [$product->original_product->id]);
-                    }
-
-                    $discount->products()->attach(array_unique($variants));
+            if ($variants = $request->input('variants')) {
+                if (is_string($variants) && Str::contains($variants, ',')) {
+                    $variants = explode(',', $variants);
+                }
+                if (!is_array($variants)) {
+                    $variants = [$variants];
                 }
 
-                if ($customers = $request->input('customers')) {
-                    if (is_string($customers) && Str::contains($customers, ',')) {
-                        $customers = explode(',', $customers);
+                foreach ($variants as $variantId) {
+                    $product = Product::query()->find($variantId);
+                    if (!$product || !$product->is_variation || !$product->original_product->id) {
+                        continue;
                     }
-
-                    if (! is_array($customers)) {
-                        $customers = [$customers];
-                    }
-
-                    $discount->customers()->attach(array_unique($customers));
+                    $variants = array_merge($variants, [$product->original_product->id]);
                 }
+
+                $discount->products()->attach(array_unique($variants));
+            }
+
+            if ($customers = $request->input('customers')) {
+                if (is_string($customers) && Str::contains($customers, ',')) {
+                    $customers = explode(',', $customers);
+                }
+                if (!is_array($customers)) {
+                    $customers = [$customers];
+                }
+
+                $discount->customers()->attach(array_unique($customers));
             }
         }
 
@@ -189,7 +165,6 @@ class DiscountController extends BaseController
             foreach ($productVariant->variationInfo->variationItems as $variationItem) {
                 $variationItem->attribute_title = $variationItem->attribute->title;
             }
-
             $productVariant->variationItems = $productVariant->variationInfo->variationItems;
         }
 
@@ -214,119 +189,35 @@ class DiscountController extends BaseController
 
     public function update(Discount $discount, DiscountRequest $request)
     {
-        // echo "<pre>";print_r($request->all());
         $discount->update($request->validated());
 
         if ($request->input('target') == 'all-orders') {
             $discount->products()->detach();
+            $allProductIds = Product::query()->pluck('id')->all();
+
             if ($request->input('type') == 'coupon') {
                 $now = Carbon::now();
-
-                $allProductsIds = Product::select('id', 'name')
+                $allProductIds = Product::select('id')
                     ->where(function ($query) {
-                        $query->whereNull('sale_price')
-                            ->orWhere('sale_price', 0);
+                        $query->whereNull('sale_price')->orWhere('sale_price', 0);
                     })
                     ->whereDoesntHave('discounts', function ($q) use ($now) {
                         $q->where('start_date', '<=', $now)
-                        ->where(function ($q2) use ($now) {
-                            $q2->whereNull('end_date')->orWhere('end_date', '>=', $now);
-                        })
-                        // Optionally filter by type if needed:
-                        ->where('type', 'promotion');
+                            ->where(function ($q2) use ($now) {
+                                $q2->whereNull('end_date')->orWhere('end_date', '>=', $now);
+                            })
+                            ->where('type', 'promotion');
                     })
                     ->pluck('id')
                     ->all();
-                    // ->get()->toArray();
-                // echo "<pre>";print_r($allProductIds);die;
-                $discount->products()->attach($allProductsIds);
-            } else {
-                $allProductIds = Product::query()->pluck('id')->all();
-                // echo "<pre>";print_r($allProductIds);die;
-                $discount->products()->attach($allProductIds);
             }
+
+            $discount->products()->attach($allProductIds);
         } else {
-            if ($productCollections = $request->input('product_collections')) {
-                // die('product_collections');
-                if (! is_array($productCollections)) {
-                    $productCollections = [$productCollections];
-                    $discount->productCollections()->sync($productCollections);
-                }
-            }
-
-            if (($productCategories = $request->input('product_categories')) && ! is_array($productCategories)) {
-                // die('product_categories');
-                $productCategories = [$productCategories];
-                $discount->productCategories()->sync($productCategories);
-            }
-
-            if ($products = $request->input('products')) {
-                // die('products');
-                if (is_string($products) && Str::contains($products, ',')) {
-                    $products = explode(',', $products);
-                }
-
-                if (! is_array($products)) {
-                    $products = [$products];
-                }
-
-                foreach ($products as $productId) {
-                    /**
-                     * @var Product $product
-                     */
-                    $product = Product::query()->find($productId);
-
-                    if (! $product || $product->is_variation) {
-                        Arr::forget($products, $productId);
-                    }
-
-                    $products = array_merge($products, $product->variations()->pluck('product_id')->all());
-                }
-
-                $discount->products()->sync(array_unique($products));
-            } else {
-                // die('productselse');
-                $discount->products()->detach();
-            }
-
-            if ($variants = $request->input('variants')) {
-                // die('variants');
-                if (is_string($variants) && Str::contains($variants, ',')) {
-                    $variants = explode(',', $variants);
-                }
-
-                if (! is_array($variants)) {
-                    $variants = [$variants];
-                }
-
-                foreach ($variants as $variantId) {
-                    $product = Product::query()->find($variantId);
-
-                    if (! $product || ! $product->is_variation || ! $product->original_product->id) {
-                        Arr::forget($products, $product->id);
-                    }
-
-                    $variants = array_merge($variants, [$product->original_product->id]);
-                }
-
-                $discount->products()->sync(array_unique($variants));
-            }
-
-            if ($customers = $request->input('customers')) {
-                // die('customers');
-                if (is_string($customers) && Str::contains($customers, ',')) {
-                    $customers = explode(',', $customers);
-                }
-
-                if (! is_array($customers)) {
-                    $customers = [$customers];
-                }
-
-                $discount->customers()->sync(array_unique($customers));
-            } else {
-                // die('customerselse');
-                $discount->customers()->detach();
-            }   
+            $discount->productCollections()->sync($request->input('product_collections', []));
+            $discount->productCategories()->sync($request->input('product_categories', []));
+            $discount->products()->sync($request->input('products', []));
+            $discount->customers()->sync($request->input('customers', []));
         }
 
         event(new UpdatedContentEvent(DISCOUNT_MODULE_SCREEN_NAME, $request, $discount));
