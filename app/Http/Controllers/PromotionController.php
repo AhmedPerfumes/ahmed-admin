@@ -59,7 +59,7 @@ class PromotionController extends Controller
             //         ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
             //         ->select('discount_products.product_id')
             // )
-            ->whereIn('promotions.type', ['coupon', 'discount', 'bogo', 'buy_x_get_y'])
+            ->whereIn('promotions.type', ['coupon', 'discount', 'buy_x_get_y'])
             ->leftJoin('coupon_rules', function ($join) {
                 $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
                     ->where('promotions.type', '=', 'coupon');

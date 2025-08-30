@@ -24,11 +24,11 @@
                                 <label for="type" class="form-label">Promotion Type</label>
                                 <select name="type" id="type" onchange="toggleFields()" class="form-select" required {{ isset($promotion) ? 'disabled' : '' }}>
                                     <option value="">Select Type</option>
-                                    {{-- <option value="bogo">BOGO</option> --}}
-                                    <option value="buy_x_get_y">Buy X Get Y</option>
-                                    <option value="discount">Discount</option>
-                                    <option value="coupon">Coupon</option>
-                                    <option value="foc">Free of Charge</option>
+                                    <!-- <option value="bogo" {{ isset($promotion) && $promotion->type === 'bogo' ? 'selected' : '' }}>BOGO</option> -->
+                                    <option value="buy_x_get_y" {{ isset($promotion) && $promotion->type === 'buy_x_get_y' ? 'selected' : '' }}>Buy X Get Y</option>
+                                    <option value="discount" {{ isset($promotion) && $promotion->type === 'discount' ? 'selected' : '' }}>Discount</option>
+                                    <option value="coupon" {{ isset($promotion) && $promotion->type === 'coupon' ? 'selected' : '' }}>Coupon</option>
+                                    <option value="foc" {{ isset($promotion) && $promotion->type === 'foc' ? 'selected' : '' }}>Free of Charge</option>
                                 </select>
                                 @if (isset($promotion))
                                     <input type="hidden" name="type" value="{{ $promotion->type }}">
@@ -51,7 +51,7 @@
                             </div>
 
                             <!-- BOGO Fields -->
-                            {{-- <div id="bogo_fields" style="display: none;">
+                            <!-- <div id="bogo_fields" style="display: {{ isset($promotion) && $promotion->type === 'bogo' ? 'block' : 'none' }};">
                                 <div class="mb-3">
                                     <label for="bogo_product_ids" class="form-label">Buy Product</label>
                                     <select name="bogo_product_ids_temp" id="bogo_product_ids" class="form-select">
@@ -61,9 +61,6 @@
                                                 {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
                                             </option>
                                         @endforeach
-                                        -- <option value="1">Product 1</option>
-                                        <option value="2">Product 2</option>
-                                        <option value="3">Product 3</option> --
                                     </select>
                                 </div>
                                 <div class="mb-3">
@@ -75,9 +72,6 @@
                                                 {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
                                             </option>
                                         @endforeach
-                                        -- <option value="1">Product 1</option>
-                                        <option value="2">Product 2</option>
-                                        <option value="3">Product 3</option> --
                                     </select>
                                 </div>
                                 <div class="mb-3">
@@ -109,7 +103,7 @@
                                         @endif
                                     </div>
                                 </div>
-                            </div> --}}
+                            </div>  -->
 
                             <!-- Buy X Get Y Fields -->
                             <div id="buy_x_get_y_fields" style="display: {{ isset($promotion) && $promotion->type === 'buy_x_get_y' ? 'block' : 'none' }};">
@@ -337,8 +331,8 @@
                                         @foreach ($products as $product)
                                             <option value="{{ $product['id'] }}"
                                                 @if(isset($promotionData['free_products']) && in_array($product['id'], $promotionData['free_products'])) selected @endif
-                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
-                                                {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
+                                                @if(in_array($product['id'], $discountedProductIds))@endif>
+                                                {{ $product['name']}}
                                             </option>
                                         @endforeach
                                     </select>
@@ -373,18 +367,12 @@
                     updatePriceAndDiscount('discount', values);
                 }
             });
-            const groupDiscountSelect = new TomSelect('#discount_group_product_ids', {
-                maxItems: 10
-            });
-            const couponGroupSelect = new TomSelect('#coupon_group_product_ids', {
-                maxItems: 10
-            });
-            const couponCustomerSelect = new TomSelect('#coupon_customer_ids', {
-                maxItems: 10
-            });
+            const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { maxItems: 10 });
+            const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 10 });
+            const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 10 });
             // const bogoProductSelect = new TomSelect('#bogo_product_ids', { maxItems: 1 });
             // const bogoFreeProductSelect = new TomSelect('#bogo_free_product_ids', { maxItems: 1 });
-            new TomSelect('#buy_x_product_ids', {
+            const buyXProductSelect = new TomSelect('#buy_x_product_ids', {
                 maxItems: 10,
                 lock: 'locked',
                 onItemRemove: function() {
@@ -493,31 +481,29 @@
             document.getElementById('promotionForm').addEventListener('submit', function(event) {
                 const promotionType = document.getElementById('type').value;
                 // Validate BOGO
-                if (promotionType === 'bogo') {
-                    const bogoRules = document.querySelectorAll('#bogo_rules_table .row');
-                    if (bogoRules.length === 0) {
-                        event.preventDefault();
-                        alert('Please add at least one BOGO rule with a Buy product and a Free product.');
-                        return;
-                    }
-                    for (let row of bogoRules) {
-                        const buyProduct = row.querySelector('input[name="conditions[bogo][product_ids][]"]').value;
-                        const freeProduct = row.querySelector('input[name="rewards[bogo][free_product_ids][]"]').value;
-                        if (!buyProduct || !freeProduct) {
-                            event.preventDefault();
-                            alert('All BOGO rules must have a valid Buy product and Free product.');
-                            return;
-                        }
-                    }
-                }
+                // if (promotionType === 'bogo') {
+                //     const bogoRules = document.querySelectorAll('#bogo_rules_table .row');
+                //     if (bogoRules.length === 0) {
+                //         event.preventDefault();
+                //         alert('Please add at least one BOGO rule with a Buy product and a Free product.');
+                //         return;
+                //     }
+                //     for (let row of bogoRules) {
+                //         const buyProduct = row.querySelector('input[name="conditions[bogo][product_ids][]"]').value;
+                //         const freeProduct = row.querySelector('input[name="rewards[bogo][free_product_ids][]"]').value;
+                //         if (!buyProduct || !freeProduct) {
+                //             event.preventDefault();
+                //             alert('All BOGO rules must have a valid Buy product and Free product.');
+                //             return;
+                //         }
+                //     }
+                // }
                 // Validate Buy X Get Y
                 if (promotionType === 'buy_x_get_y') {
                     const buyQuantity = parseFloat(document.getElementById('buy_quantity').value);
                     const getQuantity = parseFloat(document.getElementById('get_quantity').value);
                     const buyProductIds = document.getElementById('buy_x_product_ids').tomselect.getValue();
-                    // const buyCategoryIds = document.getElementById('buy_x_category_ids').tomselect.getValue();
-                    // const getProductIds = document.getElementById('get_y_product_ids').tomselect.getValue();
-                    // const getCategoryIds = document.getElementById('get_y_category_ids').tomselect.getValue();
+                    const getProductIds = document.getElementById('get_y_product_ids').tomselect.getValue();
 
                     if (isNaN(buyQuantity) || buyQuantity < 1) {
                         event.preventDefault();
