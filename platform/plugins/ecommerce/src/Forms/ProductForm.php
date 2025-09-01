@@ -43,6 +43,7 @@ class ProductForm extends FormAbstract
 {
     public function setup(): void
     {
+
         $this->addAssets();
 
         $brands = Brand::query()->pluck('name', 'id')->all();
@@ -69,104 +70,179 @@ class ProductForm extends FormAbstract
         $this
             ->setupModel(new Product())
             ->setValidatorClass(ProductRequest::class)
-            ->setFormOption('files', true)
-            ->add('name', TextField::class, NameFieldOption::make()->required()->toArray())
-            ->add('name_ar', TextField::class, NameFieldOption::make()
-    ->label(trans('core/base::forms.name_ar'))
-    ->placeholder(trans('core/base::forms.name_ar_placeholder'))
-    ->required()
-    ->toArray()
-)
-            ->add('name_ar', TextField::class, NameFieldOption::make()
-    ->label(trans('core/base::forms.name_ar'))
-    ->placeholder(trans('core/base::forms.name_ar_placeholder'))
-    ->required()
-    ->toArray()
-)
-            ->add(
-                'description',
-                EditorField::class,
-                EditorFieldOption::make()
-                    ->label(trans('core/base::forms.description'))
-                    ->placeholder(trans('core/base::forms.description_placeholder'))->toArray()
-            )
-            ->add('description_ar', EditorField::class, EditorFieldOption::make()
-    ->label(trans('core/base::forms.description_ar'))
-    ->placeholder(trans('core/base::forms.description_ar_placeholder'))
-    ->toArray()
-)
+            ->setFormOption('files', true);
 
-            ->add('description_ar', EditorField::class, EditorFieldOption::make()
-    ->label(trans('core/base::forms.description_ar'))
-    ->placeholder(trans('core/base::forms.description_ar_placeholder'))
-    ->toArray()
-)
+        // STEP A: Add the Tab Navigation (the clickable buttons)
+        $this->add('tabs_nav', 'html', [
+            'html' => '
+        <ul class="nav nav-tabs" id="product-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#tab_general" type="button" role="tab" aria-controls="tab_general" aria-selected="true">General Information</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="categorization-tab" data-bs-toggle="tab" data-bs-target="#tab_categorization" type="button" role="tab" aria-controls="tab_categorization" aria-selected="false">Categorization</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="notes-tab" data-bs-toggle="tab" data-bs-target="#tab_notes" type="button" role="tab" aria-controls="tab_notes" aria-selected="false">Fragrance Notes</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="specs-tab" data-bs-toggle="tab" data-bs-target="#tab_specifications" type="button" role="tab" aria-controls="tab_specifications" aria-selected="false">Item Specifications</button>
+            </li>
+            </ul>
+    ',
+        ]);
 
-            ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->toArray())
-            ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->toArray())
+        $this->add('tabs_content_start', 'html', ['html' => '<div class="tab-content" id="product-tabs-content">']);
 
-            ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->toArray())
+        // --- TAB 1: GENERAL INFORMATION ---
+        $this->add('general_tab_start', 'html', ['html' => '<div class="tab-pane fade show active" id="tab_general" role="tabpanel" aria-labelledby="general-tab">']);
 
-            ->add('fragrance_notes', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes')->allowedShortcodes()->toArray())
-            ->add('fragrance_notes_ar', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes (Arabic)')->allowedShortcodes()->toArray())
+        $this->add('general_header', 'html', ['html' => '<h4 class="mt-4 h2">General</h4><hr>'])
+            ->add('name_row_open', 'html', ['html' => '<div class="row">',])
+            ->add('name_ar', TextField::class, NameFieldOption::make()->label(trans('core/base::forms.name_ar'))->placeholder(trans('core/base::forms.name_ar_placeholder'))->required()->wrapperAttributes(['class' => 'form-group col-12 col-md-6'])->toArray())
+            ->add('name', TextField::class, NameFieldOption::make()->required()->wrapperAttributes(['class' => 'form-group col-12 col-md-6'])->toArray())
+            ->add('name_row_close', 'html', ['html' => '</div>',])
 
-            ->add('itemCategory_1', TextField::class, TextFieldOption::make()->label('Item Category 1')->toArray())
-            ->add('itemCategory_2', TextField::class, TextFieldOption::make()->label('Item Category 2')->toArray())
-            ->add('itemCategory_3', TextField::class, TextFieldOption::make()->label('Item Category 3')->toArray())
-            ->add('itemCategory_4', TextField::class, TextFieldOption::make()->label('Item Category 4')->toArray())
-            ->add('itemCategory_5', TextField::class, TextFieldOption::make()->label('Item Category 5')->toArray())
-            ->add('itemFamily', TextField::class, TextFieldOption::make()->label('Item Family')->toArray())
+            ->add('description_row_start', 'html', ['html' => '<div class="row">'])
+            ->add('description', EditorField::class, EditorFieldOption::make()->label(trans('core/base::forms.description'))->placeholder(trans('core/base::forms.description_placeholder'))->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('description_ar', EditorField::class, EditorFieldOption::make()->label(trans('core/base::forms.description_ar'))->placeholder(trans('core/base::forms.description_ar_placeholder'))->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('description_row_end', 'html', ['html' => '</div>'])
+
+            // ->add('content_row_start', 'html', ['html' => '<div class="row">'])
+            // ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('content_row_end', 'html', ['html' => '</div>'])
+
+            // ->add('fragrance_row_start', 'html', ['html' => '<div class="row">'])
+            // ->add('fragrance_notes', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes')->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('fragrance_notes_ar', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes (Arabic)')->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('fragrance_row_end', 'html', ['html' => '</div>'])
+            ->add('images[]', MediaImagesField::class, ['label' => trans('plugins/ecommerce::products.form.image'), 'values' => $productId ? $this->getModel()->images : [],]);
+        $this->add('general_tab_end', 'html', ['html' => '</div>']);
+
+        // --- TAB 2: CATEGORIZATION ---
+        $this->add('categorization_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_categorization" role="tabpanel" aria-labelledby="categorization-tab">']);
+
+        // --- Section 1: Categorization (3-column layout) ---
+        $this->add('categories_header', 'html', ['html' => '<h4 class="mt-4 h2">Categorization</h4><hr>'])
+            ->add('categories_row_start', 'html', ['html' => '<div class="row">'])
+            ->add('itemCategory_1', TextField::class, TextFieldOption::make()->label('Item Category 1')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('itemCategory_2', TextField::class, TextFieldOption::make()->label('Item Category 2')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('itemCategory_3', TextField::class, TextFieldOption::make()->label('Item Category 3')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('itemCategory_4', TextField::class, TextFieldOption::make()->label('Item Category 4')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('itemCategory_5', TextField::class, TextFieldOption::make()->label('Item Category 5')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('itemFamily', TextField::class, TextFieldOption::make()->label('Item Family')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('categories_row_end', 'html', ['html' => '</div>']);
+        $this->add('categorization_tab_end', 'html', ['html' => '</div>']);
+
+        // --- Section 2: Fragrance Notes (with images) ---
+        $this->add('notes_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_notes" role="tabpanel" aria-labelledby="notes-tab">']);
+        $this->add('notes_header', 'html', ['html' => '<h4 class="mt-4 h2">Fragrance Notes</h4><hr>'])
+            ->add('notes_row_start', 'html', ['html' => '<div class="row">'])
+
+            ->add('top_notes_col_start', 'html', ['html' => '<div class="col-md-4">'])
             ->add('note_1', TextField::class, TextFieldOption::make()->label('Top Notes')->toArray())
-            ->add('note_2', TextField::class, TextFieldOption::make()->label('Middle Notes')->toArray())
-            ->add('note_3', TextField::class, TextFieldOption::make()->label('Base Notes')->toArray())
-            ->add('item_profile', EditorField::class, EditorFieldOption::make()->label('Item Profile')->toArray())
-            ->add('item_classification', TextField::class, TextFieldOption::make()->label('Item Classification')->toArray())
-            ->add('sillage', TextField::class, TextFieldOption::make()->label('Sillage')->toArray())
-            ->add('longevity', TextField::class, TextFieldOption::make()->label('Longevity')->toArray())
-            ->add('how_to_use', EditorField::class, EditorFieldOption::make()->label('How to Use')->toArray())
-            ->add('occasion', TextField::class, TextFieldOption::make()->label('Occasion')->toArray())
-            ->add('size', TextField::class, TextFieldOption::make()->label('Size')->toArray())
-            ->add('ingredients', EditorField::class, EditorFieldOption::make()->label('Ingredients')->toArray())
+            ->add('note_1_image', MediaImageField::class, MediaImageFieldOption::make()->label('Top Notes Image')->toArray())
+            ->add('top_notes_col_end', 'html', ['html' => '</div>'])
 
-            ->add('images[]', MediaImagesField::class, [
-                'label' => trans('plugins/ecommerce::products.form.image'),
-                'values' => $productId ? $this->getModel()->images : [],
-            ])
-            ->addMetaBoxes([
-                'with_related' => [
-                    'title' => null,
-                    'content' => Html::tag('div', '', [
-                        'class' => 'wrap-relation-product',
-                        'data-target' => route('products.get-relations-boxes', $productId ?: 0),
-                    ]),
-                    'wrap' => false,
-                    'priority' => 9999,
+            ->add('middle_notes_col_start', 'html', ['html' => '<div class="col-md-4">'])
+            ->add('note_2', TextField::class, TextFieldOption::make()->label('Middle Notes')->toArray())
+            ->add('note_2_image', MediaImageField::class, MediaImageFieldOption::make()->label('Middle Notes Image')->toArray())
+            ->add('middle_notes_col_end', 'html', ['html' => '</div>'])
+
+            ->add('base_notes_col_start', 'html', ['html' => '<div class="col-md-4">'])
+            ->add('note_3', TextField::class, TextFieldOption::make()->label('Base Notes')->toArray())
+            ->add('note_3_image', MediaImageField::class, MediaImageFieldOption::make()->label('Base Notes Image')->toArray())
+            ->add('base_notes_col_end', 'html', ['html' => '</div>'])
+            ->add('olfactory_family', TextField::class, TextFieldOption::make()->label('Olfactory Family')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('sillage', TextField::class, TextFieldOption::make()->label('Sillage')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('notes_row_end', 'html', ['html' => '</div>']);
+            $this->add('notes_tab_end', 'html', ['html' => '</div>']);
+            
+        // --- Section 3: Item Specifications ---
+        $this->add('specs_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_specifications" role="tabpanel" aria-labelledby="specifications-tab">']);
+        $this->add('specs_header', 'html', ['html' => '<h4 class="mt-4 h2">Item Specifications</h4><hr>'])
+            ->add('specs_row_start', 'html', ['html' => '<div class="row">'])
+            ->add('size', TextField::class, TextFieldOption::make()->label('Size')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
+            ->add('fragrance_type', SelectField::class, SelectFieldOption::make()->label('Fragrance Type')
+                ->choices([
+                    'Personal Fragrance (By Concentration)' => [
+                        'parfum' => 'Extrait de Parfum / Parfum',
+                        'edp' => 'Eau de Parfum (EDP)',
+                        'edt' => 'Eau de Toilette (EDT)',
+                        'edc' => 'Eau de Cologne (EDC)',
+                    ],
+                    'Personal Fragrance (By Form)' => [
+                        'concentrated_oil' => 'Concentrated Oil',
+                        'dehn_al_oud' => 'Dehn al Oud',
+                        'hair_mist' => 'Hair Mist',
+                        'body_gel' => 'Body Gel',
+                    ],
+                    'Home & Traditional Fragrance' => [
+                        'bakhoor' => 'Bakhoor',
+                        'oud_maattar' => 'Oud Maattar',
+                        'air_freshener' => 'Air Freshener',
+                    ],
+                    'other' => 'Other',
+                ])->emptyValue('Select Fragrence Type...')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
+            ->add('badge', SelectField::class, [
+                'label' => 'Badges',
+                'choices' => [
+                    'bestseller' => 'Best Seller',
+                    'newlaunch' => 'New Launch',
+                    'onlineexclusive' => 'Online Exclusive',
+                    'buyonegetone' => 'Buy One Get One',
                 ],
+                'values' => $productId ? $this->getModel()->badge : [],
+                'attr' => [
+                    'class' => 'form-control select-multiple',
+                    'multiple' => true,
+                ],
+                'wrapper' => ['class' => 'form-group col-md-3'],
             ])
-            ->when(! EcommerceHelper::isDisabledPhysicalProduct(), function () {
+            ->add('dispenser_type', SelectField::class, SelectFieldOption::make()->label('Dispenser Type')
+                ->choices([
+                    'spray' => 'Spray / Atomizer (for Perfumes, Mists)',
+                    'serum' => 'Serum Press (for Gels, Lotions)',
+                    'dabber_stick' => 'Dabber / Stick Applicator (for Oils)',
+                    'solid_incense' => 'Solid / Incense (for Bakhoor, Maattar)',
+                    'jar' => 'Jar / Pot (for Gels, Bakhoor)',
+                    'tube' => 'Tube (for Gels)',
+                    'reed_diffuser' => 'Reed Diffuser (for Air Fresheners)',
+                    'dropper' => 'Dropper',
+                    'other' => 'Other',
+                ])->emptyValue('Select Dispenser Type...')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
+            ->add('fragrance_category', TextField::class, TextFieldOption::make()->label('Fragrance Category')->placeholder('e.g., Occidental, Unisex')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            
+            ->add('item_profile', TextField::class, TextFieldOption::make()->label('Item Profile')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('item_classification', TextField::class, TextFieldOption::make()->label('Item Classification')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+
+            ->add('longevity', TextField::class, TextFieldOption::make()->label('Longevity')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('occasion', TextField::class, TextFieldOption::make()->label('Occasion')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('additional_details', TextField::class, TextFieldOption::make()->label('Additional Details')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+
+            ->add('how_to_use', TextField::class, TextFieldOption::make()->label('How to Use')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('ingredients', TextField::class, TextFieldOption::make()->label('Ingredients')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('story', TextField::class, TextFieldOption::make()->label('Story')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+
+            ->add('specs_row_end', 'html', ['html' => '</div>']);
+        $this->add('specs_tab_end', 'html', ['html' => '</div>']);
+        $this->add('tabs_content_end', 'html', ['html' => '</div>']);
+
+
+        $this->addMetaBoxes(['with_related' => ['title' => null, 'content' => Html::tag('div', '', ['class' => 'wrap-relation-product', 'data-target' => route('products.get-relations-boxes', $productId ?: 0),]), 'wrap' => false, 'priority' => 9999,],])
+            ->when(!EcommerceHelper::isDisabledPhysicalProduct(), function () {
                 $this->add('product_type', 'hidden', [
                     'value' => request()->input('product_type') ?: ProductTypeEnum::PHYSICAL,
                 ]);
-            })
-            ->add('status', SelectField::class, StatusFieldOption::make()->toArray())
-            ->add(
-                'is_featured',
-                OnOffField::class,
-                OnOffFieldOption::make()
-                    ->label(trans('core/base::forms.is_featured'))
-                    ->defaultValue(false)
-                    ->toArray()
-            )
-            ->add(
-                'categories[]',
-                TreeCategoryField::class,
-                SelectFieldOption::make()
-                    ->label(trans('plugins/ecommerce::products.form.categories'))
-                    ->choices(ProductCategoryHelper::getActiveTreeCategories())
-                    ->selected(old('categories', $selectedCategories))
-                    ->addAttribute('card-body-class', 'p-0')
-                    ->toArray()
-            )
+            });
+
+
+
+
+        $this->add('status', SelectField::class, StatusFieldOption::make()->toArray())
+            ->add('is_featured', OnOffField::class, OnOffFieldOption::make()->label(trans('core/base::forms.is_featured'))->defaultValue(false)->toArray())
+            ->add('categories[]', TreeCategoryField::class, SelectFieldOption::make()->label(trans('plugins/ecommerce::products.form.categories'))->choices(ProductCategoryHelper::getActiveTreeCategories())->selected(old('categories', $selectedCategories))->addAttribute('card-body-class', 'p-0')->toArray())
             ->when($brands, function () use ($brands) {
                 $this
                     ->add(
@@ -298,7 +374,7 @@ class ProductForm extends FormAbstract
                 ],
             ]);
 
-        if (! $totalProductVariations) {
+        if (!$totalProductVariations) {
             $this
                 ->removeMetaBox('variations')
                 ->addMetaBoxes([

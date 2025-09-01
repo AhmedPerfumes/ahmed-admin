@@ -89,6 +89,12 @@ class Product extends BaseModel
         'note_1',
         'note_2',
         'note_3',
+        'note_1_image',
+        'note_2_image',
+        'note_3_image',
+        'fragrance_type',
+        'fragrance_category',
+        'dispenser_type',
         'item_profile',
         'item_classification',
         'sillage',
@@ -97,6 +103,10 @@ class Product extends BaseModel
         'occasion',
         'size',
         'ingredients',
+        'olfactory_family',
+        'additional_details',
+        'story',
+        'badge',
     ];
 
     protected $appends = [
@@ -144,6 +154,7 @@ class Product extends BaseModel
         'occasion'       => SafeContent::class,
         'size'           => SafeContent::class,
         'ingredients'     => SafeContent::class,
+        'badge' => 'array',
     ];
 
     protected static function booted(): void
