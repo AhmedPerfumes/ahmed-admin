@@ -367,27 +367,27 @@
                     updatePriceAndDiscount('discount', values);
                 }
             });
-            const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { maxItems: 10 });
-            const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 10 });
-            const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 10 });
+            const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { maxItems: 200 });
+            const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 200 });
+            const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 200 });
             // const bogoProductSelect = new TomSelect('#bogo_product_ids', { maxItems: 1 });
             // const bogoFreeProductSelect = new TomSelect('#bogo_free_product_ids', { maxItems: 1 });
             const buyXProductSelect = new TomSelect('#buy_x_product_ids', {
-                maxItems: 10,
+                maxItems: 200,
                 lock: 'locked',
                 onItemRemove: function() {
                     return false;
                 }
             });
             const getYProductSelect = new TomSelect('#get_y_product_ids', {
-                maxItems: 10,
+                maxItems: 200,
                 lock: 'locked',
                 onItemRemove: function() {
                     return false;
                 }
             });
             const focProductSelect = new TomSelect('#foc_product_ids', {
-                maxItems: 10,
+                maxItems: 200,
                 lock: 'locked',
                 onItemRemove: function() {
                     return false;

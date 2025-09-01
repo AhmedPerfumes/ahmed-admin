@@ -440,36 +440,38 @@ class CreatePaymentForOrderService
 
             $mail->send();
 
-            if($order->amount >= 250) {
-                $mail2 = new PHPMailer(true);
+            // $date = '2025-08-31 23:59:00';
 
-                /* Email SMTP Settings */
-                $mail2->SMTPDebug = 0;
-                $mail2->isSMTP();
-                $mail2->Host = env('MAIL_HOST');
-                $mail2->SMTPAuth = true;
-                $mail2->Username = env('MAIL_USERNAME');
-                $mail2->Password = env('MAIL_PASSWORD');
-                $mail2->SMTPSecure = env('MAIL_ENCRYPTION');
-                $mail2->Port = env('MAIL_PORT');
+            // if($order->amount >= 250 && now() < $date) {
+            //     $mail2 = new PHPMailer(true);
 
-                $mail2->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
-                $mail2->addAddress($shipping_data->email);
-                $mail2->addCC(env('MAIL_FROM_ADDRESS'));
+            //     /* Email SMTP Settings */
+            //     $mail2->SMTPDebug = 0;
+            //     $mail2->isSMTP();
+            //     $mail2->Host = env('MAIL_HOST');
+            //     $mail2->SMTPAuth = true;
+            //     $mail2->Username = env('MAIL_USERNAME');
+            //     $mail2->Password = env('MAIL_PASSWORD');
+            //     $mail2->SMTPSecure = env('MAIL_ENCRYPTION');
+            //     $mail2->Port = env('MAIL_PORT');
 
-                $mail2->isHTML(true);
+            //     $mail2->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
+            //     $mail2->addAddress($shipping_data->email);
+            //     $mail2->addCC(env('MAIL_FROM_ADDRESS'));
 
-                $mail2->Subject = 'Congratulations You Have Entered the Draw';
+            //     $mail2->isHTML(true);
 
-                $body2 = '<div>
-                            <p>Dear customer,</p>
-                            <img alt="Ahmed Al Maghribi Perfumes" src="https://admin.ahmedalmaghribi.com/public/storage/emailer-1.jpg">                        
-                        </div>';
+            //     $mail2->Subject = 'Congratulations You Have Entered the Draw';
 
-                $mail2->Body = $body2;
+            //     $body2 = '<div>
+            //                 <p>Dear customer,</p>
+            //                 <img alt="Ahmed Al Maghribi Perfumes" src="https://admin.ahmedalmaghribi.com/public/storage/emailer-1.jpg">                        
+            //             </div>';
 
-                $mail2->send();
-            }
+            //     $mail2->Body = $body2;
+
+            //     $mail2->send();
+            // }
 
         }
 
