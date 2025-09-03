@@ -19,6 +19,7 @@
                     @if($promotions->isEmpty())
                         <p class="text-muted">No promotions found.</p>
                     @else
+                        <!-- Bulk Delete Form -->
                         <form id="bulkDeleteForm" action="{{ route('promotions.bulkDelete') }}" method="POST">
                             @csrf
                             @method('DELETE')
@@ -154,6 +155,12 @@
     </div>
 </div>
 
+<!-- Hidden form for single delete -->
+<form id="deleteForm" method="POST" style="display:none;">
+    @csrf
+    @method('DELETE')
+</form>
+
 <!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
@@ -161,6 +168,11 @@
 <script>
 $(document).ready(function() {
     $('#promotionsTable').DataTable({"ordering": false});
+
+    function toggleBulkDeleteBtn() {
+        let anyChecked = $('.selectItem:checked').length > 0;
+        $('#bulkDeleteBtn').prop('disabled', !anyChecked);
+    }
 
     $('#selectAll').on('click', function() {
         $('.selectItem').prop('checked', this.checked);
@@ -171,11 +183,6 @@ $(document).ready(function() {
         toggleBulkDeleteBtn();
     });
 
-    function toggleBulkDeleteBtn() {
-        let anyChecked = $('.selectItem:checked').length > 0;
-        $('#bulkDeleteBtn').prop('disabled', !anyChecked);
-    }
-
     $('#bulkDeleteForm').on('submit', function(e) {
         let count = $('.selectItem:checked').length;
         if(count === 0 || !confirm('Are you sure you want to delete ' + count + ' promotion(s)?')) {
@@ -183,12 +190,16 @@ $(document).ready(function() {
         }
     });
 
-    $(document).on('click', '.deletePromotion', function() {
+    // Pass Laravel route for destroy with placeholder
+    let destroyUrlTemplate = "{{ route('promotions.destroy', ':id') }}";
+
+    // Single delete
+    $(document).on('click', '.deletePromotion', function(e) {
+        e.preventDefault();
         let id = $(this).data('id');
-        if(confirm('Are you sure you want to delete this promotion?')){
-            $('<form action="/promotions/'+id+'" method="POST">@csrf @method("DELETE")</form>')
-                .appendTo('body')
-                .submit();
+        if(confirm('Are you sure you want to delete this promotion?')) {
+            let url = destroyUrlTemplate.replace(':id', id);
+            $('#deleteForm').attr('action', url).submit();
         }
     });
 });
