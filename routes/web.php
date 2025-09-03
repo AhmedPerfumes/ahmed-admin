@@ -3,6 +3,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SmsaController;
 use App\Http\Controllers\DynamicSectionController;
 use App\Http\Controllers\promotionController;
+use App\Http\Controllers\ProductReviewController;
+
 
 // Define a route group with a prefix
 Route::prefix('admin/ecommerce/smsa')->group(function () {
@@ -19,10 +21,54 @@ Route::prefix('admin/ecommerce/smsa')->group(function () {
 Route::prefix('admin/ecommerce/dynamic')->group(function () {
     Route::get('/', [DynamicSectionController::class, 'index'])->name('dynamic.index');
     Route::post('/submit', [DynamicSectionController::class, 'submit'])->name('newsletter.submit');
-    Route::delete('/admin/dynamic-section/{id}', [DynamicSectionController::class, 'destroy'])->name('dynamic-section.destroy'); 
+    Route::delete('/admin/dynamic-section/{id}', [DynamicSectionController::class, 'destroy'])->name('dynamic-section.destroy');
 });
 
 Route::get('promotions/create', [PromotionController::class, 'create'])->name('promotions.create');
 Route::post('promotions', [PromotionController::class, 'store'])->name('promotions.store');
 
+// Creates all the necessary admin pages for managing reviews under a single address
+Route::resource('/admin/product-reviews', ProductReviewController::class);
 
+if (is_in_admin(true)) {
+    // This group ensures the routes are only for the admin panel,
+    // require a user to be logged in, and gives them the correct name prefix.
+    Route::group([
+        'prefix' => 'admin/product-reviews',
+        'as' => 'product-reviews.',
+        'middleware' => ['web', 'auth'],
+    ], function () {
+        // ... (Your 'index', 'show', and 'destroy' routes are here) ...
+        Route::get('/', [
+            'as' => 'index',
+            'uses' => '\App\Http\Controllers\ProductReviewController@index',
+        ]);
+
+        Route::get('/{product_review}', [
+            'as' => 'show',
+            'uses' => '\App\Http\Controllers\ProductReviewController@show',
+        ]);
+
+        // v-- ADD THIS NEW ROUTE FOR THE APPROVE ACTION --v
+        Route::post('/{product_review}/approve', [
+            'as' => 'approve',
+            'uses' => '\App\Http\Controllers\ProductReviewController@approve',
+        ]);
+
+        Route::delete('/{product_review}', [
+            'as' => 'destroy',
+            'uses' => '\App\Http\Controllers\ProductReviewController@destroy',
+        ]);
+    });
+
+    // This adds the link to the admin sidebar menu (this part is correct)
+    dashboard_menu()->registerItem([
+        'id' => 'cms-plugins-product-reviews',
+        'priority' => 5,
+        'parent_id' => 'cms-plugins-ecommerce',
+        'name' => 'Product Reviews',
+        'icon' => 'ti ti-star',
+        'url' => route('product-reviews.index'),
+        'permissions' => ['product-reviews.index'],
+    ]);
+}

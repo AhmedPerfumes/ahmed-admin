@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -15,7 +16,7 @@ use App\Http\Controllers\Api\ContactController;
 | routes are loaded by the RouteServiceProvider and all of them will
 | be assigned to the "api" middleware group. Make something great!
 |
-*/ 
+*/
 // Auth Routes
 Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::post('/signup', [AuthController::class, 'signup']);
@@ -72,4 +73,10 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::post('/customerPasswordCheck', [OrderController::class, 'customerPasswordCheck']);
 
     Route::get('/getFilters', [ProductController::class, 'getFilters']);
+
+    // Address to get all reviews for a specific product
+    Route::get('/products/{product}/reviews', [ApiProductReviewController::class, 'index']);
+    // Address to submit a new review
+    Route::post('/reviews', [ApiProductReviewController::class, 'store']);
+
 });
