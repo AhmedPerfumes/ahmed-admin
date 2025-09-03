@@ -31,6 +31,13 @@ class PromotionController extends Controller
    public function index()
 {
     $promotions = Promotion::where('isDeleted', false)
+    ->with([
+        'couponRules.products.product',    // <--- add .product
+    'discountRules.products.product',
+    'discountRules.individualRules.product', // if needed
+    'buyXGetYRules.products.product',
+    'focRules.products.product'
+    ])
         ->orderBy('start_date', 'desc')
         ->get();
 
@@ -376,7 +383,7 @@ class PromotionController extends Controller
                         ->pluck('product_id')
                         ->toArray();
                 } elseif ($promotionData['coupon_rule']->apply_to === 'customer') {
-                    $promotionData['customers'] = CouponCustomer::where('coupon_rule_id', $promotionData['coupon_rule']->id)
+                    $promotionData['customers'] = DB::table('coupon_customers')->where('coupon_rule_id', $promotionData['coupon_rule']->id)
                         ->pluck('customer_id')
                         ->toArray();
                 }

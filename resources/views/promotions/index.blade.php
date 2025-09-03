@@ -25,9 +25,7 @@
                             <table id="promotionsTable" class="table table-bordered table-hover">
                                 <thead>
                                     <tr>
-                                        <th>
-                                            <input type="checkbox" id="selectAll">
-                                        </th>
+                                        <th><input type="checkbox" id="selectAll"></th>
                                         <th>Name</th>
                                         <th>Type</th>
                                         <th>Start Date</th>
@@ -35,73 +33,117 @@
                                         <th>Details</th>
                                         <th>Actions</th>
                                         <th>Status</th>
-
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    
-                                   @foreach($promotions as $promotion)
-    @php
-        $isExpired = $promotion->end_date ? \Carbon\Carbon::parse($promotion->end_date)->isPast() : false;
-        $rowClass = $isExpired ? 'bg-gray text-muted' : '';
-        $strikeStyle = $isExpired ? 'text-decoration: line-through;' : '';
-    @endphp
-    <tr class="{{ $rowClass }}" style="{{ $strikeStyle }}">
-        <td>
-            <input type="checkbox" name="ids[]" value="{{ $promotion->id }}" class="selectItem">
-        </td>
-        <td>{{ $promotion->name ?? 'N/A' }}</td>
-        <td>{{ ucfirst($promotion->type ?? 'N/A') }}</td>
-        <td>{{ $promotion->start_date ? \Carbon\Carbon::parse($promotion->start_date)->format('Y-m-d') : 'N/A' }}</td>
-        <td>{{ $promotion->end_date ? \Carbon\Carbon::parse($promotion->end_date)->format('Y-m-d') : 'N/A' }}</td>
-        <td>
-            @php $type = $promotion->type ?? ''; @endphp
-            @if($type === 'bogo')
-                <strong>BOGO Rules:</strong>
-                <ul>
-                    @foreach(data_get($promotion, 'conditions.bogo.product_ids', []) as $index => $buyProductId)
-                        @php
-                            $freeProductId = data_get($promotion, "rewards.bogo.free_product_ids.$index");
-                            $buyProduct = $products->firstWhere('id', $buyProductId);
-                            $freeProduct = $products->firstWhere('id', $freeProductId);
-                        @endphp
-                        <li>Buy: {{ $buyProduct->name ?? $buyProductId }}, Free: {{ $freeProduct->name ?? $freeProductId }}</li>
-                    @endforeach
-                </ul>
-            @elseif($type === 'buy_x_get_y')
-                <strong>Buy X Get Y:</strong>
-                <p>Buy Quantity: {{ data_get($promotion, 'conditions.buy_x_get_y.buy_quantity', 'N/A') }}</p>
-                <p>Get Quantity: {{ data_get($promotion, 'rewards.buy_x_get_y.get_quantity', 'N/A') }}</p>
-            @elseif($type === 'discount')
-                <strong>Discount:</strong>
-                <p>Apply To: {{ data_get($promotion, 'conditions.discount.apply_to', 'N/A') }}</p>
-            @elseif($type === 'coupon')
-                <strong>Coupon:</strong>
-                <p>Code: {{ $promotion->coupon_code ?? 'N/A' }}</p>
-            @elseif($type === 'foc')
-                <strong>FOC:</strong>
-                <p>Min: {{ data_get($promotion, 'conditions.foc.min_threshold', 0) }}</p>
-                <p>Max: {{ data_get($promotion, 'conditions.foc.max_threshold', 0) }}</p>
-            @endif
-        </td>
-        <td>
-            <a href="{{ route('promotions.edit', $promotion) }}" class="btn btn-primary btn-sm mb-1">Edit</a>
-            <form action="{{ route('promotions.destroy', $promotion->id) }}" method="POST" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this promotion?');">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn btn-danger btn-sm mb-1">Delete</button>
-            </form>
-        </td>
-        <td>
-            @if($isExpired)
-                <span class="badge bg-red text-white">Expired</span>
-            @else
-                <span class="badge bg-success text-white">Active</span>
-            @endif
-        </td>
-    </tr>
-@endforeach
+                                    @foreach($promotions as $promotion)
+                                        @php
+                                            $isExpired = $promotion->end_date ? \Carbon\Carbon::parse($promotion->end_date)->isPast() : false;
+                                            $rowClass = $isExpired ? 'bg-gray text-muted' : '';
+                                            $strikeStyle = $isExpired ? 'text-decoration: line-through;' : '';
+                                        @endphp
+                                        <tr class="{{ $rowClass }}" style="{{ $strikeStyle }}">
+                                            <td>
+                                                <input type="checkbox" name="ids[]" value="{{ $promotion->id }}" class="selectItem">
+                                            </td>
+                                            <td>{{ $promotion->name ?? 'N/A' }}</td>
+                                            <td>{{ ucfirst($promotion->type ?? 'N/A') }}</td>
+                                            <td>{{ $promotion->start_date ? \Carbon\Carbon::parse($promotion->start_date)->format('Y-m-d') : 'N/A' }}</td>
+                                            <td>{{ $promotion->end_date ? \Carbon\Carbon::parse($promotion->end_date)->format('Y-m-d') : 'N/A' }}</td>
 
+                                            <td>
+                                                @php $type = $promotion->type ?? ''; @endphp
+
+                                                @if($type === 'bogo')
+                                                    <strong>BOGO Rules:</strong>
+                                                    <ul>
+                                                        @foreach($promotion->bogoRules as $rule)
+                                                            <li>
+                                                                Buy: {{ $rule->buyProduct->name ?? $rule->buy_product_id }},
+                                                                Free: {{ $rule->freeProduct->name ?? $rule->free_product_id }}
+                                                            </li>
+                                                        @endforeach
+                                                    </ul>
+
+                                                @elseif($type === 'buy_x_get_y')
+                                                    <strong>Buy X Get Y:</strong>
+                                                    @foreach($promotion->buyXGetYRules as $rule)
+                                                        <p>Buy Quantity: {{ $rule->buy_quantity }}</p>
+                                                        <p>Get Quantity: {{ $rule->get_quantity }}</p>
+                                                        <p>Products:
+                                                            @foreach($rule->products as $p)
+                                                                {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
+                                                            @endforeach
+                                                        </p>
+                                                    @endforeach
+
+                                                @elseif($type === 'discount')
+                                                    <strong>Discount:</strong>
+                                                    @foreach($promotion->discountRules as $rule)
+                                                        <p>Apply To: {{ $rule->apply_to }}</p>
+                                                        @if($rule->apply_to === 'group')
+                                                            <p>Products:
+                                                                @foreach($rule->products as $p)
+                                                                    {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
+                                                                @endforeach
+                                                            </p>
+                                                        @elseif($rule->apply_to === 'individual')
+                                                            <p>Individual Discounts:</p>
+                                                            @foreach($rule->individualRules as $ind)
+                                                                <p>{{ $ind->product->name ?? 'N/A' }} - {{ $ind->discount_type }} {{ $ind->value }}</p>
+                                                            @endforeach
+                                                        @endif
+                                                    @endforeach
+
+                                                @elseif($type === 'coupon')
+                                                    <strong>Coupon:</strong>
+                                                    @foreach($promotion->couponRules as $rule)
+                                                        <p>Code: {{ $rule->coupon_code }}</p>
+                                                        @if($rule->apply_to === 'group')
+                                                            <p>Products:
+                                                                @foreach($rule->products as $p)
+                                                                    {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
+                                                                @endforeach
+                                                            </p>
+                                                        @elseif($rule->apply_to === 'customer')
+                                                            <p>Customers:
+                                                                @foreach($rule->customers as $c)
+                                                                    {{ $c->name ?? 'N/A' }}@if(!$loop->last), @endif
+                                                                @endforeach
+                                                            </p>
+                                                        @endif
+                                                    @endforeach
+
+                                                @elseif($type === 'foc')
+                                                    <strong>FOC:</strong>
+                                                    @foreach($promotion->focRules as $rule)
+                                                        <p>Min: {{ $rule->min_threshold }}</p>
+                                                        <p>Max: {{ $rule->max_threshold }}</p>
+                                                        <p>Products:
+                                                            @foreach($rule->products as $p)
+                                                                {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
+                                                            @endforeach
+                                                        </p>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+
+                                            <td>
+                                                <a href="{{ route('promotions.edit', $promotion) }}" class="btn btn-primary btn-sm mb-1">Edit</a>
+                                                <button type="button" class="btn btn-danger btn-sm mb-1 deletePromotion" data-id="{{ $promotion->id }}">
+                                                    Delete
+                                                </button>
+                                            </td>
+
+                                            <td>
+                                                @if($isExpired)
+                                                    <span class="badge bg-red text-white">Expired</span>
+                                                @else
+                                                    <span class="badge bg-success text-white">Active</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
                                 </tbody>
                             </table>
                         </form>
@@ -112,40 +154,43 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+
 <script>
-    $(document).ready(function() {
-        $('#promotionsTable').DataTable();
+$(document).ready(function() {
+    $('#promotionsTable').DataTable({"ordering": false});
 
-        // Select all toggle
-        $('#selectAll').on('click', function() {
-            $('.selectItem').prop('checked', this.checked);
-            toggleBulkDeleteBtn();
-        });
-
-        // Enable/disable delete button
-        $(document).on('change', '.selectItem', function() {
-            toggleBulkDeleteBtn();
-        });
-
-        function toggleBulkDeleteBtn() {
-            let anyChecked = $('.selectItem:checked').length > 0;
-            $('#bulkDeleteBtn').prop('disabled', !anyChecked);
-        }
-
-        // Confirm before bulk delete
-        $('#bulkDeleteForm').on('submit', function(e) {
-            let count = $('.selectItem:checked').length;
-            if (count === 0) {
-                e.preventDefault();
-                return;
-            }
-            if (!confirm('Are you sure you want to delete ' + count + ' promotion(s)?')) {
-                e.preventDefault();
-            }
-        });
+    $('#selectAll').on('click', function() {
+        $('.selectItem').prop('checked', this.checked);
+        toggleBulkDeleteBtn();
     });
+
+    $(document).on('change', '.selectItem', function() {
+        toggleBulkDeleteBtn();
+    });
+
+    function toggleBulkDeleteBtn() {
+        let anyChecked = $('.selectItem:checked').length > 0;
+        $('#bulkDeleteBtn').prop('disabled', !anyChecked);
+    }
+
+    $('#bulkDeleteForm').on('submit', function(e) {
+        let count = $('.selectItem:checked').length;
+        if(count === 0 || !confirm('Are you sure you want to delete ' + count + ' promotion(s)?')) {
+            e.preventDefault();
+        }
+    });
+
+    $(document).on('click', '.deletePromotion', function() {
+        let id = $(this).data('id');
+        if(confirm('Are you sure you want to delete this promotion?')){
+            $('<form action="/promotions/'+id+'" method="POST">@csrf @method("DELETE")</form>')
+                .appendTo('body')
+                .submit();
+        }
+    });
+});
 </script>
 @endsection
