@@ -79,4 +79,10 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     // Address to submit a new review
     Route::post('/reviews', [ApiProductReviewController::class, 'store']);
 
+
+    Route::get('/freeGiftProducts', [ProductController::class, 'freeGiftProducts']);
+
+    Route::get('/bogoProducts', [ProductController::class, 'bogoProducts']);
+
+    Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
 });

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Botble\Ecommerce\Models\Discount as DiscountModel;
 use Botble\Ecommerce\Models\OrderAddress;
 use Botble\Ecommerce\Models\Review;
+// use Botble\Ecommerce\Models\Discount;
 
 class AuthController extends Controller
 {
@@ -23,16 +24,16 @@ class AuthController extends Controller
      */
     public function signup(Request $request) {
 
-        $validator = Validator::make($request->all(), [
-            'name'      => 'required|string|max:255',
-            'email'     => 'required|string|max:255',
-            'mobile'     => 'required|numeric',
-            'password'  => 'required|string'
-            ]);
+        // $validator = Validator::make($request->all(), [
+        //     'name'      => 'required|string|max:255',
+        //     'email'     => 'required|string|max:255',
+        //     'mobile'     => 'required|numeric',
+        //     'password'  => 'required|string'
+        //     ]);
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
+        // if ($validator->fails()) {
+        //     return response()->json($validator->errors());
+        // }
 
         $customer = Customer::where('email', $request->email)->orWhere('phone', $request->mobile)->first();
 
@@ -42,12 +43,12 @@ class AuthController extends Controller
             ]);
         }
 
-        $customer = Customer::create([
-            'name'      => $request->name,
-            'email'     => $request->email,
-            'phone'     => $request->mobile,
-            'password'  => Hash::make($request->password)
-        ]);
+        // $customer = Customer::create([
+        //     'name'      => $request->name,
+        //     'email'     => $request->email,
+        //     'phone'     => $request->mobile,
+        //     'password'  => Hash::make($request->password)
+        // ]);
 
         // $token = $customer->createToken('auth_token')->plainTextToken;
 
@@ -111,8 +112,13 @@ class AuthController extends Controller
         curl_close($curl);
         // echo $response;
 
-        $customer->otp = $otp;
-        $customer->save();
+        // $customer->otp = $otp;
+        // $customer->save();
+
+        $Mobile_verification = MobileVerification::create([
+            'otp'     => $otp,
+            'phone'     => $request->mobile,
+        ]);
 
         return response()->json([
             'message'          => 'OTP Sent on Above Mobile Number'
@@ -127,16 +133,15 @@ class AuthController extends Controller
      */
     public function verifyOTP(Request $request) {
 
-        $validator = Validator::make($request->all(), [
-            'mobile'     => 'required|numeric',
-            'otp'  => 'required|numeric'
-          ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
-
         if($request->flag == 'checkout') {
+            $validator = Validator::make($request->all(), [
+                'mobile'     => 'required|numeric',
+                'otp'  => 'required|numeric'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }
             $mobile_verification = MobileVerification::where('phone', $request->mobile)->where('otp', $request->otp)->orderBy('id', 'desc')->first();
 
             if (!$mobile_verification) {
@@ -160,16 +165,70 @@ class AuthController extends Controller
                 'coupon'            => $coupon
             ]);
         } else {
-            $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
+            // $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
 
-            if (!$customer) {
-                return response()->json([
-                    'message'       => 'Invalid Mobile Number or OTP',
-                ]);
+            // if (!$customer) {
+            //     return response()->json([
+            //         'message'       => 'Invalid Mobile Number or OTP',
+            //     ]);
+            // }
+
+            // $customer->otp = 0;
+            // $customer->save();
+
+            $validator = Validator::make($request->all(), [
+                'mobile'     => 'required|numeric',
+                'otp'  => 'required|numeric'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
             }
 
-            $customer->otp = 0;
-            $customer->save();
+            // $mobile_verification = MobileVerification::where('phone', $request->mobile)->where('otp', $request->otp)->orderBy('id', 'desc')->first();
+
+            // if (!$mobile_verification) {
+            //     return response()->json([
+            //         'message'       => 'Invalid Mobile Number or OTP',
+            //     ]);
+            // }
+
+            // $mobile_verification->otp = 0;
+            // $mobile_verification->save();
+
+            $validator = Validator::make($request->all(), [
+                // 'customer_id'      => 'required',
+                'name' => 'required',
+                'email' => 'required|email|unique:ec_customers,email,',
+                'mobile' => 'required|unique:ec_customers,phone,',
+                'password' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }
+
+            $customer = Customer::create([
+                'name'      => $request->name,
+                'email'     => $request->email,
+                'phone'     => $request->mobile,
+                'password'  => Hash::make($request->password)
+            ]);
+
+            $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+
+            // Manually transform into an array with formatted strings
+            $formattedCoupons = $coupons->map(function ($coupon) {
+                return [
+                    'code'       => $coupon->code,
+                    'value'      => $coupon->value,
+                    'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                    'end_date'   => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                    'type'       => 'customer',
+                ];
+            })->toArray();
+
+            $customer->coupon = $formattedCoupons;
 
             $token = $customer->createToken('auth_token')->plainTextToken;
 
@@ -206,6 +265,21 @@ class AuthController extends Controller
                 'message'       => 'Invalid Mobile Number or Password or Inactive Status',
             ]);
         }
+
+        $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+
+        // Manually transform into an array with formatted strings
+        $formattedCoupons = $coupons->map(function ($coupon) {
+            return [
+                'code'       => $coupon->code,
+                'value'      => $coupon->value,
+                'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                'end_date'   => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                'type'       => 'customer',
+            ];
+        })->toArray();
+
+        $customer->coupon = $formattedCoupons;
 
         $token = $customer->createToken('auth_token')->plainTextToken;
 
