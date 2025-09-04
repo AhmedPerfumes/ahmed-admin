@@ -245,7 +245,7 @@ class OrderController extends Controller
             array_push($barcodes, $exisProduct->barcode);
         }
         // echo implode(',', $barcodes);
-        die;
+        // die;
         $coupon_code = $request->input('couponCode');
         if(isset($coupon_code) && !empty($request->input('couponCode'))) {
             $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
@@ -1172,7 +1172,7 @@ class OrderController extends Controller
 
                 $exisProduct->coupon = $couponData;
 
-                 $customerCouponData = [];
+                $customerCouponData = [];
 
                 if ($coupons->isEmpty()) {
                     $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();

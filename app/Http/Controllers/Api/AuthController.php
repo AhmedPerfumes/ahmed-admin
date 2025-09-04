@@ -153,16 +153,16 @@ class AuthController extends Controller
             $mobile_verification->otp = 0;
             $mobile_verification->save();
 
-            $customer = OrderAddress::select('ec_order_addresses.id', 'name', 'email', 'phone')->join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->mobile)->get();
+            // $customer = OrderAddress::select('ec_order_addresses.id', 'name', 'email', 'phone')->join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->mobile)->get();
 
             // echo "<pre>";print_r($customer);
 
-            $coupon = DiscountModel::where('code', 'WELCOME10')->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+            // $coupon = DiscountModel::where('code', 'WELCOME10')->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
 
             return response()->json([
                 'message'       => 'OTP Verified Successfully',
-                'customer'          => !$customer->isEmpty() ? false : true,
-                'coupon'            => $coupon
+                // 'customer'          => !$customer->isEmpty() ? false : true,
+                // 'coupon'            => $coupon
             ]);
         } else {
             // $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
