@@ -1097,12 +1097,38 @@ class OrderController extends Controller
                 'authorization:' . $SERVER_KEY,
                 'Content-Type:application/json'
             ),
+            // CURLOPT_SSL_VERIFYPEER => false,  // 👈 Add this
+            // CURLOPT_SSL_VERIFYHOST => false,  // 👈 And this
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_CAINFO => base_path('certs/cacert.pem'),
         ));
 
         $response = json_decode(curl_exec($curl), true);
         curl_close($curl);
-        // print_r($response);
+        // print_r($response);die;
         return $response;
+
+        // $responseRaw = curl_exec($curl);
+        // curl_close($curl);
+
+        // echo "Raw response:\n";
+        // var_dump($responseRaw); // Check if there is anything returned at all
+        // $response = json_decode($responseRaw, true);
+        // print_r($response); // Still might be null if response is not valid JSON
+        // die;
+
+        // $responseRaw = curl_exec($curl);
+
+        // if (curl_errno($curl)) {
+        //     echo 'Curl error: ' . curl_error($curl) . "\n";
+        // }
+
+        // $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        // echo "HTTP Status Code: $httpCode\n";
+
+        // curl_close($curl);
+
+        // die;
     }
 
     public function payTabsPaymentRedirect(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
