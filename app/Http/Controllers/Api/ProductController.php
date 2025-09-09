@@ -1248,6 +1248,88 @@ class ProductController extends Controller
                         }
                     }
                 }
+
+                // Check if the main product has an itemFamily value.
+            if (isset($prod->itemFamily) && !empty($prod->itemFamily)) {
+
+                // This is the itemFamily value from the product we just found
+                $currentItemFamily = $prod->itemFamily;
+                // This is the ID of the product we just found
+                $productId = $prod->product_id;
+
+                $results = DB::table('ec_products')
+                    ->select(
+                        'ec_products.id as product_id',
+                        'ec_products.name as product_name',
+                        'ec_products.image',
+                        'ec_products.images',
+                        'ec_products.description',
+                        'ec_products.quantity as product_qty',
+                        DB::raw('CAST(ec_products.price AS DECIMAL(10,2)) as price'),
+                        DB::raw('CAST(ec_products.sale_price AS DECIMAL(10,2)) as sale_price'),
+                        DB::raw('GROUP_CONCAT(DISTINCT ec_product_collections.name) as collection_name'),
+
+                        // MODIFIED: Select distinct category and subcategory names using table aliases
+                        DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category_name'),
+                        DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory_name'),
+
+                        DB::raw("CONCAT('[', GROUP_CONCAT(DISTINCT JSON_OBJECT('name', ec_product_labels.name, 'color', ec_product_labels.color)), ']') as labels")
+                    )
+                    // --- Joins to get all related data for a rich structure ---
+
+                    // MODIFIED: Added separate joins for main and subcategories to differentiate them
+                    // Join for the main category (parent_id = 0)
+                    ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                        $join->on('pivot_main.category_id', '=', 'main_cat.id')
+                            ->where('main_cat.parent_id', 0);
+                    })
+                    // Join for the subcategory (parent_id != 0)
+                    ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                        $join->on('pivot_sub.category_id', '=', 'sub_cat.id')
+                            ->where('sub_cat.parent_id', '!=', 0);
+                    })
+
+                    ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
+                    ->leftJoin('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
+
+                    // --- FILTERING LOGIC FOR ITEM FAMILY ---
+                    // 1. Find all products where the itemFamily column matches.
+                    ->where('ec_products.itemFamily', $currentItemFamily)
+
+                    // 2. IMPORTANT: Exclude the current product itself from the list.
+                    ->where('ec_products.id', '!=', $productId)
+
+                    // Group by product ID to prevent duplicate rows from joins
+                    ->groupBy('ec_products.id')
+                    ->get();
+
+                // --- Post-processing to format the data into your desired structure ---
+                $prod->item_family = $results->map(function ($item) {
+                    // MODIFIED: Added this block to restructure the subcategory
+                    // Create the nested subcategory object
+                    $item->subcategory = $item->subcategory_name ? [
+                        'subcategory_name' => $item->subcategory_name,
+                    ] : null;
+                    // Remove the original flat property
+                    unset($item->subcategory_name);
+
+                    // Handle other transformations as before
+                    $item->labels = json_decode($item->labels);
+                    $item->images = json_decode($item->images, true) ?? [];
+
+                    // You can add other queries here for each item if needed
+                    return $item;
+                });
+
+            } else {
+                // If the main product has no itemFamily, return an empty array for consistency.
+                $prod->item_family = [];
+            }
+            
             $response = response()->json($prod)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
             if ($response->isNotModified(request())) {
