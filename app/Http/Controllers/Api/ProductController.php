@@ -28,21 +28,21 @@ class ProductController extends Controller
 
         if (!isset($category) || empty($category)) {
             return response()->json([
-                'message'       => 'Kindly Provide Category',
+                'message' => 'Kindly Provide Category',
             ]);
         }
 
-        if(!$product) {
+        if (!$product) {
             $categoryData = ProductCategory::select('id', 'parent_id')->where('status', 'published')->where('parent_id', 0)
-            // ->where('name', $category)
-            ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"), '=', implode('', explode(' ', $category)))
-            ->get()->first();
-
-            if (isset($subCategory)) {      
-                $subCategoryData = ProductCategory::select('id')->where('status', 'published')->where('parent_id', $categoryData->id)
-                // ->where('name', $subCategory)
-                ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"), '=', implode('', explode(' ', $subCategory)))
+                // ->where('name', $category)
+                ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"), '=', implode('', explode(' ', $category)))
                 ->get()->first();
+
+            if (isset($subCategory)) {
+                $subCategoryData = ProductCategory::select('id')->where('status', 'published')->where('parent_id', $categoryData->id)
+                    // ->where('name', $subCategory)
+                    ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"), '=', implode('', explode(' ', $subCategory)))
+                    ->get()->first();
             }
 
             if (!isset($subCategory)) {
@@ -50,13 +50,13 @@ class ProductController extends Controller
             } else {
                 $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description')->where('status', 'published')->where('parent_id', $categoryData->id)->where('id', $subCategoryData->id)->get()->first();
             }
-            
+
             if (!isset($subCategory)) {
-                if($category == 'HAIR MIST') {
+                if ($category == 'HAIR MIST') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                        ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                        ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                        ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                        ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                         // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -65,25 +65,25 @@ class ProductController extends Controller
                         ->orderBy('ec_product_category_product.product_id', 'desc')
                         ->get();
 
-                        foreach ($productCategory->products as $key => $val) {
-                            $val->labels = DB::table('ec_product_label_products')
-                                ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->get();
+                    foreach ($productCategory->products as $key => $val) {
+                        $val->labels = DB::table('ec_product_label_products')
+                            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->get();
 
-                            $val->tags = DB::table('ec_product_tag_product')
-                                // ->select('ec_product_tags.name as tag_name')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->pluck('ec_product_tags.name')
-                                ->toArray();
+                        $val->tags = DB::table('ec_product_tag_product')
+                            // ->select('ec_product_tags.name as tag_name')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->pluck('ec_product_tags.name')
+                            ->toArray();
 
-                            $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
+                        $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
 
-                            $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
+                        $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
                             ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
                             // ->where('ec_orders.status', 'completed') // Optional: filter by order status
                             ->where('product_id', $val->product_id)
@@ -92,27 +92,27 @@ class ProductController extends Controller
                             // ->limit(10) // Optional: limit to top 10
                             ->first();
 
-                            $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
+                        $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                        $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                            // Assign coupon with code
-                            $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                            $val->coupon = [];
-                            foreach ($coupons as $coupon) {
-                                $val->coupon[strtolower($coupon->code)] = [
-                                    'code' => strtolower($coupon->code),
-                                    'value' => $coupon->value,
-                                    'start_date' => $coupon->start_date,
-                                    'end_date' => $coupon->end_date,
-                                ];
-                            }
+                        // Assign coupon with code
+                        $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                        $val->coupon = [];
+                        foreach ($coupons as $coupon) {
+                            $val->coupon[strtolower($coupon->code)] = [
+                                'code' => strtolower($coupon->code),
+                                'value' => $coupon->value,
+                                'start_date' => $coupon->start_date,
+                                'end_date' => $coupon->end_date,
+                            ];
                         }
-                } elseif($category == 'EXTRAIT DE PARFUM') {
+                    }
+                } elseif ($category == 'EXTRAIT DE PARFUM') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                        ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                        ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                        ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                        ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                         // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -121,25 +121,25 @@ class ProductController extends Controller
                         ->orderBy('ec_product_category_product.product_id', 'desc')
                         ->get();
 
-                        foreach ($productCategory->products as $key => $val) {
-                            $val->labels = DB::table('ec_product_label_products')
-                                ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->get();
+                    foreach ($productCategory->products as $key => $val) {
+                        $val->labels = DB::table('ec_product_label_products')
+                            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->get();
 
-                            $val->tags = DB::table('ec_product_tag_product')
-                                // ->select('ec_product_tags.name as tag_name')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->pluck('ec_product_tags.name')
-                                ->toArray();
+                        $val->tags = DB::table('ec_product_tag_product')
+                            // ->select('ec_product_tags.name as tag_name')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->pluck('ec_product_tags.name')
+                            ->toArray();
 
-                            $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
+                        $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
 
-                            $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
+                        $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
                             ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
                             // ->where('ec_orders.status', 'completed') // Optional: filter by order status
                             ->where('product_id', $val->product_id)
@@ -148,26 +148,26 @@ class ProductController extends Controller
                             // ->limit(10) // Optional: limit to top 10
                             ->first();
 
-                            $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
+                        $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                        $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                           $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                            $val->coupon = [];
-                            foreach ($coupons as $coupon) {
-                                $val->coupon[strtolower($coupon->code)] = [
-                                    'code' => strtolower($coupon->code),
-                                    'value' => $coupon->value,
-                                    'start_date' => $coupon->start_date,
-                                    'end_date' => $coupon->end_date,
-                                ];
-                            }
+                        $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                        $val->coupon = [];
+                        foreach ($coupons as $coupon) {
+                            $val->coupon[strtolower($coupon->code)] = [
+                                'code' => strtolower($coupon->code),
+                                'value' => $coupon->value,
+                                'start_date' => $coupon->start_date,
+                                'end_date' => $coupon->end_date,
+                            ];
                         }
-                } elseif($category == 'GIFT SETS') {
+                    }
+                } elseif ($category == 'GIFT SETS') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                        ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                        ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                        ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                        ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                         // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -176,25 +176,25 @@ class ProductController extends Controller
                         ->orderBy('ec_product_category_product.product_id', 'desc')
                         ->get();
 
-                        foreach ($productCategory->products as $key => $val) {
-                             $val->labels = DB::table('ec_product_label_products')
-                                ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->get();
+                    foreach ($productCategory->products as $key => $val) {
+                        $val->labels = DB::table('ec_product_label_products')
+                            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->get();
 
-                            $val->tags = DB::table('ec_product_tag_product')
-                                // ->select('ec_product_tags.name as tag_name')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->pluck('ec_product_tags.name')
-                                ->toArray();
+                        $val->tags = DB::table('ec_product_tag_product')
+                            // ->select('ec_product_tags.name as tag_name')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->pluck('ec_product_tags.name')
+                            ->toArray();
 
-                            $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
+                        $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
 
-                            $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
+                        $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
                             ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
                             // ->where('ec_orders.status', 'completed') // Optional: filter by order status
                             ->where('product_id', $val->product_id)
@@ -203,27 +203,26 @@ class ProductController extends Controller
                             // ->limit(10) // Optional: limit to top 10
                             ->first();
 
-                            $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
+                        $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                        $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                            $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                            $val->coupon = [];
-                            foreach ($coupons as $coupon) {
-                                $val->coupon[strtolower($coupon->code)] = [
-                                    'code' => strtolower($coupon->code),
-                                    'value' => $coupon->value,
-                                    'start_date' => $coupon->start_date,
-                                    'end_date' => $coupon->end_date,
-                                ];
-                            }
+                        $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                        $val->coupon = [];
+                        foreach ($coupons as $coupon) {
+                            $val->coupon[strtolower($coupon->code)] = [
+                                'code' => strtolower($coupon->code),
+                                'value' => $coupon->value,
+                                'start_date' => $coupon->start_date,
+                                'end_date' => $coupon->end_date,
+                            ];
                         }
-                }
-                elseif($category == 'ONLINE EXCLUSIVE') {
+                    }
+                } elseif ($category == 'ONLINE EXCLUSIVE') {
                     $productCategory->products = DB::table('ec_product_category_product')
                         ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                        ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                        ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                        ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                        ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                         // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -232,25 +231,25 @@ class ProductController extends Controller
                         ->orderBy('ec_product_category_product.product_id', 'desc')
                         ->get();
 
-                        foreach ($productCategory->products as $key => $val) {
-                             $val->labels = DB::table('ec_product_label_products')
-                                ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->get();
+                    foreach ($productCategory->products as $key => $val) {
+                        $val->labels = DB::table('ec_product_label_products')
+                            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->get();
 
-                            $val->tags = DB::table('ec_product_tag_product')
-                                // ->select('ec_product_tags.name as tag_name')
-                                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                                ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                                ->where('product_id', $val->product_id)
-                                ->pluck('ec_product_tags.name')
-                                ->toArray();
+                        $val->tags = DB::table('ec_product_tag_product')
+                            // ->select('ec_product_tags.name as tag_name')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->pluck('ec_product_tags.name')
+                            ->toArray();
 
-                            $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
+                        $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
 
-                            $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
+                        $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
                             ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
                             // ->where('ec_orders.status', 'completed') // Optional: filter by order status
                             ->where('product_id', $val->product_id)
@@ -259,39 +258,38 @@ class ProductController extends Controller
                             // ->limit(10) // Optional: limit to top 10
                             ->first();
 
-                            $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
+                        $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                        $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                            $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                            $val->coupon = [];
-                            foreach ($coupons as $coupon) {
-                                $val->coupon[strtolower($coupon->code)] = [
-                                    'code' => strtolower($coupon->code),
-                                    'value' => $coupon->value,
-                                    'start_date' => $coupon->start_date,
-                                    'end_date' => $coupon->end_date,
-                                ];
-                            }
+                        $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                        $val->coupon = [];
+                        foreach ($coupons as $coupon) {
+                            $val->coupon[strtolower($coupon->code)] = [
+                                'code' => strtolower($coupon->code),
+                                'value' => $coupon->value,
+                                'start_date' => $coupon->start_date,
+                                'end_date' => $coupon->end_date,
+                            ];
                         }
-                }
-                else {
+                    }
+                } else {
                     $productCategory->productSubCategories = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'video')->where('parent_id', $productCategory->id)->where('status', 'published')->orderBy('order', 'asc')->get();
                     foreach ($productCategory->productSubCategories as $key => $val) {
                         $val->products = DB::table('ec_product_category_product')
-                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                        ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                        ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
-                        ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
-                        ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
-                        // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                        // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                        ->where('ec_product_category_product.category_id', $val->id)
-                        ->orderBy('ec_product_category_product.product_id', 'desc')
-                        ->get();
+                            ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                            ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                            ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                            ->where('ec_product_category_product.category_id', $val->id)
+                            ->orderBy('ec_product_category_product.product_id', 'desc')
+                            ->get();
 
                         foreach ($val->products as $k => $v) {
-                             $v->labels = DB::table('ec_product_label_products')
+                            $v->labels = DB::table('ec_product_label_products')
                                 ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
                                 // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
                                 ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
@@ -309,19 +307,19 @@ class ProductController extends Controller
                             $v->permalink = Slug::select('key')->where('reference_id', $v->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
 
                             $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
-                            ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
-                            // ->where('ec_orders.status', 'completed') // Optional: filter by order status
-                            ->where('product_id', $v->product_id)
-                            ->groupBy('product_id')
-                            // ->orderBy('total_sales', 'desc')
-                            // ->limit(10) // Optional: limit to top 10
-                            ->first();
+                                ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
+                                // ->where('ec_orders.status', 'completed') // Optional: filter by order status
+                                ->where('product_id', $v->product_id)
+                                ->groupBy('product_id')
+                                // ->orderBy('total_sales', 'desc')
+                                // ->limit(10) // Optional: limit to top 10
+                                ->first();
 
                             $v->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            $v->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $v->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                            $v->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $v->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                            $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $v->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                            $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $v->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                             $v->coupon = [];
                             foreach ($coupons as $coupon) {
                                 $v->coupon[strtolower($coupon->code)] = [
@@ -336,17 +334,17 @@ class ProductController extends Controller
                 }
             } else {
                 $productCategory->products = DB::table('ec_product_category_product')
-                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
-                ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
-                ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
-                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                ->where('ec_product_category_product.category_id', $subCategoryData->id)
-                ->orderBy('ec_product_category_product.product_id', 'desc')
-                ->get();
-                
+                    ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                    ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                    ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                    ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
+                    ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
+                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                    // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                    ->where('ec_product_category_product.category_id', $subCategoryData->id)
+                    ->orderBy('ec_product_category_product.product_id', 'desc')
+                    ->get();
+
                 foreach ($productCategory->products as $key => $val) {
                     $val->labels = DB::table('ec_product_label_products')
                         ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
@@ -366,19 +364,19 @@ class ProductController extends Controller
                     $val->permalink = Slug::select('key')->where('reference_id', $val->product_id)->where('reference_type', 'Botble\Ecommerce\Models\Product')->first();
 
                     $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
-                    ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
-                    // ->where('ec_orders.status', 'completed') // Optional: filter by order status
-                    ->where('product_id', $val->product_id)
-                    ->groupBy('product_id')
-                    // ->orderBy('total_sales', 'desc')
-                    // ->limit(10) // Optional: limit to top 10
-                    ->first();
+                        ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
+                        // ->where('ec_orders.status', 'completed') // Optional: filter by order status
+                        ->where('product_id', $val->product_id)
+                        ->groupBy('product_id')
+                        // ->orderBy('total_sales', 'desc')
+                        // ->limit(10) // Optional: limit to top 10
+                        ->first();
 
                     $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                    $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                    $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                    $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                    $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                     $val->coupon = [];
                     foreach ($coupons as $coupon) {
                         $val->coupon[strtolower($coupon->code)] = [
@@ -421,54 +419,54 @@ class ProductController extends Controller
             //     ->first();
             // , 'ec_products.content as content'
             // , 'ec_products.fragrance_notes as fragrance_notes'
-            $prod =  DB::table('ec_products')
-                ->join ('ec_product_category_product', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+            $prod = DB::table('ec_products')
+                ->join('ec_product_category_product', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                 // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
                 // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                ->join ('ec_product_categories', 'ec_product_categories.id', '=', 'ec_product_category_product.category_id', 'left')
+                ->join('ec_product_categories', 'ec_product_categories.id', '=', 'ec_product_category_product.category_id', 'left')
                 // ->select(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, ' &amp; ', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"))
-                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id','ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description','ec_products.description_ar','ec_products.content','ec_products.content_ar','ec_products.fragrance_notes','ec_products.fragrance_notes_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku','ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5', 'ec_products.itemFamily', 'ec_products.note_1', 'ec_products.note_1_image', 'ec_products.note_2', 'ec_products.note_2_image', 'ec_products.note_3', 'ec_products.note_3_image', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge')
+                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar', 'ec_products.content', 'ec_products.content_ar', 'ec_products.fragrance_notes', 'ec_products.fragrance_notes_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5', 'ec_products.itemFamily', 'ec_products.note_1', 'ec_products.note_1_image', 'ec_products.note_2', 'ec_products.note_2_image', 'ec_products.note_3', 'ec_products.note_3_image', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge')
                 ->where('ec_products.status', 'published')
                 ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9]', '')"), '=', implode('', explode(' ', $product)))
                 ->where('ec_product_categories.name', $category)
                 ->orderBy('ec_products.id', 'desc')
                 ->first();
-                // print_r($prod);die();
-                $dynamicDescriptionKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Description';
-                $wordsToRemove = ['&', ' &', '& ', ' & ', 'amp', ' amp', 'amp ', ' amp ', ';', ' ;', '; ', ' ; '];
-                $cleanDescriptionString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicDescriptionKey));
-                $prod->$cleanDescriptionString = $cleanDescriptionString;
+            // print_r($prod);die();
+            $dynamicDescriptionKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name) . ' Description';
+            $wordsToRemove = ['&', ' &', '& ', ' & ', 'amp', ' amp', 'amp ', ' amp ', ';', ' ;', '; ', ' ; '];
+            $cleanDescriptionString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicDescriptionKey));
+            $prod->$cleanDescriptionString = $cleanDescriptionString;
 
-                $dynamicContentKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Content';
-                $cleanContentString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicContentKey));
-                $prod->$cleanContentString = $cleanContentString;
+            $dynamicContentKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name) . ' Content';
+            $cleanContentString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicContentKey));
+            $prod->$cleanContentString = $cleanContentString;
 
-                $dynamicNotesKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Notes';
-                $cleanNotesString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicNotesKey));
-                $prod->$cleanNotesString = $cleanNotesString;
+            $dynamicNotesKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name) . ' Notes';
+            $cleanNotesString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicNotesKey));
+            $prod->$cleanNotesString = $cleanNotesString;
 
-                $prod->labels = DB::table('ec_product_label_products')
-                    ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                    ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                    ->where('product_id', $prod->product_id)
-                    ->get();
+            $prod->labels = DB::table('ec_product_label_products')
+                ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                ->where('product_id', $prod->product_id)
+                ->get();
 
-                $prod->tags = DB::table('ec_product_tag_product')
-                    // ->select('ec_product_tags.name as tag_name')
-                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                    ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                    ->where('product_id', $prod->product_id)
-                    ->pluck('ec_product_tags.name')
-                    ->toArray();
+            $prod->tags = DB::table('ec_product_tag_product')
+                // ->select('ec_product_tags.name as tag_name')
+                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                ->where('product_id', $prod->product_id)
+                ->pluck('ec_product_tags.name')
+                ->toArray();
 
-                $prod->related_prods = DB::table('ec_product_category_product')
+            $prod->related_prods = DB::table('ec_product_category_product')
                 ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_product_labels.name as label_name', 'ec_product_labels.color as label_color', 'ec_products.sale_price')
-                ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
-                ->join ('ec_product_related_relations', 'ec_product_related_relations.to_product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_related_relations', 'ec_product_related_relations.to_product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                 ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -480,55 +478,137 @@ class ProductController extends Controller
                 // ->paginate($limit);
                 ->get();
 
-                $prod->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+            $prod->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                $prod->coupon = [];
+            $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+            $prod->coupon = [];
+            foreach ($coupons as $coupon) {
+                $prod->coupon[strtolower($coupon->code)] = [
+                    'code' => strtolower($coupon->code),
+                    'value' => $coupon->value,
+                    'start_date' => $coupon->start_date,
+                    'end_date' => $coupon->end_date,
+                ];
+            }
+
+            foreach ($prod->related_prods as $key => $val) {
+                $val->labels = DB::table('ec_product_label_products')
+                    ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                    ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                    ->where('product_id', $val->product_id)
+                    ->get();
+
+                $val->tags = DB::table('ec_product_tag_product')
+                    // ->select('ec_product_tags.name as tag_name')
+                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                    ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                    ->where('product_id', $val->product_id)
+                    ->pluck('ec_product_tags.name')
+                    ->toArray();
+
+                $val->subcategory = DB::table('ec_product_categories')
+                    ->select('name as subcategory_name')
+                    ->join('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                    ->where('product_id', $val->product_id)
+                    ->where('ec_product_categories.parent_id', '!=', 0)
+                    ->first();
+
+                $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+
+                $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                $val->coupon = [];
                 foreach ($coupons as $coupon) {
-                    $prod->coupon[strtolower($coupon->code)] = [
+                    $val->coupon[strtolower($coupon->code)] = [
                         'code' => strtolower($coupon->code),
                         'value' => $coupon->value,
                         'start_date' => $coupon->start_date,
                         'end_date' => $coupon->end_date,
                     ];
                 }
+            }
 
-                foreach ($prod->related_prods as $key => $val) {
-                    $val->labels = DB::table('ec_product_label_products')
-                        ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                        // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                        ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                        ->where('product_id', $val->product_id)
-                        ->get();
+            // Check if the main product has an itemFamily value.
+            if (isset($prod->itemFamily) && !empty($prod->itemFamily)) {
 
-                    $val->tags = DB::table('ec_product_tag_product')
-                        // ->select('ec_product_tags.name as tag_name')
-                        // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                        ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                        ->where('product_id', $val->product_id)
-                        ->pluck('ec_product_tags.name')
-                        ->toArray();
+                // This is the itemFamily value from the product we just found
+                $currentItemFamily = $prod->itemFamily;
+                // This is the ID of the product we just found
+                $productId = $prod->product_id;
 
-                    $val->subcategory = DB::table('ec_product_categories')
-                    ->select('name as subcategory_name')
-                    ->join ('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                    ->where('product_id', $val->product_id)
-                    ->where('ec_product_categories.parent_id', '!=', 0)
-                    ->first();
+                $results = DB::table('ec_products')
+                    ->select(
+                        'ec_products.id as product_id',
+                        'ec_products.name as product_name',
+                        'ec_products.image',
+                        'ec_products.images',
+                        'ec_products.description',
+                        'ec_products.quantity as product_qty',
+                        DB::raw('CAST(ec_products.price AS DECIMAL(10,2)) as price'),
+                        DB::raw('CAST(ec_products.sale_price AS DECIMAL(10,2)) as sale_price'),
+                        DB::raw('GROUP_CONCAT(DISTINCT ec_product_collections.name) as collection_name'),
 
-                    $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                        // MODIFIED: Select distinct category and subcategory names using table aliases
+                        DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category_name'),
+                        DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory_name'),
 
-                    $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                    $val->coupon = [];
-                    foreach ($coupons as $coupon) {
-                        $val->coupon[strtolower($coupon->code)] = [
-                            'code' => strtolower($coupon->code),
-                            'value' => $coupon->value,
-                            'start_date' => $coupon->start_date,
-                            'end_date' => $coupon->end_date,
-                        ];
-                    }
-                }
+                        DB::raw("CONCAT('[', GROUP_CONCAT(DISTINCT JSON_OBJECT('name', ec_product_labels.name, 'color', ec_product_labels.color)), ']') as labels")
+                    )
+                    // --- Joins to get all related data for a rich structure ---
+
+                    // MODIFIED: Added separate joins for main and subcategories to differentiate them
+                    // Join for the main category (parent_id = 0)
+                    ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                        $join->on('pivot_main.category_id', '=', 'main_cat.id')
+                            ->where('main_cat.parent_id', 0);
+                    })
+                    // Join for the subcategory (parent_id != 0)
+                    ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                        $join->on('pivot_sub.category_id', '=', 'sub_cat.id')
+                            ->where('sub_cat.parent_id', '!=', 0);
+                    })
+
+                    ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
+                    ->leftJoin('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
+
+                    // --- FILTERING LOGIC FOR ITEM FAMILY ---
+                    // 1. Find all products where the itemFamily column matches.
+                    ->where('ec_products.itemFamily', $currentItemFamily)
+
+                    // 2. IMPORTANT: Exclude the current product itself from the list.
+                    ->where('ec_products.id', '!=', $productId)
+
+                    // Group by product ID to prevent duplicate rows from joins
+                    ->groupBy('ec_products.id')
+                    ->get();
+
+                // --- Post-processing to format the data into your desired structure ---
+                $prod->item_family = $results->map(function ($item) {
+                    // MODIFIED: Added this block to restructure the subcategory
+                    // Create the nested subcategory object
+                    $item->subcategory = $item->subcategory_name ? [
+                        'subcategory_name' => $item->subcategory_name,
+                    ] : null;
+                    // Remove the original flat property
+                    unset($item->subcategory_name);
+
+                    // Handle other transformations as before
+                    $item->labels = json_decode($item->labels);
+                    $item->images = json_decode($item->images, true) ?? [];
+
+                    // You can add other queries here for each item if needed
+                    return $item;
+                });
+
+            } else {
+                // If the main product has no itemFamily, return an empty array for consistency.
+                $prod->item_family = [];
+            }
+
             $response = response()->json($prod)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
             if ($response->isNotModified(request())) {
@@ -542,16 +622,16 @@ class ProductController extends Controller
 
     public function getAllProducts(Request $request)
     {
-        $limit = (int)$request['limit'];
-        $page = (int)$request['page'];
+        $limit = (int) $request['limit'];
+        $page = (int) $request['page'];
         $search = implode('', explode(' ', $request['search']));
 
-        if($search == '') {
+        if ($search == '') {
             // echo "if";
             $prod = DB::table('ec_product_category_product')
                 ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_categories.id as category_id', 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                 // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -561,7 +641,7 @@ class ProductController extends Controller
                 ->where('ec_product_categories.parent_id', 0)
                 // ->orderBy('ec_product_category_product.product_id', 'desc')
                 ->paginate($limit);
-                // ->get();
+            // ->get();
 
             foreach ($prod as $key => $val) {
                 $val->labels = DB::table('ec_product_label_products')
@@ -580,26 +660,26 @@ class ProductController extends Controller
                     ->toArray();
 
                 $val->subcategory = DB::table('ec_product_categories')
-                ->select('name as subcategory_name')
-                ->join ('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                ->where('product_id', $val->product_id)
-                ->where('ec_product_categories.parent_id', '!=', 0)
-                ->first();
+                    ->select('name as subcategory_name')
+                    ->join('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                    ->where('product_id', $val->product_id)
+                    ->where('ec_product_categories.parent_id', '!=', 0)
+                    ->first();
 
                 $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
-                ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
-                // ->where('ec_orders.status', 'completed') // Optional: filter by order status
-                ->where('product_id', $val->product_id)
-                ->groupBy('product_id')
-                // ->orderBy('total_sales', 'desc')
-                // ->limit(10) // Optional: limit to top 10
-                ->first();
+                    ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
+                    // ->where('ec_orders.status', 'completed') // Optional: filter by order status
+                    ->where('product_id', $val->product_id)
+                    ->groupBy('product_id')
+                    // ->orderBy('total_sales', 'desc')
+                    // ->limit(10) // Optional: limit to top 10
+                    ->first();
 
                 $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
                 $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-               $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                 $val->coupon = [];
                 foreach ($coupons as $coupon) {
                     $val->coupon[strtolower($coupon->code)] = [
@@ -614,8 +694,8 @@ class ProductController extends Controller
             // echo "else";
             $prod = DB::table('ec_product_category_product')
                 ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_categories.id as category_id', 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-                ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                 // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -624,12 +704,12 @@ class ProductController extends Controller
                 ->where('ec_product_collections.name', NULL)
                 ->where('ec_product_categories.parent_id', 0)
                 // ->where('ec_products.name', 'LIKE', '%'.$search.'%')
-                ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"), 'LIKE', '%'.$search.'%')
+                ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"), 'LIKE', '%' . $search . '%')
                 ->paginate($limit);
             // ->get();
 
             foreach ($prod as $key => $val) {
-                 $val->labels = DB::table('ec_product_label_products')
+                $val->labels = DB::table('ec_product_label_products')
                     ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
                     // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
                     ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
@@ -645,20 +725,20 @@ class ProductController extends Controller
                     ->toArray();
 
                 $val->subcategory = DB::table('ec_product_categories')
-                ->select('name as subcategory_name')
-                ->join ('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                ->where('product_id', $val->product_id)
-                ->where('ec_product_categories.parent_id', '!=', 0)
-                ->first();
+                    ->select('name as subcategory_name')
+                    ->join('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                    ->where('product_id', $val->product_id)
+                    ->where('ec_product_categories.parent_id', '!=', 0)
+                    ->first();
 
                 $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
-                ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
-                // ->where('ec_orders.status', 'completed') // Optional: filter by order status
-                ->where('product_id', $val->product_id)
-                ->groupBy('product_id')
-                // ->orderBy('total_sales', 'desc')
-                // ->limit(10) // Optional: limit to top 10
-                ->first();
+                    ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
+                    // ->where('ec_orders.status', 'completed') // Optional: filter by order status
+                    ->where('product_id', $val->product_id)
+                    ->groupBy('product_id')
+                    // ->orderBy('total_sales', 'desc')
+                    // ->limit(10) // Optional: limit to top 10
+                    ->first();
 
                 $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
@@ -691,13 +771,13 @@ class ProductController extends Controller
         $category_id = $request['category_id'];
         if (!isset($category_id) || empty($category_id)) {
             return response()->json([
-                'message'       => 'Kindly Provide Category',
+                'message' => 'Kindly Provide Category',
             ]);
         }
         $products = DB::table('ec_product_category_product')
             ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
-            ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-            ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+            ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+            ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
             ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
             ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
             // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
@@ -707,35 +787,35 @@ class ProductController extends Controller
             ->orderBy('ec_product_category_product.product_id', 'desc')
             ->get();
 
-            foreach ($products as $key => $val) {
-                $val->labels = DB::table('ec_product_label_products')
-                    ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                    ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                    ->where('product_id', $val->product_id)
-                    ->get();
+        foreach ($products as $key => $val) {
+            $val->labels = DB::table('ec_product_label_products')
+                ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                ->where('product_id', $val->product_id)
+                ->get();
 
-                $val->tags = DB::table('ec_product_tag_product')
-                    // ->select('ec_product_tags.name as tag_name')
-                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                    ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                    ->where('product_id', $val->product_id)
-                    ->pluck('ec_product_tags.name')
-                    ->toArray();
-                
-                $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+            $val->tags = DB::table('ec_product_tag_product')
+                // ->select('ec_product_tags.name as tag_name')
+                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                ->where('product_id', $val->product_id)
+                ->pluck('ec_product_tags.name')
+                ->toArray();
 
-                $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                $val->coupon = [];
-                foreach ($coupons as $coupon) {
-                    $val->coupon[strtolower($coupon->code)] = [
-                        'code' => strtolower($coupon->code),
-                        'value' => $coupon->value,
-                        'start_date' => $coupon->start_date,
-                        'end_date' => $coupon->end_date,
-                    ];
-                }
+            $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+
+            $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+            $val->coupon = [];
+            foreach ($coupons as $coupon) {
+                $val->coupon[strtolower($coupon->code)] = [
+                    'code' => strtolower($coupon->code),
+                    'value' => $coupon->value,
+                    'start_date' => $coupon->start_date,
+                    'end_date' => $coupon->end_date,
+                ];
             }
+        }
         $response = response()->json($products)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($products)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
         if ($response->isNotModified(request())) {
@@ -753,18 +833,18 @@ class ProductController extends Controller
 
         if (!isset($category) || empty($category)) {
             return response()->json([
-                'message'       => 'Kindly Provide Category',
+                'message' => 'Kindly Provide Category',
             ]);
         }
 
-        $prod =  DB::table('ec_products')
+        $prod = DB::table('ec_products')
             // ->join ('ec_product_category_product', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
             // ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
             // ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
             // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
             // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
             // ->join ('ec_product_categories', 'ec_product_categories.id', '=', 'ec_product_category_product.category_id', 'left')
-            ->join ('meta_boxes', 'meta_boxes.reference_id', '=', 'ec_products.id', 'left')
+            ->join('meta_boxes', 'meta_boxes.reference_id', '=', 'ec_products.id', 'left')
             // ->select(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, ' &amp; ', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"))
             ->select('meta_value')
             ->where('ec_products.status', 'published')
@@ -774,7 +854,7 @@ class ProductController extends Controller
             // ->orderBy('ec_products.id', 'desc')
             ->where('reference_type', 'Botble\Ecommerce\Models\Product')
             ->first();
-            // print_r($prod);die();
+        // print_r($prod);die();
         $response = response()->json($prod)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
         if ($response->isNotModified(request())) {
@@ -787,17 +867,17 @@ class ProductController extends Controller
     public function getFilters(Request $request)
     {
         $labels = DB::table('ec_product_labels')
-        ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-        // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-        // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-        ->get();
+            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+            // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+            ->get();
 
         $tags = DB::table('ec_product_tags')
-        // ->select('ec_product_tags.name as tag_name')
-        // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-        // ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-        ->pluck('ec_product_tags.name')
-        ->toArray();
+            // ->select('ec_product_tags.name as tag_name')
+            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+            // ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+            ->pluck('ec_product_tags.name')
+            ->toArray();
         $response = response()->json(['labels' => $labels, 'tags' => $tags])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode(['labels' => $labels, 'tags' => $tags])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
         if ($response->isNotModified(request())) {
