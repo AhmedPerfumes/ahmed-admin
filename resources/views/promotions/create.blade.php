@@ -151,12 +151,14 @@
                                         <option value="group" {{ isset($promotionData['discount_rule']) && $promotionData['discount_rule']->apply_to === 'group' ? 'selected' : '' }}>Group Discount</option>
                                     </select>
                                 </div>
+                                <!-- All Products Discount -->
                                 <div id="discount_all_products_field" style="display: {{ isset($promotionData['discount_rule']) && $promotionData['discount_rule']->apply_to === 'all' ? 'block' : 'none' }};">
                                     <div class="mb-3">
                                         <label for="discount_all" class="form-label">Discount Percent (All Products)</label>
                                         <input type="number" step="0.01" name="rewards[discount][percentage]" id="discount_all" class="form-control" value="{{ old('rewards.discount.percentage', isset($promotionData['discount_rule']) && $promotionData['discount_rule']->apply_to === 'all' ? $promotionData['discount_rule']->percentage : '') }}">
                                     </div>
                                 </div>
+                                <!-- Individual Product Discount -->
                                 <div id="discount_individual_fields" style="display: {{ isset($promotionData['discount_rule']) && $promotionData['discount_rule']->apply_to === 'individual' ? 'block' : 'none' }};">
                                     <div class="mb-3">
                                         <label for="discount_product_ids" class="form-label">Product</label>
@@ -238,6 +240,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                <!-- Group Discount -->
                                 <div id="discount_group_fields" style="display: {{ isset($promotionData['discount_rule']) && $promotionData['discount_rule']->apply_to === 'group' ? 'block' : 'none' }};">
                                     <div class="mb-3">
                                         <label for="discount_group_product_ids" class="form-label">Products</label>
@@ -259,7 +262,8 @@
                             </div>
 
                             <!-- Coupon Fields -->
-                            <div id="coupon_fields" style="display: {{ isset($promotion) && $promotion->type === 'coupon' ? 'block' : 'none' }};">
+                             <div>
+                               <div id="coupon_fields" style="display: {{ isset($promotion) && $promotion->type === 'coupon' ? 'block' : 'none' }};">
                                 <div class="mb-3">
                                     <label for="coupon_code" class="form-label">Coupon Code</label>
                                     <input type="text" name="coupon_code" id="coupon_code" class="form-control" value="{{ old('coupon_code', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->coupon_code : '') }}">
@@ -303,17 +307,111 @@
                                         </select>
                                     </div>
                                     <div class="mb-3">
-                                        <label for="coupon_group_percent" class="form-label">Coupon Percent</label>
-                                        <input type="number" step="0.01" name="rewards[coupon][group_percentage]" id="coupon_group_percent" class="form-control" value="{{ old('rewards.coupon.group_percentage', isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->apply_to === 'group' ? $promotionData['coupon_rule']->percentage : '') }}">
-                                    </div>
-                                </div>
-                                <div id="coupon_customer_field" style="display: {{ isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->apply_to === 'customer' ? 'block' : 'none' }};">
-                                    <div class="mb-3">
-                                        <label for="coupon_customer_percent" class="form-label">Coupon Percent (Customer)</label>
-                                        <input type="number" step="0.01" name="rewards[coupon][customer_percentage]" id="coupon_customer_percent" class="form-control" value="{{ old('rewards.coupon.customer_percentage', isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->apply_to === 'customer' ? $promotionData['coupon_rule']->percentage : '') }}">
-                                    </div>
-                                </div>
-                            </div>
+                                        <label for="coupon_type" class="form-label">Coupon Type</label>
+                                             <select name="rewards[coupon][type]" id="coupon_type" class="form-control">
+                                <option value="percentage" 
+                                    {{ old('rewards.coupon.type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->type : '') == 'percentage' ? 'selected' : '' }}>
+                                    Percentage
+                                </option>
+                                <option value="amount" 
+                                    {{ old('rewards.coupon.type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->type : '') == 'amount' ? 'selected' : '' }}>
+                                    Amount
+                                </option>
+                                     </select>
+                                        </div>
+
+                                        {{-- Percentage field --}}
+                                        <div class="mb-3 coupon-field" id="coupon_percent_field" 
+                                            style="{{ old('rewards.coupon.type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->type : '') == 'percentage' ? '' : 'display:none;' }}">
+                                            <label for="coupon_group_percent" class="form-label">Coupon Percent</label>
+                                            <input type="number" step="0.01" 
+                                                name="rewards[coupon][group_percentage]" 
+                                                id="coupon_group_percent" 
+                                                class="form-control" 
+                                                value="{{ old('rewards.coupon.group_percentage', isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->type === 'percentage' ? $promotionData['coupon_rule']->percentage : '') }}">
+                                        </div>
+
+                                        {{-- Amount field --}}
+                                        <div class="mb-3 coupon-field" id="coupon_amount_field" 
+                                            style="{{ old('rewards.coupon.type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->type : '') == 'amount' ? '' : 'display:none;' }}">
+                                            <label for="coupon_amount" class="form-label">Coupon Amount</label>
+                                            <input type="number" step="0.01" 
+                                                name="rewards[coupon][amount]" 
+                                                id="coupon_amount" 
+                                                class="form-control" 
+                                                value="{{ old('rewards.coupon.amount', isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->type === 'amount' ? $promotionData['coupon_rule']->amount : '') }}">
+                                        </div>
+
+                                                                        </div>
+                                                                        <div id="coupon_customer_field" 
+                                            style="display: {{ isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->apply_to === 'customer' ? 'block' : 'none' }};">
+
+                                        <!-- NEW: Apply Coupon To (inside customer)  -->
+    <div class="mb-3">
+    <label for="coupon_product_type" class="form-label">Apply Coupon (Product Type)</label>
+    <select name="conditions[coupon][product_type]" id="coupon_product_type" class="form-select">
+        <option value="all" {{ old('conditions.coupon.product_type', $promotionData['coupon_rule']->product_type ?? '') == 'all' ? 'selected' : '' }}>All Products</option>
+        <option value="group" {{ old('conditions.coupon.product_type', $promotionData['coupon_rule']->product_type ?? '') == 'group' ? 'selected' : '' }}>Group Products</option>
+    </select>
+</div>
+
+
+    <!-- Group products (only visible if customer_apply_to == group)  -->
+  <div class="mb-3" id="coupon_product_group_field" 
+    style="{{ old('conditions.coupon.product_type', $promotionData['coupon_rule']->product_type ?? '') == 'group' ? '' : 'display:none;' }}">
+    
+    <label for="coupon_product_group_ids" class="form-label">Products (for Group)</label>
+    <select name="conditions[coupon][group_product_ids][]" id="coupon_product_group_ids" multiple class="form-select">
+        @foreach ($products as $product)
+            <option value="{{ $product['id'] }}"
+                @if(isset($promotionData['group_products']) && in_array($product['id'], $promotionData['group_products'])) selected @endif>
+                {{ $product['name'] }}
+            </option>
+        @endforeach
+    </select>
+</div>
+
+                                            
+                                            
+                                             <!-- Coupon Type Dropdown  -->
+                                            <div class="mb-3">
+                                                <label for="coupon_customer_type" class="form-label">Coupon Type (Customer)</label>
+                                                <select name="rewards[coupon][customer_type]" id="coupon_customer_type" class="form-control">
+                                                    <option value="percentage"
+                                                        {{ old('rewards.coupon.customer_type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->coupon_type : '') == 'percentage' ? 'selected' : '' }}>
+                                                        Percentage
+                                                    </option>
+                                                    <option value="amount"
+                                                        {{ old('rewards.coupon.customer_type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->coupon_type : '') == 'amount' ? 'selected' : '' }}>
+                                                        Amount
+                                                    </option>
+                                                </select>
+                                            </div>
+
+                                            {{-- Percentage field --}}
+                                            <div class="mb-3 customer-field" id="coupon_customer_percent_field" 
+                                                style="{{ old('rewards.coupon.customer_type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->coupon_type : '') == 'percentage' ? '' : 'display:none;' }}">
+                                                <label for="coupon_customer_percent" class="form-label">Coupon Percent (Customer)</label>
+                                                <input type="number" step="0.01" 
+                                                    name="rewards[coupon][customer_percentage]" 
+                                                    id="coupon_customer_percent" 
+                                                    class="form-control" 
+                                                    value="{{ old('rewards.coupon.customer_percentage', isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->apply_to === 'customer' && $promotionData['coupon_rule']->coupon_type === 'percentage' ? $promotionData['coupon_rule']->percentage : '') }}">
+                                            </div>
+
+                                            {{-- Amount field --}}
+                                            <div class="mb-3 customer-field" id="coupon_customer_amount_field" 
+                                                style="{{ old('rewards.coupon.customer_type', isset($promotionData['coupon_rule']) ? $promotionData['coupon_rule']->coupon_type : '') == 'amount' ? '' : 'display:none;' }}">
+                                                <label for="coupon_customer_amount" class="form-label">Coupon Amount (Customer)</label>
+                                                <input type="number" step="0.01" 
+                                                    name="rewards[coupon][customer_amount]" 
+                                                    id="coupon_customer_amount" 
+                                                    class="form-control" 
+                                                    value="{{ old('rewards.coupon.customer_amount', isset($promotionData['coupon_rule']) && $promotionData['coupon_rule']->apply_to === 'customer' && $promotionData['coupon_rule']->coupon_type === 'amount' ? $promotionData['coupon_rule']->amount : '') }}">
+                                            </div>
+                                        </div>
+                    </div>
+
 
                             <!-- FOC Fields -->
                             <div id="foc_fields" style="display: {{ isset($promotion) && $promotion->type === 'foc' ? 'block' : 'none' }};">
@@ -369,6 +467,7 @@
             });
             const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { maxItems: 10 });
             const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 10 });
+            const coupon_product_group_ids = new TomSelect('#coupon_product_group_ids', { maxItems: 10 });
             const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 10 });
             // const bogoProductSelect = new TomSelect('#bogo_product_ids', { maxItems: 1 });
             // const bogoFreeProductSelect = new TomSelect('#bogo_free_product_ids', { maxItems: 1 });
@@ -424,6 +523,9 @@
                 calculateDiscount('discount');
             });
             document.getElementById('coupon_apply_to').addEventListener('change', function() {
+                toggleCouponFields();
+            });
+             document.getElementById('coupon_product_type').addEventListener('change', function() {
                 toggleCouponFields();
             });
 
@@ -594,49 +696,67 @@
                     }
                 }
                 // Validate Coupon
-                if (promotionType === 'coupon') {
-                    const couponCode = document.getElementById('coupon_code').value;
-                    const applyTo = document.getElementById('coupon_apply_to').value;
-                    if (!couponCode || couponCode === '') {
-                        event.preventDefault();
-                        alert('Coupon Code is required.');
-                        return;
-                    }
-                    if (applyTo === 'customer') {
-                        const customerIds = document.getElementById('coupon_customer_ids').tomselect.getValue();
-                        if (customerIds.length === 0) {
-                            event.preventDefault();
-                            alert('At least one customer must be selected for Customer Coupon.');
-                            return;
-                        }
-                        const customerPercent = parseFloat(document.getElementById('coupon_customer_percent').value);
-                        if (isNaN(customerPercent) || customerPercent <= 0) {
-                            event.preventDefault();
-                            alert('Coupon Percent for Customer must be a positive number.');
-                            return;
-                        }
-                    } else if (applyTo === 'all') {
-                        const couponPercent = parseFloat(document.getElementById('coupon_all').value);
-                        if (isNaN(couponPercent) || couponPercent <= 0) {
-                            event.preventDefault();
-                            alert('Coupon Percent for All Products must be a positive number.');
-                            return;
-                        }
-                    } else if (applyTo === 'group') {
-                        const groupProductIds = document.getElementById('coupon_group_product_ids').tomselect.getValue();
-                        const groupPercent = parseFloat(document.getElementById('coupon_group_percent').value);
-                        if (groupProductIds.length === 0) {
-                            event.preventDefault();
-                            alert('At least one product must be selected for Group Coupon.');
-                            return;
-                        }
-                        if (isNaN(groupPercent) || groupPercent <= 0) {
-                            event.preventDefault();
-                            alert('Coupon Percent for Group must be a positive number.');
-                            return;
-                        }
-                    }
-                }
+                // Inside the form submission handler
+if (promotionType === 'coupon') {
+    const couponCode = document.getElementById('coupon_code').value;
+    const applyTo = document.getElementById('coupon_apply_to').value;
+
+    if (!couponCode || couponCode === '') {
+        event.preventDefault();
+        alert('Coupon Code is required.');
+        return;
+    }
+
+    // New logic to get the coupon type
+    let couponType;
+    let couponValue;
+
+    if (applyTo === 'customer') {
+        couponType = document.getElementById('coupon_customer_type').value;
+        if (couponType === 'percentage') {
+            couponValue = parseFloat(document.getElementById('coupon_customer_percent').value);
+        } else { // 'amount'
+            couponValue = parseFloat(document.getElementById('coupon_customer_amount').value);
+        }
+    } else if (applyTo === 'group') {
+        couponType = document.getElementById('coupon_type').value;
+        if (couponType === 'percentage') {
+            couponValue = parseFloat(document.getElementById('coupon_group_percent').value);
+        } else { // 'amount'
+            couponValue = parseFloat(document.getElementById('coupon_amount').value);
+        }
+    } else if (applyTo === 'all') {
+        couponType = document.getElementById('coupon_type').value;
+        if (couponType === 'percentage') {
+            couponValue = parseFloat(document.getElementById('coupon_all').value);
+        } else { // 'amount'
+            couponValue = parseFloat(document.getElementById('coupon_amount').value);
+        }
+    }
+
+    // Now, validate the coupon value
+    if (isNaN(couponValue) || couponValue <= 0) {
+        event.preventDefault();
+        alert('Coupon value must be a positive number.');
+        return;
+    }
+
+    if (applyTo === 'customer') {
+        const customerIds = document.getElementById('coupon_customer_ids').tomselect.getValue();
+        if (customerIds.length === 0) {
+            event.preventDefault();
+            alert('At least one customer must be selected for Customer Coupon.');
+            return;
+        }
+    } else if (applyTo === 'group') {
+        const groupProductIds = document.getElementById('coupon_group_product_ids').tomselect.getValue();
+        if (groupProductIds.length === 0) {
+            event.preventDefault();
+            alert('At least one product must be selected for Group Coupon.');
+            return;
+        }
+    }
+}
                 // Validate FOC
                 if (promotionType === 'foc') {
                     const minThreshold = parseFloat(document.getElementById('foc_min_threshold').value);
@@ -696,15 +816,19 @@
         }
 
         function toggleCouponFields() {
-            const applyTo = document.getElementById('coupon_apply_to').value;
+            const applyTo = document.getElementById('coupon_apply_to').value;coupon_product_type
             const allProductsField = document.getElementById('coupon_all_products_field');
             const groupFields = document.getElementById('coupon_group_fields');
             const customerField = document.getElementById('coupon_customer_field');
             const customerIdsField = document.getElementById('coupon_customer_ids_field');
+            const applyCouponTo = document.getElementById('coupon_product_type').value;
+
+            const groupCouponFields = document.getElementById('coupon_product_group_field');
             allProductsField.style.display = applyTo === 'all' ? 'block' : 'none';
             customerField.style.display = applyTo === 'customer' ? 'block' : 'none';
             customerIdsField.style.display = applyTo === 'customer' ? 'block' : 'none';
             groupFields.style.display = applyTo === 'group' ? 'block' : 'none';
+            groupCouponFields.style.display = applyCouponTo === 'group' ? 'block' : 'none';
         }
 
         function updatePriceAndDiscount(type, productIds) {
@@ -757,6 +881,29 @@
                 }
             }
         }
+       document.addEventListener("DOMContentLoaded", function () {
+    function toggleFields(selectId, percentId, amountId) {
+        const typeSelect = document.getElementById(selectId);
+        const percentField = document.getElementById(percentId);
+        const amountField = document.getElementById(amountId);
+
+        function update() {
+            if (typeSelect.value === "percentage") {
+                percentField.style.display = "block";
+                amountField.style.display = "none";
+            } else {
+                percentField.style.display = "none";
+                amountField.style.display = "block";
+            }
+        }
+
+        typeSelect.addEventListener("change", update);
+        update(); // run on load
+    }
+
+    toggleFields("coupon_type", "coupon_percent_field", "coupon_amount_field"); // group
+    toggleFields("coupon_customer_type", "coupon_customer_percent_field", "coupon_customer_amount_field"); // customer
+});
 
         // function addBogoRule(buyProduct, freeProduct) {
         //     const table = document.getElementById('bogo_rules_table');

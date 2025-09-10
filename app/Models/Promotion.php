@@ -132,7 +132,7 @@ class CouponRule extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['promotion_id', 'coupon_code', 'apply_to', 'percentage'];
+    protected $fillable = ['promotion_id', 'coupon_code','coupon_type', 'apply_to', 'percentage','amount','product_type'];
 
     public function promotion() { return $this->belongsTo(Promotion::class); }
     public function products() { return $this->hasMany(CouponProduct::class, 'coupon_rule_id'); }
