@@ -27,6 +27,7 @@ use Botble\Ecommerce\Models\MobileVerification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Botble\Ecommerce\Models\DiscountCustomer;
+use App\Models\Promotion;
 
 class OrderController extends Controller
 {
@@ -750,7 +751,28 @@ class OrderController extends Controller
             // curl_close($ch);
 
             if ($couponCode = $request->input('couponCode')) {
-                Discount::getFacadeRoot()->afterOrderPlaced($couponCode, $request->input('customer_id') ? $request->input('customer_id') : $customer_id);
+                // Discount::getFacadeRoot()->afterOrderPlaced($couponCode, $request->input('customer_id') ? $request->input('customer_id') : $customer_id);
+
+                $now = Carbon::now();
+
+                $coupon = DB::table('coupon_rules')
+                ->join('promotions', 'promotions.id', '=', 'coupon_rules.promotion_id')
+                ->where('coupon_code', $couponCode)
+                ->where('type', 'coupon')
+                ->where('start_date', '<=', $now)
+                ->Where('end_date', '>', $now)
+                ->select('coupon_rules.id', 'coupon_rules.promotion_id')
+                ->first();
+
+                if ($coupon) {
+                    DB::table('coupon_rules')->where('id', $coupon->id)->increment('total_used');
+                    $promotionId = $coupon->promotion_id;
+
+                    DB::table('ec_customer_used_coupons')->insert([
+                        'customer_id' => $request->input('customer_id') ?? $customer_id,
+                        'discount_id' => $promotionId
+                    ]);
+                }
             }
 
             if($request->input('customer_id')) {
@@ -1236,21 +1258,21 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $coupon = DiscountModel::where('code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+        $coupon = Promotion::select('promotions.id', 'type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to AS type')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
 
         if(!$coupon) {
             return response()->json(['message' => 'Invalid Coupon Code']);
         }
 
-        $coupon->type = $coupon->target;
+        $cust_mobile_verification = Customer::where('phone', $request->input('mobile_number'))->first();
 
-        $mobile_verification = MobileVerification::where('phone', $request->input('mobile_number'))->first();
+        if(!$cust_mobile_verification) {
+             $mobile_verification = MobileVerification::where('phone', $request->input('mobile_number'))->first();
 
-        if(!$mobile_verification) {
-            return response()->json(['message' => 'Verify Mobile Number First']);
+            if(!$mobile_verification) {
+                return response()->json(['message' => 'Verify Mobile Number First']);
+            }
         }
-
-        // $customer = OrderAddress::where('phone', $request->input('mobile_number'))->first();
 
         $customer = OrderAddress::join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->input('mobile_number'))->get();
 
@@ -1266,12 +1288,13 @@ class OrderController extends Controller
             }
         }
 
+        $coupon->value = intval($coupon->value);
+
         return response()->json([
             'message'          => 'Details Fetched successfully',
             'coupon'            => $coupon
         ]);
     }
-
     public function customerDetails(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1403,22 +1426,22 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'address_id'      => 'required',
-            'state' => 'required',
-            'city' => 'required',
-            'address' => 'required',
-            'customer_id' => 'required',
-            'name' => 'required',
-            'email' => 'required|email',
-            'mobile' => 'required',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
-
         if($request->input('address_id') == -1) {
+            $validator = Validator::make($request->all(), [
+                'address_id'      => 'required',
+                'state' => 'required',
+                'city' => 'required',
+                'address' => 'required',
+                'customer_id' => 'required',
+                'name' => 'required',
+                'email' => 'required|email',
+                'mobile' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json($validator->errors());
+            }
+            
             $address = Address::create([
                 'name'      => $request->input('name'),
                 'email'     => $request->input('email'),
@@ -1434,6 +1457,17 @@ class OrderController extends Controller
                 'message' => 'Customer Address Updated Successfully',
                 'addresses' => $address
             ]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address_id'      => 'required',
+            'state' => 'required',
+            'city' => 'required',
+            'address' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors());
         }
 
         $address = Address::find($request->input('address_id'));

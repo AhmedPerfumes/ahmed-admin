@@ -2003,7 +2003,7 @@ class OrderController extends Controller
         }
 
         // General coupons
-        $generalCoupons = collect(DiscountModel::select('code', 'value', 'start_date', 'end_date')
+        $generalCoupons = collect(DiscountModel::select('code', 'value', 'start_date', 'end_date', 'target')
         ->where('target', '!=', 'customer')
         ->whereNotNull('code')
         ->whereDate('start_date', '<=', now())
@@ -2015,13 +2015,14 @@ class OrderController extends Controller
                 'value' => $coupon->value,
                 'start_date' => Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
                 'end_date' => Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                'type' => $coupon->target
             ];
         }));
 
         // Customer-specific coupons
         $customerCoupons = collect();
         if ($request->input('customer_id') != '-1') {
-            $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')
+            $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date', 'target')
             ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
             ->where('target', 'customer')
             ->where('customer_id', $request->input('customer_id'))
@@ -2034,6 +2035,7 @@ class OrderController extends Controller
                     'value' => $coupon->value,
                     'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
                     'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                    'type' => $coupon->target
                 ];
             });
         }
