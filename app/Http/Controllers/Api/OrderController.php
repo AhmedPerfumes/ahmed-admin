@@ -32,7 +32,7 @@ use App\Models\Promotion;
 class OrderController extends Controller
 {
     public function storeOrder(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-
+        // die;
         $validator = Validator::make($request->all(), [
             'products'      => 'required'
         ]);
@@ -671,19 +671,41 @@ class OrderController extends Controller
 
                 $exisProduct->coupon = $couponData;
 
-                $customerCouponData = [];
+                // $customerCouponData = [];
 
-                // if ($coupons->isEmpty()) {
-                $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
-                foreach ($customer_coupons as $customer_coupon) {
-                    $customerCouponData[strtolower($customer_coupon->code)] = [
-                        'code' => strtolower($customer_coupon->code),
-                        'value' => $customer_coupon->value,
-                        'start_date' => $customer_coupon->start_date,
-                        'end_date' => $customer_coupon->end_date,
-                    ];
-                }
-                $exisProduct->customer_coupon = $customerCouponData;
+                // // if ($coupons->isEmpty()) {
+                // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+                // foreach ($customer_coupons as $customer_coupon) {
+                //     $customerCouponData[strtolower($customer_coupon->code)] = [
+                //         'code' => strtolower($customer_coupon->code),
+                //         'value' => $customer_coupon->value,
+                //         'start_date' => $customer_coupon->start_date,
+                //         'end_date' => $customer_coupon->end_date,
+                //     ];
+                // }
+                // $exisProduct->customer_coupon = $customerCouponData;
+
+                $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date', 'target')
+                    ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
+                    ->where('target', 'customer')
+                    ->where('customer_id', $customer_id)
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->get()
+                    ->mapWithKeys(function ($coupon) {
+                        return [
+                            strtolower($coupon->code) => [
+                                'code' => strtolower($coupon->code),
+                                'value' => $coupon->value,
+                                'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                                'type' => $coupon->target
+                            ],
+                        ];
+                    })
+                    ->toArray();
+
+                $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
                 // }
 
                 $exisProduct->qty = $quantity;
@@ -707,6 +729,8 @@ class OrderController extends Controller
                 // $sale_price = '';
                 if(!is_null($exisProduct->discount)) {
                     if($exisProduct->discount->discount_type == 'percent') {
+                        // echo "Discount Percent";
+                        // echo "\n";
                         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                         $total_amount = $price * $quantity;
                         $discount_percent = $exisProduct->discount->value;
@@ -738,14 +762,32 @@ class OrderController extends Controller
                             'vat' => $request->input('vatTax'),
                         ];   
                     } elseif($exisProduct->discount->discount_type == 'amount') {
+                        // echo "Discount Amount";
+                        // echo "\n";
                         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                         $total_amount = $price * $quantity;
-                        $sale_price = $price - $exisProduct->discount->value;
+                        $sale_price = $exisProduct->discount->final_price / (1 + ($request->input('vatTax') / 100));
                         $discount_percent = 0;
                         $discount_amount = $total_amount - ($sale_price * $quantity);
                         $net_amount = $total_amount - $discount_amount;
                         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
                         $gross_amount = $net_amount + $tax_amount;
+                        // echo "Price ".$price;
+                        // echo "\n";
+                        // echo "Total Amount ".$total_amount;
+                        // echo "\n";
+                        // echo "Sales Price ".$sale_price;
+                        // echo "\n";
+                        // echo "Discount Percent ".$discount_percent;
+                        // echo "\n";
+                        // echo "Discount Amount ".$discount_amount;
+                        // echo "\n";
+                        // echo "Net Amount ".$net_amount;
+                        // echo "\n";
+                        // echo "Tax Amount ".$tax_amount;
+                        // echo "\n";
+                        // echo "Gross Amount ".$gross_amount;
+                        // echo "\n";
                         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
                         $orderProduct = [
@@ -769,7 +811,6 @@ class OrderController extends Controller
                             'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                             'vat' => $request->input('vatTax'),
                         ];
-                        
                     }
                 } elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
                     // echo 'Coupon';
@@ -1183,19 +1224,41 @@ class OrderController extends Controller
 
                 $exisProduct->coupon = $couponData;
 
-                $customerCouponData = [];
+                // $customerCouponData = [];
 
                 // if ($coupons->isEmpty()) {
-                $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
-                foreach ($customer_coupons as $customer_coupon) {
-                    $customerCouponData[strtolower($customer_coupon->code)] = [
-                        'code' => strtolower($customer_coupon->code),
-                        'value' => $customer_coupon->value,
-                        'start_date' => $customer_coupon->start_date,
-                        'end_date' => $customer_coupon->end_date,
-                    ];
-                }
-                $exisProduct->customer_coupon = $customerCouponData;
+                // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+                // foreach ($customer_coupons as $customer_coupon) {
+                //     $customerCouponData[strtolower($customer_coupon->code)] = [
+                //         'code' => strtolower($customer_coupon->code),
+                //         'value' => $customer_coupon->value,
+                //         'start_date' => $customer_coupon->start_date,
+                //         'end_date' => $customer_coupon->end_date,
+                //     ];
+                // }
+                // $exisProduct->customer_coupon = $customerCouponData;
+
+                $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date', 'target')
+                    ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
+                    ->where('target', 'customer')
+                    ->where('customer_id', $customer_id)
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->get()
+                    ->mapWithKeys(function ($coupon) {
+                        return [
+                            strtolower($coupon->code) => [
+                                'code' => $coupon->code,
+                                'value' => $coupon->value,
+                                'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                                'type' => $coupon->target
+                            ],
+                        ];
+                    })
+                    ->toArray();
+
+                $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
                 // }
 
                 if(!is_null($exisProduct->discount)) {
