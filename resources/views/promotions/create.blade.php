@@ -24,11 +24,11 @@
                                 <label for="type" class="form-label">Promotion Type</label>
                                 <select name="type" id="type" onchange="toggleFields()" class="form-select" required {{ isset($promotion) ? 'disabled' : '' }}>
                                     <option value="">Select Type</option>
-                                    <!-- <option value="bogo" {{ isset($promotion) && $promotion->type === 'bogo' ? 'selected' : '' }}>BOGO</option> -->
                                     <option value="buy_x_get_y" {{ isset($promotion) && $promotion->type === 'buy_x_get_y' ? 'selected' : '' }}>Buy X Get Y</option>
                                     <option value="discount" {{ isset($promotion) && $promotion->type === 'discount' ? 'selected' : '' }}>Discount</option>
                                     <option value="coupon" {{ isset($promotion) && $promotion->type === 'coupon' ? 'selected' : '' }}>Coupon</option>
                                     <option value="foc" {{ isset($promotion) && $promotion->type === 'foc' ? 'selected' : '' }}>Free of Charge</option>
+                                     <option value="cashback" {{ isset($promotion) && $promotion->type === 'cashback' ? 'selected' : '' }}>Cashback</option>
                                 </select>
                                 @if (isset($promotion))
                                     <input type="hidden" name="type" value="{{ $promotion->type }}">
@@ -437,6 +437,82 @@
                                 </div>
                             </div>
 
+                            <!-- Cashback Fields -->
+                            <div id="cashback_fields" style="display: {{ isset($promotion) && $promotion->type === 'cashback' ? 'block' : 'none' }};">
+                                <!-- Customer Type Selection -->
+                                <div class="mb-3">
+                                    <label for="cashback_customer_type" class="form-label">Customer Type</label>
+                                    <select name="conditions[cashback][customer_type]" id="cashback_customer_type" class="form-select">
+                                        <option value="all" {{ old('conditions.cashback.customer_type', isset($promotionData['cashback_rule']) ? $promotionData['cashback_rule']->customer_type : '') == 'all' ? 'selected' : '' }}>All Customers</option>
+                                        <option value="group" {{ old('conditions.cashback.customer_type', isset($promotionData['cashback_rule']) ? $promotionData['cashback_rule']->customer_type : '') == 'group' ? 'selected' : '' }}>Group Customers</option>
+                                    </select>
+                                </div>
+
+                                <!-- Group Customers Selection (only visible when group is selected) -->
+                                <div class="mb-3" id="cashback_customer_group_field" style="display: {{ old('conditions.cashback.customer_type', isset($promotionData['cashback_rule']) ? $promotionData['cashback_rule']->customer_type : '') == 'group' ? 'block' : 'none' }};">
+                                    <label for="cashback_customer_ids" class="form-label">Select Customers</label>
+                                    <select name="conditions[cashback][customer_ids][]" id="cashback_customer_ids" multiple class="form-select">
+                                        @foreach($customers as $customer)
+                                            <option value="{{ $customer['id'] }}"
+
+                                                @if(isset($promotionData['cashback_customers']) && in_array($customer['id'], $promotionData['cashback_customers'])) selected @endif>
+                                                {{ $customer['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Product Type Selection -->
+                                <div class="mb-3">
+                                    <label for="cashback_product_type" class="form-label">Apply Cashback (Product Type)</label>
+                                    <select name="conditions[cashback][product_type]" id="cashback_product_type" class="form-select">
+                                        <option value="all" {{ old('conditions.cashback.product_type', $promotionData['cashback_rule']->product_type ?? '') == 'all' ? 'selected' : '' }}>All Products</option>
+                                        <option value="group" {{ old('conditions.cashback.product_type', $promotionData['cashback_rule']->product_type ?? '') == 'group' ? 'selected' : '' }}>Group Products</option>
+                                    </select>
+                                </div>
+
+                                <!-- Group Products (only visible if product_type == group) -->
+                                <div class="mb-3" id="cashback_product_group_field" style="display: {{ old('conditions.cashback.product_type', $promotionData['cashback_rule']->product_type ?? '') == 'group' ? 'block' : 'none' }};">
+                                    <label for="cashback_group_product_ids" class="form-label">Products</label>
+                                    <select name="conditions[cashback][group_product_ids][]" id="cashback_group_product_ids" multiple class="form-select">
+                                        @foreach ($products as $product)
+                                            <option value="{{ $product['id'] }}"
+                                                @if(isset($promotionData['group_products']) && in_array($product['id'], $promotionData['group_products'])) selected @endif>
+                                                {{ $product['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Cashback Type and Value -->
+                                <div class="mb-3">
+                                    <label for="cashback_type" class="form-label">Cashback Type</label>
+                                    <select name="rewards[cashback][type]" id="cashback_type" class="form-control">
+                                        @php
+                                            $persistedCashbackType = old('rewards.cashback.type', isset($promotionData['cashback_rule'])
+                                                ? (!is_null($promotionData['cashback_rule']->cashback_percentage) ? 'percentage' : 'amount')
+                                                : 'percentage');
+                                        @endphp
+                                        <option value="percentage" {{ $persistedCashbackType === 'percentage' ? 'selected' : '' }}>Percentage</option>
+                                        <option value="amount" {{ $persistedCashbackType === 'amount' ? 'selected' : '' }}>Amount</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3 cashback-field" id="cashback_percent_field"
+                                     style="{{ (old('rewards.cashback.type', isset($promotionData['cashback_rule']) ? (!is_null($promotionData['cashback_rule']->cashback_percentage) ? 'percentage' : 'amount') : 'percentage') == 'percentage') ? '' : 'display:none;' }}">
+                                    <label for="cashback_percentage" class="form-label">Cashback Percent</label>
+                                    <input type="number" step="0.01" name="rewards[cashback][percentage]" id="cashback_percentage" class="form-control"
+                                           value="{{ old('rewards.cashback.percentage', isset($promotionData['cashback_rule']) && !is_null($promotionData['cashback_rule']->cashback_percentage) ? $promotionData['cashback_rule']->cashback_percentage : '') }}">
+                                </div>
+
+                                <div class="mb-3 cashback-field" id="cashback_amount_field"
+                                     style="{{ (old('rewards.cashback.type', isset($promotionData['cashback_rule']) ? (!is_null($promotionData['cashback_rule']->cashback_percentage) ? 'percentage' : 'amount') : 'percentage') == 'amount') ? '' : 'display:none;' }}">
+                                    <label for="cashback_amount" class="form-label">Cashback Amount</label>
+                                    <input type="number" step="0.01" name="rewards[cashback][amount]" id="cashback_amount" class="form-control"
+                                           value="{{ old('rewards.cashback.amount', isset($promotionData['cashback_rule']) && is_null($promotionData['cashback_rule']->cashback_percentage) ? ($promotionData['cashback_rule']->cashback_amount ?? '') : '') }}">
+                                </div>
+                            </div>
+
                             <div class="mt-4">
                                 <button type="submit" class="btn btn-primary">{{ isset($promotion) ? 'Update Promotion' : 'Save Promotion' }}</button>
                             </div>
@@ -469,6 +545,8 @@
             const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 10 });
             const coupon_product_group_ids = new TomSelect('#coupon_product_group_ids', { maxItems: 10 });
             const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 10 });
+            const cashbackCustomerSelect = new TomSelect('#cashback_customer_ids', { maxItems: 10 });
+            const cashbackGroupProductSelect = new TomSelect('#cashback_group_product_ids', { maxItems: 10 });
             // const bogoProductSelect = new TomSelect('#bogo_product_ids', { maxItems: 1 });
             // const bogoFreeProductSelect = new TomSelect('#bogo_free_product_ids', { maxItems: 1 });
             const buyXProductSelect = new TomSelect('#buy_x_product_ids', {
@@ -528,6 +606,35 @@
              document.getElementById('coupon_product_type').addEventListener('change', function() {
                 toggleCouponFields();
             });
+            document.getElementById('cashback_customer_type').addEventListener('change', function() {
+                const groupField = document.getElementById('cashback_customer_group_field');
+                groupField.style.display = this.value === 'group' ? 'block' : 'none';
+            });
+
+            // Cashback type toggle for percentage/amount fields
+            const cashbackTypeSelect = document.getElementById('cashback_type');
+            if (cashbackTypeSelect) {
+                cashbackTypeSelect.addEventListener('change', function () {
+                    const percentField = document.getElementById('cashback_percent_field');
+                    const amountField = document.getElementById('cashback_amount_field');
+                    if (this.value === 'percentage') {
+                        percentField.style.display = 'block';
+                        amountField.style.display = 'none';
+                    } else {
+                        percentField.style.display = 'none';
+                        amountField.style.display = 'block';
+                    }
+                });
+            }
+
+            // Cashback product type toggle
+            const cashbackProductTypeSelect = document.getElementById('cashback_product_type');
+            if (cashbackProductTypeSelect) {
+                cashbackProductTypeSelect.addEventListener('change', function () {
+                    const groupField = document.getElementById('cashback_product_group_field');
+                    groupField.style.display = this.value === 'group' ? 'block' : 'none';
+                });
+            }
 
             // Add BOGO rule
             // document.getElementById('add_bogo_rule').addEventListener('click', function() {
@@ -758,6 +865,42 @@ if (promotionType === 'coupon') {
     }
 }
                 // Validate FOC
+                if (promotionType === 'cashback') {
+                    // Validate cashback value (percentage or amount)
+                    const cashbackType = document.getElementById('cashback_type').value;
+                    let cashbackValue;
+                    if (cashbackType === 'percentage') {
+                        cashbackValue = parseFloat(document.getElementById('cashback_percentage').value);
+                    } else {
+                        cashbackValue = parseFloat(document.getElementById('cashback_amount').value);
+                    }
+                    if (isNaN(cashbackValue) || cashbackValue <= 0) {
+                        event.preventDefault();
+                        alert('Cashback value must be a positive number.');
+                        return;
+                    }
+
+                    const productType = document.getElementById('cashback_product_type').value;
+                    if (productType === 'group') {
+                        const productIds = document.getElementById('cashback_group_product_ids').tomselect.getValue();
+                        if (productIds.length === 0) {
+                            event.preventDefault();
+                            alert('At least one product must be selected for Cashback (Group Products).');
+                            return;
+                        }
+                    }
+
+                    const customerType = document.getElementById('cashback_customer_type').value;
+                    if (customerType === 'group') {
+                        const customerIds = document.getElementById('cashback_customer_ids').tomselect.getValue();
+                        if (customerIds.length === 0) {
+                            event.preventDefault();
+                            alert('At least one customer must be selected for Cashback (Group Customers).');
+                            return;
+                        }
+                    }
+                }
+
                 if (promotionType === 'foc') {
                     const minThreshold = parseFloat(document.getElementById('foc_min_threshold').value);
                     const maxThreshold = parseFloat(document.getElementById('foc_max_threshold').value);
@@ -794,6 +937,16 @@ if (promotionType === 'coupon') {
             document.getElementById('discount_fields').style.display = type === 'discount' ? 'block' : 'none';
             document.getElementById('coupon_fields').style.display = type === 'coupon' ? 'block' : 'none';
             document.getElementById('foc_fields').style.display = type === 'foc' ? 'block' : 'none';
+            document.getElementById('cashback_fields').style.display = type === 'cashback' ? 'block' : 'none';
+
+            // Ensure cashback product group visibility updates when switching to cashback
+            if (type === 'cashback') {
+                const cashbackProductTypeSelect = document.getElementById('cashback_product_type');
+                const cashbackGroupField = document.getElementById('cashback_product_group_field');
+                if (cashbackProductTypeSelect && cashbackGroupField) {
+                    cashbackGroupField.style.display = cashbackProductTypeSelect.value === 'group' ? 'block' : 'none';
+                }
+            }
         }
 
         function toggleDiscountFields(type) {
@@ -816,7 +969,7 @@ if (promotionType === 'coupon') {
         }
 
         function toggleCouponFields() {
-            const applyTo = document.getElementById('coupon_apply_to').value;coupon_product_type
+            const applyTo = document.getElementById('coupon_apply_to').value;
             const allProductsField = document.getElementById('coupon_all_products_field');
             const groupFields = document.getElementById('coupon_group_fields');
             const customerField = document.getElementById('coupon_customer_field');
@@ -903,6 +1056,7 @@ if (promotionType === 'coupon') {
 
     toggleFields("coupon_type", "coupon_percent_field", "coupon_amount_field"); // group
     toggleFields("coupon_customer_type", "coupon_customer_percent_field", "coupon_customer_amount_field"); // customer
+    toggleFields("cashback_type", "cashback_percent_field", "cashback_amount_field"); // cashback
 });
 
         // function addBogoRule(buyProduct, freeProduct) {

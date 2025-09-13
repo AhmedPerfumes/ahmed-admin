@@ -44,6 +44,7 @@ class Promotion extends BaseModel
     public function discountRules() { return $this->hasMany(DiscountRule::class); }
     public function couponRules() { return $this->hasMany(CouponRule::class); }
     public function focRules() { return $this->hasMany(FocRule::class); }
+    public function cashbackRule() { return $this->hasOne(CashbackRule::class); }
 }
 
 /*======================== BOGO ========================*/
