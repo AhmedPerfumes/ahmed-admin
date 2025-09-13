@@ -685,7 +685,7 @@ class OrderController extends Controller
                 // }
                 // $exisProduct->customer_coupon = $customerCouponData;
 
-                $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date', 'target')
+                $customerCoupons = Promotion::select('code', 'value', 'start_date', 'end_date', 'target')
                     ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
                     ->where('target', 'customer')
                     ->where('customer_id', $customer_id)
@@ -1955,8 +1955,10 @@ class OrderController extends Controller
             'ec_orders.code',
             'ec_orders.created_at',
             'ec_orders.status',
-            // 'ec_orders.amount',
-            // 'ec_orders.tax_amount',
+            'ec_orders.amount',
+            'ec_orders.tax_amount',
+            'ec_orders.sub_total',
+            'ec_orders.coupon_code',
             'payments.payment_channel'
         ];
 
@@ -1973,8 +1975,10 @@ class OrderController extends Controller
                 'ec_orders.code',
                 'ec_orders.created_at',
                 'ec_orders.status',
-                // 'ec_orders.amount',
-                // 'ec_orders.tax_amount',
+                'ec_orders.amount',
+                'ec_orders.tax_amount',
+                'ec_orders.sub_total',
+                'ec_orders.coupon_code',
                 'payments.payment_channel'
             )
             ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
@@ -2068,41 +2072,67 @@ class OrderController extends Controller
         }
 
         // General coupons
-        $generalCoupons = collect(DiscountModel::select('code', 'value', 'start_date', 'end_date', 'target')
-        ->where('target', '!=', 'customer')
-        ->whereNotNull('code')
-        ->whereDate('start_date', '<=', now())
-        ->whereDate('end_date', '>=', now())
-        ->get()
-        ->map(function ($coupon) {
-            return [
-                'code' => $coupon->code,
-                'value' => $coupon->value,
-                'start_date' => Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-                'end_date' => Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-                'type' => $coupon->target
-            ];
-        }));
+        $generalCoupons = collect(Promotion::where('type', 'coupon')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            // ->with([
+            //     'couponRules.products' => function ($query) {
+            //         // $query->select('id', 'coupon_rule_id', 'product_id'); // optional: limit fields
+            //     },
+            // ])
+            ->get()
+            ->flatMap(function ($promotion) {
+                return collect($promotion->couponRules)
+                    ->filter(function ($rule) {
+                        return $rule->apply_to !== 'customer' &&
+                            $rule->coupon_code !== null;
+                    })
+                    ->map(function ($rule) use ($promotion) {
+                        return [
+                            'code' => $rule->coupon_code,
+                            'value' => intval($rule->percentage),
+                            'start_date' => Carbon::parse($promotion->start_date)->format('Y-m-d H:i:s'),
+                            'end_date' => Carbon::parse($promotion->end_date)->format('Y-m-d H:i:s'),
+                            'type' => $rule->apply_to, // or $promotion->type if needed
+                        ];
+                    });
+            }));
 
         // Customer-specific coupons
         $customerCoupons = collect();
-        if ($request->input('customer_id') != '-1') {
-            $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date', 'target')
-            ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
-            ->where('target', 'customer')
-            ->where('customer_id', $request->input('customer_id'))
-            ->whereDate('start_date', '<=', now())
-            ->whereDate('end_date', '>=', now())
-            ->get()
-            ->map(function ($coupon) {
-                return [
-                    'code' => $coupon->code,
-                    'value' => $coupon->value,
-                    'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-                    'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-                    'type' => $coupon->target
-                ];
-            });
+        $customerId = $request->input('customer_id');
+
+        if ($customerId && $customerId != '-1') {
+            $customerCoupons = Promotion::where('type', 'coupon')
+                ->whereDate('start_date', '<=', now())
+                ->whereDate('end_date', '>=', now())
+                ->whereHas('couponRules', function ($query) use ($customerId) {
+                    $query->where('apply_to', 'customer')
+                        ->whereHas('customers', function ($q) use ($customerId) {
+                            $q->where('customer_id', $customerId);
+                        });
+                })
+                ->with([
+                    'couponRules.customers' => function ($query) use ($customerId) {
+                        $query->where('customer_id', $customerId);
+                    }
+                ])
+                ->get()
+                ->flatMap(function ($promotion) {
+                    return $promotion->couponRules
+                        ->filter(function ($rule) {
+                            return $rule->apply_to === 'customer' && $rule->coupon_code;
+                        })
+                        ->map(function ($rule) use ($promotion) {
+                            return [
+                                'code' => $rule->coupon_code,
+                                'value' => intval($rule->percentage),
+                                'start_date' => Carbon::parse($promotion->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => Carbon::parse($promotion->end_date)->format('Y-m-d H:i:s'),
+                                'type' => $rule->apply_to,
+                            ];
+                        });
+                });
         }
 
         // Merge and return

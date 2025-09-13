@@ -2017,11 +2017,23 @@ class ProductController extends Controller
             $giftData = [];
             $gifts = DB::table('foc_products')->where('foc_rule_id', $threshold->id)->join('ec_products', 'ec_products.id', '=', 'foc_products.product_id')->select('foc_products.product_id', 'ec_products.name', 'ec_products.price', 'ec_products.images')->get();
             foreach ($gifts as $gift) {
+                $decodedOnce = is_string($gift->images) ? json_decode($gift->images, true) : $gift->images;
+
+                if (is_string($decodedOnce)) {
+                    $images = json_decode($decodedOnce, true);
+                } elseif (is_array($decodedOnce)) {
+                    $images = $decodedOnce;
+                } else {
+                    $images = [];
+                }
+
+                $firstImage = $images[0] ?? null;
+                
                 $giftData[] = [
                     'product_id' => $gift->product_id,
                     'product_name' => $gift->name,
                     'price' => 0,
-                    'image' => json_decode($gift->images)[0],
+                    'image' => $firstImage,
                     'is_gift' => true,
                     'discount' => null,
                     'coupon' => [],
