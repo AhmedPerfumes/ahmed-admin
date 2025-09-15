@@ -26,7 +26,7 @@ class CreatePaymentForOrderService
         string|int|null $customerId = null,
         ?string $chargeId = null,
         ?string $description = null
-
+        
     ): void {
         if (! is_plugin_active('payment')) {
             return;
@@ -90,7 +90,7 @@ class CreatePaymentForOrderService
             $p = "E89_6C3";
             $password = $passw.$pass.$p;
 
-            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Please wait for confirmation call! Your Total Bill = '. floatval($order->amount) .'AED"')."&msgtype=16");
+            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Your Total Amount (Incl. VAT) : '. floatval($order->amount) .'AED"')."&msgtype=16");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 
@@ -130,9 +130,9 @@ class CreatePaymentForOrderService
                 "CTAButtonURLParameter":"",
                 "CTAButtonURLParameter2" : ""
             }',
-                CURLOPT_HTTPHEADER => array(
-                    'Content-Type: application/json'
-                ),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json'
+            ),
             ));
 
             $response = curl_exec($curl);
@@ -247,34 +247,50 @@ class CreatePaymentForOrderService
                                                                                                                                     <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
                                                                                                                                 </td>
                                                                                                                                 <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * 1.05 - ($value->price * 1.05 * $value->discount_percent / 100)) * $value->qty), 2).'</div>
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * (1 + $value->vat / 100) - ($value->price * (1 + $value->vat / 100) * $value->discount_percent / 100)) * $value->qty), 2).'</div>
                                                                                                                                 </td>
                                                                                                                             </tr>';
                                                                                                                         }
-                                                                                                                    } else if($value->product_category == 'Collections') {
-                                                                                                                        $body .= '<tr>
-                                                                                                                            <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                                <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
-                                                                                                                            </td>
-                                                                                                                            <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                                <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
-                                                                                                                            </td>
-                                                                                                                            <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                                <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round($value->gross_amount, 2).'</div>
-                                                                                                                            </td>
-                                                                                                                        </tr>';
-                                                                                                                    } else {
-                                                                                                                        $body .= '<tr>
-                                                                                                                        <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
-                                                                                                                        </td>
-                                                                                                                        <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
-                                                                                                                        </td>
-                                                                                                                        <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * 1.05) * $value->qty), 2).'</div>
-                                                                                                                        </td>
-                                                                                                                        </tr>';
+                                                                                                                    }
+                                                                                                                    // else if($value->product_category == 'Collections') {
+                                                                                                                    //     $body .= '<tr>
+                                                                                                                    //         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                    //             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
+                                                                                                                    //         </td>
+                                                                                                                    //         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                    //             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
+                                                                                                                    //         </td>
+                                                                                                                    //         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                    //             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round($value->gross_amount, 2).'</div>
+                                                                                                                    //         </td>
+                                                                                                                    //     </tr>';
+                                                                                                                    // }
+                                                                                                                    else {
+                                                                                                                        if($value->discount_amount != '0') {
+                                                                                                                             $body .= '<tr>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
+                                                                                                                                </td>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
+                                                                                                                                </td>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round($value->gross_amount, 2).'</div>
+                                                                                                                                </td>
+                                                                                                                            </tr>';
+                                                                                                                        } else {
+                                                                                                                            $body .= '<tr>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
+                                                                                                                                </td>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
+                                                                                                                                </td>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * (1 + $value->vat / 100)) * $value->qty), 2).'</div>
+                                                                                                                                </td>
+                                                                                                                                </tr>';
+                                                                                                                        }
                                                                                                                     }
                                                                                                                 }
                                                                                                                 
@@ -292,7 +308,7 @@ class CreatePaymentForOrderService
                                                                                                                     </th>
                                                                                                                     <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
                                                                                                                         <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">
-                                                                                                                            '.($order->shipping_amount == '0.00' ? 'You Got Free Shipping' : round(($order->shipping_amount * 1.05), 2)).'&#x62F;&#x2E;&#x625;
+                                                                                                                            '.($order->shipping_amount == '0.00' ? 'You Got Free Shipping' : round(($order->shipping_amount * (1 + $value->vat / 100)), 2)).'&#x62F;&#x2E;&#x625;
                                                                                                                         </div>
                                                                                                                     </td>
 
@@ -302,7 +318,7 @@ class CreatePaymentForOrderService
                                                                                                                         <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">Service Fee: </div>
                                                                                                                     </th>
                                                                                                                     <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                        <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round(($order->service_amount * 1.05), 2).'</div>
+                                                                                                                        <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round(($order->service_amount * (1 + $value->vat / 100)), 2).'</div>
                                                                                                                     </td>
                                                                                                                 </tr>';
                                                                                                                 if ($order->cod_charge != '0.00') {
@@ -311,7 +327,7 @@ class CreatePaymentForOrderService
                                                                                                                             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">COD Charges: </div>
                                                                                                                         </th>
                                                                                                                         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round(($order->cod_charge * 1.05), 2).'</div>
+                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round(($order->cod_charge * (1 + $value->vat / 100)), 2).'</div>
                                                                                                                         </td>
                                                                                                                     </tr>';
                                                                                                                 }

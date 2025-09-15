@@ -557,21 +557,21 @@
             // const bogoProductSelect = new TomSelect('#bogo_product_ids', { maxItems: 1 });
             // const bogoFreeProductSelect = new TomSelect('#bogo_free_product_ids', { maxItems: 1 });
             const buyXProductSelect = new TomSelect('#buy_x_product_ids', {
-                maxItems: 10,
+                maxItems: 200,
                 lock: 'locked',
                 onItemRemove: function() {
                     return false;
                 }
             });
             const getYProductSelect = new TomSelect('#get_y_product_ids', {
-                maxItems: 10,
+                maxItems: 200,
                 lock: 'locked',
                 onItemRemove: function() {
                     return false;
                 }
             });
             const focProductSelect = new TomSelect('#foc_product_ids', {
-                maxItems: 10,
+                maxItems: 200,
                 lock: 'locked',
                 onItemRemove: function() {
                     return false;

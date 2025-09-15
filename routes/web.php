@@ -2,7 +2,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SmsaController;
 use App\Http\Controllers\DynamicSectionController;
-use App\Http\Controllers\promotionController;
+use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\ProductReviewController;
 
 
