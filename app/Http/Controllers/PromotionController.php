@@ -46,7 +46,7 @@ class PromotionController extends Controller
     public function create()
     {
         $products = Product::select('id', 'name', 'price')->get()->toArray();
-        $customers = Customer::select('id', 'name')->get()->toArray();
+        $customers = Customer::select('id', 'name', 'email', 'phone')->get()->toArray();
         $today = Carbon::today();
 
         $discountedProductIds = DB::table('promotions')
@@ -245,7 +245,7 @@ class PromotionController extends Controller
 
     // Fetch all products and customers from the database.
     $products = Product::select('id', 'name', 'price')->get()->toArray();
-    $customers = Customer::select('id', 'name')->get()->toArray();
+    $customers = Customer::select('id', 'name', 'email', 'phone')->get()->toArray();
 
     // Prepare a structured data array to easily pass to the view.
     $promotionData = $this->preparePromotionData($promotion);
