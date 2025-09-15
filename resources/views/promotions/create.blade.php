@@ -511,6 +511,13 @@
                                     <input type="number" step="0.01" name="rewards[cashback][amount]" id="cashback_amount" class="form-control"
                                            value="{{ old('rewards.cashback.amount', isset($promotionData['cashback_rule']) && is_null($promotionData['cashback_rule']->cashback_percentage) ? ($promotionData['cashback_rule']->cashback_amount ?? '') : '') }}">
                                 </div>
+
+                                <!-- Cashback Duration -->
+                                <div class="mb-3">
+                                    <label for="cashback_duration" class="form-label">Duration (days)</label>
+                                    <input type="number" min="1" step="1" name="conditions[cashback][duration]" id="cashback_duration" class="form-control"
+                                           value="{{ old('conditions.cashback.duration', isset($promotionData['cashback_rule']) ? ($promotionData['cashback_rule']->duration ?? '') : '') }}">
+                                </div>
                             </div>
 
                             <div class="mt-4">

@@ -522,6 +522,7 @@ private function preparePromotionData(Promotion $promotion)
             'conditions.cashback.customer_type' => ['required', Rule::in(['all', 'group'])],
             'conditions.cashback.product_type' => ['required', Rule::in(['all', 'group'])],
             'rewards.cashback.type' => ['required', Rule::in(['percentage', 'amount'])],
+            'conditions.cashback.duration' => ['nullable', 'integer', 'min:1'],
             'rewards.cashback.percentage' => [
                 'nullable', 'numeric', 'min:0.01',
                 function ($attribute, $value, $fail) use ($request) {
@@ -543,6 +544,7 @@ private function preparePromotionData(Promotion $promotion)
         $customerType = $request->input('conditions.cashback.customer_type');
         $productType = $request->input('conditions.cashback.product_type');
         $cashbackType = $request->input('rewards.cashback.type');
+        $duration = $request->input('conditions.cashback.duration');
         $percentage = $cashbackType === 'percentage' ? $request->input('rewards.cashback.percentage') : null;
         $amount = $cashbackType === 'amount' ? $request->input('rewards.cashback.amount') : null;
 
@@ -552,6 +554,7 @@ private function preparePromotionData(Promotion $promotion)
             'product_type' => $productType,
             'cashback_percentage' => $percentage,
             'cashback_amount' => $amount,
+            'duration' => $duration,
         ]);
 
         // Customers
