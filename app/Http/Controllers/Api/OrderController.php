@@ -673,7 +673,7 @@ class OrderController extends Controller
 
                 // $customerCouponData = [];
 
-                // // if ($coupons->isEmpty()) {
+                // if ($coupons->isEmpty()) {
                 // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
                 // foreach ($customer_coupons as $customer_coupon) {
                 //     $customerCouponData[strtolower($customer_coupon->code)] = [
@@ -685,9 +685,11 @@ class OrderController extends Controller
                 // }
                 // $exisProduct->customer_coupon = $customerCouponData;
 
-                $customerCoupons = Promotion::select('code', 'value', 'start_date', 'end_date', 'target')
-                    ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
-                    ->where('target', 'customer')
+                $customerCoupons = Promotion::select('coupon_code AS code', 'percentage AS value', 'start_date', 'end_date', 'apply_to AS target')
+                    ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
+                    ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
+                    ->where('type', 'coupon')
+                    ->where('apply_to', 'customer')
                     ->where('customer_id', $customer_id)
                     ->whereDate('start_date', '<=', now())
                     ->whereDate('end_date', '>=', now())
@@ -696,7 +698,7 @@ class OrderController extends Controller
                         return [
                             strtolower($coupon->code) => [
                                 'code' => strtolower($coupon->code),
-                                'value' => $coupon->value,
+                                'value' => intval($coupon->value),
                                 'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
                                 'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
                                 'type' => $coupon->target
@@ -1238,9 +1240,11 @@ class OrderController extends Controller
                 // }
                 // $exisProduct->customer_coupon = $customerCouponData;
 
-                $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date', 'target')
-                    ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
-                    ->where('target', 'customer')
+                $customerCoupons = Promotion::select('coupon_code AS code', 'percentage AS value', 'start_date', 'end_date', 'apply_to AS target')
+                    ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
+                    ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
+                    ->where('type', 'coupon')
+                    ->where('apply_to', 'customer')
                     ->where('customer_id', $customer_id)
                     ->whereDate('start_date', '<=', now())
                     ->whereDate('end_date', '>=', now())
@@ -1248,8 +1252,8 @@ class OrderController extends Controller
                     ->mapWithKeys(function ($coupon) {
                         return [
                             strtolower($coupon->code) => [
-                                'code' => $coupon->code,
-                                'value' => $coupon->value,
+                                'code' => strtolower($coupon->code),
+                                'value' => intval($coupon->value),
                                 'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
                                 'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
                                 'type' => $coupon->target
