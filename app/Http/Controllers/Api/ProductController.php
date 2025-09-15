@@ -577,7 +577,7 @@ class ProductController extends Controller
                         //     ];
                         // }
 
-                         // Fetch active discount for the product
+                        // Fetch active discount for the product
                         $val->discount = null;
 
                         $individualDiscount = Promotion::where('type', 'discount')
