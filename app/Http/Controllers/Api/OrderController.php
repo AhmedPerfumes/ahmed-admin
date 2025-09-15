@@ -32,7 +32,7 @@ use App\Models\Promotion;
 class OrderController extends Controller
 {
     public function storeOrder(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-
+        // die;
         $validator = Validator::make($request->all(), [
             'products'      => 'required'
         ]);
@@ -89,48 +89,164 @@ class OrderController extends Controller
             // }
 
             // if(isset($product['discount']) && !is_null($product['discount'])) {
-                $discountFromDb = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
-                $requestHasDiscount = !is_null($product['discount']);
-                $dbHasDiscount = !is_null($discountFromDb);
+            $discountFromDb = Promotion::where('type', 'discount')
+                ->whereDate('start_date', '<=', now())
+                ->whereDate('end_date', '>=', now())
+                ->whereHas('discountRules', function ($query) {
+                    $query->where('apply_to', 'individual');
+                })
+                ->whereHas('discountRules.individualRules', function ($query) use ($product) {
+                    $query->where('product_id', $product['product_id']);
+                })
+                ->with(['discountRules' => function ($query) {
+                    $query->where('apply_to', 'individual')
+                        ->select('id', 'promotion_id', 'apply_to');
+                }, 'discountRules.individualRules' => function ($query) use ($product) {
+                    $query->where('product_id', $product['product_id'])
+                        ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                }])
+                ->first();
 
-                if ($requestHasDiscount && !$dbHasDiscount) {
-                    // Request says there should be a discount, but none found in DB
-                    return response()->json([
-                        'discountMessage' => 'One or more Products were removed. Please add them again to continue.'
-                    ]);
-                }
+            if (!$discountFromDb) {
+                // If no individual discount, try to fetch discount for group/all products
+                $discountFromDb = Promotion::where('type', 'discount')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('discountRules', function ($query) {
+                        $query->where('apply_to', '!=', 'individual');
+                    })
+                    ->whereHas('discountRules.products', function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id']);
+                    })
+                    ->with(['discountRules' => function ($query) {
+                        $query->where('apply_to', '!=', 'individual')
+                            ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                    }])
+                    ->first();
+            }
+            $requestHasDiscount = !is_null($product['discount']);
+            $dbHasDiscount = !is_null($discountFromDb);
 
-                if (!$requestHasDiscount && $dbHasDiscount) {
-                    // Request says there should be no discount, but one exists in DB
-                    return response()->json([
-                        'discountMessage' => 'One or more Products were removed. Please add them again to continue.'
-                    ]);
-                }
+            if ($requestHasDiscount && !$dbHasDiscount) {
+                // Request says there should be a discount, but none found in DB
+                return response()->json([
+                    'discountMessage' => 'One or more Products were removed. Please add them again to continue. DB'
+                ]);
+            }
 
-                // Optional: if you want to compare actual values of discount too
-                if ($requestHasDiscount && $dbHasDiscount) {
-                    $match =
-                        $product['discount']['value'] == $discountFromDb->value &&
-                        $product['discount']['start_date'] == $discountFromDb->start_date &&
-                        $product['discount']['end_date'] == $discountFromDb->end_date;
+            if (!$requestHasDiscount && $dbHasDiscount) {
+                // Request says there should be no discount, but one exists in DB
+                return response()->json([
+                    'discountMessage' => 'One or more Products were removed. Please add them again to continue. Request '.$product['product_name']
+                ]);
+            }
 
-                    if (!$match) {
-                        return response()->json([
-                            'discountMessage' => 'One or more Products were removed. Please add them again to continue.'
-                        ]);
-                    }
-                }
+            // Optional: if you want to compare actual values of discount too
+            // if ($requestHasDiscount && $dbHasDiscount) {
+            //     $value = null;
 
-                // All matched, assign discount
-                $exisProduct->discount = $discountFromDb;
+            //     if (isset($discountFromDb->discountRules[0])) {
+            //         $discountRule = $discountFromDb->discountRules[0];
+
+            //         if (isset($discountRule->individualRules[0])) {
+            //             // Individual discount value
+            //             $value = $discountRule->individualRules[0]->value;
+            //         } else {
+            //             // Group or all-products discount value (percentage)
+            //             $value = $discountRule->percentage;
+            //         }
+            //     }
+            //     $match =
+            //         $product['discount']['value'] ==  $value &&
+            //         $product['discount']['start_date'] == $discountFromDb->start_date &&
+            //         $product['discount']['end_date'] == $discountFromDb->end_date;
+
+            //     if (!$match) {
+            //         return response()->json([
+            //             'discountMessage' => 'One or more Products were removed. Please add them again to continue. Value '.$product['product_name']
+            //         ]);
+            //     }
             // }
+
+            // All matched, assign discount
+            // $exisProduct->discount = $discountFromDb;
+            // }
+            
+            $focFromDb = Promotion::where('type', 'foc')
+                ->whereDate('start_date', '<=', now())
+                ->whereDate('end_date', '>=', now())
+                ->whereHas('focRules', function ($query) {
+                    // $query->where('apply_to', '!=', 'individual');
+                })
+                ->whereHas('focRules.products', function ($query) use ($product) {
+                    $query->where('product_id', $product['product_id']);
+                })
+                ->with(['focRules' => function ($query) {
+                    // $query->where('apply_to', '!=', 'individual')
+                        $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold');
+                }])
+                ->first();
+                
+            $requestHasFOC = isset($product['type']) && $product['type'] == 'foc';
+            $dbHasFOC = !is_null($focFromDb);
+
+            // echo $requestHasFOC.'---'.$dbHasFOC.'---'.$product['product_id'];
+            // echo "\n";
+
+            if ($requestHasFOC && !$dbHasFOC) {
+                // Request says there should be a discount, but none found in DB
+                return response()->json([
+                    'focMessage' => 'One or more Products were removed. Please add them again to continue. DB'
+                ]);
+            }
+
+            if (!$requestHasFOC && $dbHasFOC) {
+                // Request says there should be no discount, but one exists in DB
+                return response()->json([
+                    'focMessage' => 'One or more Products were removed. Please add them again to continue. Request '.$product['product_name']
+                ]);
+            }
+
+            // Step 1: Determine if request says product is a BOGO free item
+            $requestHasBOGO = isset($product['type']) && $product['type'] == 'bogo' && isset($product['is_gift']);
+
+            // Step 2: Only run DB BOGO check if the request is for a BOGO free product
+            $bogoFromDb = null;
+
+            if ($requestHasBOGO) {
+                // echo "bogo ".$product['product_name'];
+                // echo "\n";
+                $bogoFromDb = Promotion::where('type', 'buy_x_get_y')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('buyXGetYRules.products', function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id']);
+                            // ->where('type', 'free'); // Ensure it only matches "get" products
+                    })
+                    ->first();
+            }
+
+            // Step 3: Validate mismatch between request and DB
+            $dbHasBOGO = !is_null($bogoFromDb);
+
+            if ($requestHasBOGO && !$dbHasBOGO) {
+                return response()->json([
+                    'bogoMessage' => 'One or more Products were removed. Please add them again to continue. DB'
+                ]);
+            }
+
+            if (!$requestHasBOGO && $dbHasBOGO) {
+                return response()->json([
+                    'bogoMessage' => 'One or more Products were removed. Please add them again to continue. Request ' . $product['product_name']
+                ]);
+            }
 
             array_push($barcodes, $exisProduct->barcode);
         }
         // die;
         $coupon_code = $request->input('couponCode');
         if(isset($coupon_code) && !empty($request->input('couponCode'))) {
-            $coupon = DiscountModel::where('code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+            $coupon = Promotion::select('type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
             if(!$coupon) {
                 return response()->json(['couponMessage' => 'Invalid Coupon Code']);
             }
@@ -436,35 +552,162 @@ class OrderController extends Controller
                 // ->join('ec_tax_products', 'ec_products.id', '=', 'ec_tax_products.product_id')->join('ec_taxes', 'ec_taxes.id', '=', 'ec_tax_products.tax_id')
                 ->first();
 
-                $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                // $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                 
+                // $couponData = [];
+                // foreach ($coupons as $coupon) {
+                //     $couponData[strtolower($coupon->code)] = [
+                //         'code' => strtolower($coupon->code),
+                //         'value' => $coupon->value,
+                //         'start_date' => $coupon->start_date,
+                //         'end_date' => $coupon->end_date,
+                //     ];
+                // }
+
+                // $exisProduct->coupon = $couponData;
+
+                // Fetch active discount for the product
+                $exisProduct->discount = null;
+
+                $individualDiscount = Promotion::where('type', 'discount')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('discountRules', function ($query) {
+                        $query->where('apply_to', 'individual');
+                    })
+                    ->whereHas('discountRules.individualRules', function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id']);
+                    })
+                    ->with(['discountRules' => function ($query) {
+                        $query->where('apply_to', 'individual')
+                            ->select('id', 'promotion_id', 'apply_to');
+                    }, 'discountRules.individualRules' => function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id'])
+                            ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                    }])
+                    ->first();
+
+                if ($individualDiscount) {
+                    $discountRule = $individualDiscount->discountRules->first();
+                    $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+                    if ($individualRule) {
+                        $exisProduct->discount = (object) [
+                            'value' => intval($individualRule->value),
+                            'apply_to' => $discountRule->apply_to,
+                            'discount_type' => $individualRule->discount_type,
+                            'product_price' => $individualRule->product_price,
+                            'discount_amount' => $individualRule->discount_amount,
+                            'final_price' => $individualRule->final_price,
+                            'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                            'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                        ];
+                    }
+                } else {
+                    // If no individual discount, try to fetch discount for group/all products
+                    $groupDiscount = Promotion::where('type', 'discount')
+                        ->whereDate('start_date', '<=', now())
+                        ->whereDate('end_date', '>=', now())
+                        ->whereHas('discountRules', function ($query) {
+                            $query->where('apply_to', '!=', 'individual');
+                        })
+                        ->whereHas('discountRules.products', function ($query) use ($product) {
+                            $query->where('product_id', $product['product_id']);
+                        })
+                        ->with(['discountRules' => function ($query) {
+                            $query->where('apply_to', '!=', 'individual')
+                                ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                        }])
+                        ->first();
+
+                    if ($groupDiscount) {
+                        $discountRule = $groupDiscount->discountRules->first();
+                        if ($discountRule) {
+                            $exisProduct->discount = (object) [
+                                'value' => intval($discountRule->percentage),
+                                'apply_to' => $discountRule->apply_to,
+                                'discount_type' => 'percent',
+                                'product_price' => null,
+                                'discount_amount' => null,
+                                'final_price' => null,
+                                'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                                'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                            ];
+                        }
+                    }
+                }
+
+                // Fetch active coupons for the product
+                $coupons = Promotion::where('type', 'coupon')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('couponRules.products', function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id']);
+                    })
+                    ->with(['couponRules' => function ($query) use ($product) {
+                        $query->whereNotNull('coupon_code')
+                            ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                            ->with(['products' => function ($subQuery) use ($product) {
+                                $subQuery->where('product_id', $product['product_id'])
+                                        ->select('id', 'coupon_rule_id', 'product_id');
+                            }]);
+                    }])
+                    ->get();
+
                 $couponData = [];
-                foreach ($coupons as $coupon) {
-                    $couponData[strtolower($coupon->code)] = [
-                        'code' => strtolower($coupon->code),
-                        'value' => $coupon->value,
-                        'start_date' => $coupon->start_date,
-                        'end_date' => $coupon->end_date,
-                    ];
+                foreach ($coupons as $promotion) {
+                    foreach ($promotion->couponRules as $couponRule) {
+                        if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                            $couponData[strtolower($couponRule->coupon_code)] = [
+                                'code' => strtolower($couponRule->coupon_code),
+                                'value' => intval($couponRule->percentage),
+                                'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                                'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+                            ];
+                        }
+                    }
                 }
 
                 $exisProduct->coupon = $couponData;
 
-                $customerCouponData = [];
+                // $customerCouponData = [];
 
                 // if ($coupons->isEmpty()) {
-                $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
-                foreach ($customer_coupons as $customer_coupon) {
-                    $customerCouponData[strtolower($customer_coupon->code)] = [
-                        'code' => strtolower($customer_coupon->code),
-                        'value' => $customer_coupon->value,
-                        'start_date' => $customer_coupon->start_date,
-                        'end_date' => $customer_coupon->end_date,
-                    ];
-                }
-                $exisProduct->customer_coupon = $customerCouponData;
+                // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+                // foreach ($customer_coupons as $customer_coupon) {
+                //     $customerCouponData[strtolower($customer_coupon->code)] = [
+                //         'code' => strtolower($customer_coupon->code),
+                //         'value' => $customer_coupon->value,
+                //         'start_date' => $customer_coupon->start_date,
+                //         'end_date' => $customer_coupon->end_date,
+                //     ];
+                // }
+                // $exisProduct->customer_coupon = $customerCouponData;
+
+                $customerCoupons = Promotion::select('coupon_code AS code', 'percentage AS value', 'start_date', 'end_date', 'apply_to AS target')
+                    ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
+                    ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
+                    ->where('type', 'coupon')
+                    ->where('apply_to', 'customer')
+                    ->where('customer_id', $customer_id)
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->get()
+                    ->mapWithKeys(function ($coupon) {
+                        return [
+                            strtolower($coupon->code) => [
+                                'code' => strtolower($coupon->code),
+                                'value' => intval($coupon->value),
+                                'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                                'type' => $coupon->target
+                            ],
+                        ];
+                    })
+                    ->toArray();
+
+                $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
                 // }
 
                 $exisProduct->qty = $quantity;
@@ -487,38 +730,90 @@ class OrderController extends Controller
                 // $discount_price = '';
                 // $sale_price = '';
                 if(!is_null($exisProduct->discount)) {
-                    // echo 'Discount';
-                    // echo '\n ';
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = $price * $quantity;
-                    $discount_percent = $exisProduct->discount->value;
-                    $discount_amount = ($total_amount / 100) * $discount_percent;
-                    $net_amount = $total_amount - $discount_amount;
-                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    $gross_amount = $net_amount + $tax_amount;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                
-                    $orderProduct = [
-                        'order_id' => $order->id,
-                        'product_id' => $product['product_id'],
-                        'product_name' => $exisProduct->name,
-                        'product_image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'weight' => $exisProduct->weight,
-                        'price' => $price,
-                        'total_amount' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'product_options' => [],
-                        'options' => json_encode($options),
-                        'product_type' => $exisProduct->product_type,
-                        'product_category' => $product['category_name'],
-                        'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                        'vat' => $request->input('vatTax'),
-                    ];
+                    if($exisProduct->discount->discount_type == 'percent') {
+                        // echo "Discount Percent";
+                        // echo "\n";
+                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                        $total_amount = $price * $quantity;
+                        $discount_percent = $exisProduct->discount->value;
+                        $discount_amount = ($total_amount / 100) * $discount_percent;
+                        $net_amount = $total_amount - $discount_amount;
+                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                        $gross_amount = $net_amount + $tax_amount;
+                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                    
+                        $orderProduct = [
+                            'order_id' => $order->id,
+                            'product_id' => $product['product_id'],
+                            'product_name' => $exisProduct->name,
+                            'product_image' => $exisProduct->image,
+                            'qty' => $quantity,
+                            'weight' => $exisProduct->weight,
+                            'price' => $price,
+                            'total_amount' => $total_amount,
+                            'discount_percent' => $discount_percent,
+                            'discount_amount' => $discount_amount,
+                            'net_amount' => $net_amount,
+                            'tax_amount' => $tax_amount,
+                            'gross_amount' => $gross_amount,
+                            'product_options' => [],
+                            'options' => json_encode($options),
+                            'product_type' => $exisProduct->product_type,
+                            'product_category' => $product['category_name'],
+                            'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                            'vat' => $request->input('vatTax'),
+                        ];   
+                    } elseif($exisProduct->discount->discount_type == 'amount') {
+                        // echo "Discount Amount";
+                        // echo "\n";
+                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                        $total_amount = $price * $quantity;
+                        $sale_price = $exisProduct->discount->final_price / (1 + ($request->input('vatTax') / 100));
+                        $discount_percent = 0;
+                        $discount_amount = $total_amount - ($sale_price * $quantity);
+                        $net_amount = $total_amount - $discount_amount;
+                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                        $gross_amount = $net_amount + $tax_amount;
+                        // echo "Price ".$price;
+                        // echo "\n";
+                        // echo "Total Amount ".$total_amount;
+                        // echo "\n";
+                        // echo "Sales Price ".$sale_price;
+                        // echo "\n";
+                        // echo "Discount Percent ".$discount_percent;
+                        // echo "\n";
+                        // echo "Discount Amount ".$discount_amount;
+                        // echo "\n";
+                        // echo "Net Amount ".$net_amount;
+                        // echo "\n";
+                        // echo "Tax Amount ".$tax_amount;
+                        // echo "\n";
+                        // echo "Gross Amount ".$gross_amount;
+                        // echo "\n";
+                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                    
+                        $orderProduct = [
+                            'order_id' => $order->id,
+                            'product_id' => $product['product_id'],
+                            'product_name' => $exisProduct->name,
+                            'product_image' => $exisProduct->image,
+                            'qty' => $quantity,
+                            'weight' => $exisProduct->weight,
+                            'price' => $price,
+                            'total_amount' => $total_amount,
+                            'discount_percent' => $discount_percent,
+                            'discount_amount' => $discount_amount,
+                            'net_amount' => $net_amount,
+                            'tax_amount' => $tax_amount,
+                            'gross_amount' => $gross_amount,
+                            'product_options' => [],
+                            'options' => json_encode($options),
+                            'product_type' => $exisProduct->product_type,
+                            'product_category' => $product['category_name'],
+                            'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                            'vat' => $request->input('vatTax'),
+                        ];
+                    }
                 } elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
                     // echo 'Coupon';
                     // echo '\n ';
@@ -551,7 +846,7 @@ class OrderController extends Controller
                         'product_category' => $product['category_name'],
                         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                         'vat' => $request->input('vatTax'),
-                        'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : NULL,
+                        'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : $request->input('couponCode'),
                     ];
                 } elseif(isset($product['is_customer_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price) && !is_null($exisProduct->customer_coupon) && !empty($exisProduct->customer_coupon) && isset($exisProduct->customer_coupon) && isset($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]) && $exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
                     // echo 'Customer Coupon';
@@ -587,41 +882,42 @@ class OrderController extends Controller
                         'vat' => $request->input('vatTax'),
                         'campaign' => $request->input('couponCode'),
                     ];
-                }  elseif(!is_null($exisProduct->sale_price)) {
-                    // echo 'Sale Price';
-                    // echo '\n ';
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = $price * $quantity;
-                    $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
-                    $discount_percent = 0;
-                    $discount_amount = $total_amount - ($sale_price * $quantity);
-                    $net_amount = $total_amount - $discount_amount;
-                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    $gross_amount = $net_amount + $tax_amount;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                
-                    $orderProduct = [
-                        'order_id' => $order->id,
-                        'product_id' => $product['product_id'],
-                        'product_name' => $exisProduct->name,
-                        'product_image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'weight' => $exisProduct->weight,
-                        'price' => $price,
-                        'total_amount' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'product_options' => [],
-                        'options' => json_encode($options),
-                        'product_type' => $exisProduct->product_type,
-                        'product_category' => $product['category_name'],
-                        'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                        'vat' => $request->input('vatTax'),
-                    ];
                 }
+                // elseif(!is_null($exisProduct->sale_price)) {
+                //     // echo 'Sale Price';
+                //     // echo '\n ';
+                //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     $total_amount = $price * $quantity;
+                //     $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
+                //     $discount_percent = 0;
+                //     $discount_amount = $total_amount - ($sale_price * $quantity);
+                //     $net_amount = $total_amount - $discount_amount;
+                //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     $gross_amount = $net_amount + $tax_amount;
+                //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                //     $orderProduct = [
+                //         'order_id' => $order->id,
+                //         'product_id' => $product['product_id'],
+                //         'product_name' => $exisProduct->name,
+                //         'product_image' => $exisProduct->image,
+                //         'qty' => $quantity,
+                //         'weight' => $exisProduct->weight,
+                //         'price' => $price,
+                //         'total_amount' => $total_amount,
+                //         'discount_percent' => $discount_percent,
+                //         'discount_amount' => $discount_amount,
+                //         'net_amount' => $net_amount,
+                //         'tax_amount' => $tax_amount,
+                //         'gross_amount' => $gross_amount,
+                //         'product_options' => [],
+                //         'options' => json_encode($options),
+                //         'product_type' => $exisProduct->product_type,
+                //         'product_category' => $product['category_name'],
+                //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                //         'vat' => $request->input('vatTax'),
+                //     ];
+                // }
                 elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
                     // echo 'FOC';
                     // echo '\n ';
@@ -810,66 +1106,224 @@ class OrderController extends Controller
 
                 $exisProduct = Product::where('id', $product['product_id'])->first();
 
-                $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                // $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
 
-                // Store in a temporary property or a new array
+                // // Store in a temporary property or a new array
+                // $couponData = [];
+                // foreach ($coupons as $coupon) {
+                //     $couponData[strtolower($coupon->code)] = [
+                //         'code' => strtolower($coupon->code),
+                //         'value' => $coupon->value,
+                //         'start_date' => $coupon->start_date,
+                //         'end_date' => $coupon->end_date,
+                //     ];
+                // }
+
+                // $exisProduct->coupon = $couponData;
+
+                // Fetch active discount for the product
+                $exisProduct->discount = null;
+
+                $individualDiscount = Promotion::where('type', 'discount')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('discountRules', function ($query) {
+                        $query->where('apply_to', 'individual');
+                    })
+                    ->whereHas('discountRules.individualRules', function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id']);
+                    })
+                    ->with(['discountRules' => function ($query) {
+                        $query->where('apply_to', 'individual')
+                            ->select('id', 'promotion_id', 'apply_to');
+                    }, 'discountRules.individualRules' => function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id'])
+                            ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                    }])
+                    ->first();
+
+                if ($individualDiscount) {
+                    $discountRule = $individualDiscount->discountRules->first();
+                    $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+                    if ($individualRule) {
+                        $exisProduct->discount = (object) [
+                            'value' => intval($individualRule->value),
+                            'apply_to' => $discountRule->apply_to,
+                            'discount_type' => $individualRule->discount_type,
+                            'product_price' => $individualRule->product_price,
+                            'discount_amount' => $individualRule->discount_amount,
+                            'final_price' => $individualRule->final_price,
+                            'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                            'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                        ];
+                    }
+                } else {
+                    // If no individual discount, try to fetch discount for group/all products
+                    $groupDiscount = Promotion::where('type', 'discount')
+                        ->whereDate('start_date', '<=', now())
+                        ->whereDate('end_date', '>=', now())
+                        ->whereHas('discountRules', function ($query) {
+                            $query->where('apply_to', '!=', 'individual');
+                        })
+                        ->whereHas('discountRules.products', function ($query) use ($product) {
+                            $query->where('product_id', $product['product_id']);
+                        })
+                        ->with(['discountRules' => function ($query) {
+                            $query->where('apply_to', '!=', 'individual')
+                                ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                        }])
+                        ->first();
+
+                    if ($groupDiscount) {
+                        $discountRule = $groupDiscount->discountRules->first();
+                        if ($discountRule) {
+                            $exisProduct->discount = (object) [
+                                'value' => intval($discountRule->percentage),
+                                'apply_to' => $discountRule->apply_to,
+                                'discount_type' => 'percent',
+                                'product_price' => null,
+                                'discount_amount' => null,
+                                'final_price' => null,
+                                'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                                'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                            ];
+                        }
+                    }
+                }
+
+                // Fetch active coupons for the product
+                $coupons = Promotion::where('type', 'coupon')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('couponRules.products', function ($query) use ($product) {
+                        $query->where('product_id', $product['product_id']);
+                    })
+                    ->with(['couponRules' => function ($query) use ($product) {
+                        $query->whereNotNull('coupon_code')
+                            ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                            ->with(['products' => function ($subQuery) use ($product) {
+                                $subQuery->where('product_id', $product['product_id'])
+                                        ->select('id', 'coupon_rule_id', 'product_id');
+                            }]);
+                    }])
+                    ->get();
+
                 $couponData = [];
-                foreach ($coupons as $coupon) {
-                    $couponData[strtolower($coupon->code)] = [
-                        'code' => strtolower($coupon->code),
-                        'value' => $coupon->value,
-                        'start_date' => $coupon->start_date,
-                        'end_date' => $coupon->end_date,
-                    ];
+                foreach ($coupons as $promotion) {
+                    foreach ($promotion->couponRules as $couponRule) {
+                        if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                            $couponData[strtolower($couponRule->coupon_code)] = [
+                                'code' => strtolower($couponRule->coupon_code),
+                                'value' => intval($couponRule->percentage),
+                                'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                                'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+                            ];
+                        }
+                    }
                 }
 
                 $exisProduct->coupon = $couponData;
 
-                $customerCouponData = [];
+                // $customerCouponData = [];
 
                 // if ($coupons->isEmpty()) {
-                $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
-                foreach ($customer_coupons as $customer_coupon) {
-                    $customerCouponData[strtolower($customer_coupon->code)] = [
-                        'code' => strtolower($customer_coupon->code),
-                        'value' => $customer_coupon->value,
-                        'start_date' => $customer_coupon->start_date,
-                        'end_date' => $customer_coupon->end_date,
-                    ];
-                }
-                $exisProduct->customer_coupon = $customerCouponData;
+                // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+                // foreach ($customer_coupons as $customer_coupon) {
+                //     $customerCouponData[strtolower($customer_coupon->code)] = [
+                //         'code' => strtolower($customer_coupon->code),
+                //         'value' => $customer_coupon->value,
+                //         'start_date' => $customer_coupon->start_date,
+                //         'end_date' => $customer_coupon->end_date,
+                //     ];
+                // }
+                // $exisProduct->customer_coupon = $customerCouponData;
+
+                $customerCoupons = Promotion::select('coupon_code AS code', 'percentage AS value', 'start_date', 'end_date', 'apply_to AS target')
+                    ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
+                    ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
+                    ->where('type', 'coupon')
+                    ->where('apply_to', 'customer')
+                    ->where('customer_id', $customer_id)
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->get()
+                    ->mapWithKeys(function ($coupon) {
+                        return [
+                            strtolower($coupon->code) => [
+                                'code' => strtolower($coupon->code),
+                                'value' => intval($coupon->value),
+                                'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                                'type' => $coupon->target
+                            ],
+                        ];
+                    })
+                    ->toArray();
+
+                $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
                 // }
 
                 if(!is_null($exisProduct->discount)) {
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = $price * $quantity;
-                    $discount_percent = $exisProduct->discount->value;
-                    $discount_amount = ($total_amount / 100) * $discount_percent;
-                    $net_amount = $total_amount - $discount_amount;
-                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    $gross_amount = $net_amount + $tax_amount;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                
-                    $orderProduct = [
-                        'invoice_id' => $invoice->id,
-                        'reference_type' => 'Botble\Ecommerce\Models\Product',
-                        'reference_id' => $exisProduct->id,
-                        'name' => $exisProduct->name,
-                        'description' => $exisProduct->description,
-                        'image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'price' => $price,
-                        'sub_total' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'amount' => $gross_amount,
-                        'options' => json_encode($options),
-                    ];
+                    if($exisProduct->discount->discount_type == 'percent') {
+                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                        $total_amount = $price * $quantity;
+                        $discount_percent = $exisProduct->discount->value;
+                        $discount_amount = ($total_amount / 100) * $discount_percent;
+                        $net_amount = $total_amount - $discount_amount;
+                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                        $gross_amount = $net_amount + $tax_amount;
+                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                    
+                        $orderProduct = [
+                            'invoice_id' => $invoice->id,
+                            'reference_type' => 'Botble\Ecommerce\Models\Product',
+                            'reference_id' => $exisProduct->id,
+                            'name' => $exisProduct->name,
+                            // 'description' => $exisProduct->description,
+                            'image' => $exisProduct->image,
+                            'qty' => $quantity,
+                            'price' => $price,
+                            'sub_total' => $total_amount,
+                            'discount_percent' => $discount_percent,
+                            'discount_amount' => $discount_amount,
+                            'net_amount' => $net_amount,
+                            'tax_amount' => $tax_amount,
+                            'gross_amount' => $gross_amount,
+                            'amount' => $gross_amount,
+                            'options' => json_encode($options),
+                        ];   
+                    } elseif($exisProduct->discount->discount_type == 'amount') {
+                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                        $total_amount = $price * $quantity;
+                        $sale_price = $price - $exisProduct->discount->value;
+                        $discount_percent = 0;
+                        $discount_amount = $total_amount - ($sale_price * $quantity);
+                        $net_amount = $total_amount - $discount_amount;
+                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                        $gross_amount = $net_amount + $tax_amount;
+                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                    
+                        $orderProduct = [
+                            'invoice_id' => $invoice->id,
+                            'reference_type' => 'Botble\Ecommerce\Models\Product',
+                            'reference_id' => $exisProduct->id,
+                            'name' => $exisProduct->name,
+                            // 'description' => $exisProduct->description,
+                            'image' => $exisProduct->image,
+                            'qty' => $quantity,
+                            'price' => $price,
+                            'sub_total' => $total_amount,
+                            'discount_percent' => $discount_percent,
+                            'discount_amount' => $discount_amount,
+                            'net_amount' => $net_amount,
+                            'tax_amount' => $tax_amount,
+                            'gross_amount' => $gross_amount,
+                            'amount' => $gross_amount,
+                            'options' => json_encode($options),
+                        ];
+                    }
                 } elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = $price * $quantity;
@@ -885,7 +1339,7 @@ class OrderController extends Controller
                         'reference_type' => 'Botble\Ecommerce\Models\Product',
                         'reference_id' => $exisProduct->id,
                         'name' => $exisProduct->name,
-                        'description' => $exisProduct->description,
+                        // 'description' => $exisProduct->description,
                         'image' => $exisProduct->image,
                         'qty' => $quantity,
                         'price' => $price,
@@ -915,36 +1369,7 @@ class OrderController extends Controller
                         'reference_type' => 'Botble\Ecommerce\Models\Product',
                         'reference_id' => $exisProduct->id,
                         'name' => $exisProduct->name,
-                        'description' => $exisProduct->description,
-                        'image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'price' => $price,
-                        'sub_total' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'amount' => $gross_amount,
-                        'options' => json_encode($options),
-                    ];
-                } elseif(!is_null($exisProduct->sale_price)) {
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = $price * $quantity;
-                    $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
-                    $discount_percent = 0;
-                    $discount_amount = $total_amount - ($sale_price * $quantity);
-                    $net_amount = $total_amount - $discount_amount;
-                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    $gross_amount = $net_amount + $tax_amount;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                
-                    $orderProduct = [
-                        'invoice_id' => $invoice->id,
-                        'reference_type' => 'Botble\Ecommerce\Models\Product',
-                        'reference_id' => $exisProduct->id,
-                        'name' => $exisProduct->name,
-                        'description' => $exisProduct->description,
+                        // 'description' => $exisProduct->description,
                         'image' => $exisProduct->image,
                         'qty' => $quantity,
                         'price' => $price,
@@ -958,6 +1383,36 @@ class OrderController extends Controller
                         'options' => json_encode($options),
                     ];
                 }
+                // elseif(!is_null($exisProduct->sale_price)) {
+                //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     $total_amount = $price * $quantity;
+                //     $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
+                //     $discount_percent = 0;
+                //     $discount_amount = $total_amount - ($sale_price * $quantity);
+                //     $net_amount = $total_amount - $discount_amount;
+                //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     $gross_amount = $net_amount + $tax_amount;
+                //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                
+                //     $orderProduct = [
+                //         'invoice_id' => $invoice->id,
+                //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //         'reference_id' => $exisProduct->id,
+                //         'name' => $exisProduct->name,
+                //         'description' => $exisProduct->description,
+                //         'image' => $exisProduct->image,
+                //         'qty' => $quantity,
+                //         'price' => $price,
+                //         'sub_total' => $total_amount,
+                //         'discount_percent' => $discount_percent,
+                //         'discount_amount' => $discount_amount,
+                //         'net_amount' => $net_amount,
+                //         'tax_amount' => $tax_amount,
+                //         'gross_amount' => $gross_amount,
+                //         'amount' => $gross_amount,
+                //         'options' => json_encode($options),
+                //     ];
+                // }
                 elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                     $total_amount = 0.00;
@@ -973,7 +1428,7 @@ class OrderController extends Controller
                         'reference_type' => 'Botble\Ecommerce\Models\Product',
                         'reference_id' => $exisProduct->id,
                         'name' => $exisProduct->name,
-                        'description' => $exisProduct->description,
+                        // 'description' => $exisProduct->description,
                         'image' => $exisProduct->image,
                         'qty' => $quantity,
                         'price' => $price,
@@ -1002,7 +1457,7 @@ class OrderController extends Controller
                         'reference_type' => 'Botble\Ecommerce\Models\Product',
                         'reference_id' => $exisProduct->id,
                         'name' => $exisProduct->name,
-                        'description' => $exisProduct->description,
+                        // 'description' => $exisProduct->description,
                         'image' => $exisProduct->image,
                         'qty' => $quantity,
                         'price' => $price,
@@ -1258,7 +1713,7 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $coupon = Promotion::select('promotions.id', 'type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to AS type')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
+        $coupon = Promotion::select('promotions.id', 'type', 'start_date', 'end_date', 'coupon_code AS code', 'percentage As value', 'apply_to', 'apply_to AS type')->where('type', 'coupon')->where('coupon_code', $request->input('couponCode'))->where('start_date', '<=', now())->where('end_date', '>=', now())->join('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id', 'left')->first();
 
         if(!$coupon) {
             return response()->json(['message' => 'Invalid Coupon Code']);
@@ -1503,8 +1958,10 @@ class OrderController extends Controller
             'ec_orders.code',
             'ec_orders.created_at',
             'ec_orders.status',
-            // 'ec_orders.amount',
-            // 'ec_orders.tax_amount',
+            'ec_orders.amount',
+            'ec_orders.tax_amount',
+            'ec_orders.sub_total',
+            'ec_orders.coupon_code',
             'payments.payment_channel'
         ];
 
@@ -1521,8 +1978,10 @@ class OrderController extends Controller
                 'ec_orders.code',
                 'ec_orders.created_at',
                 'ec_orders.status',
-                // 'ec_orders.amount',
-                // 'ec_orders.tax_amount',
+                'ec_orders.amount',
+                'ec_orders.tax_amount',
+                'ec_orders.sub_total',
+                'ec_orders.coupon_code',
                 'payments.payment_channel'
             )
             ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
@@ -1616,41 +2075,67 @@ class OrderController extends Controller
         }
 
         // General coupons
-        $generalCoupons = collect(DiscountModel::select('code', 'value', 'start_date', 'end_date', 'target')
-        ->where('target', '!=', 'customer')
-        ->whereNotNull('code')
-        ->whereDate('start_date', '<=', now())
-        ->whereDate('end_date', '>=', now())
-        ->get()
-        ->map(function ($coupon) {
-            return [
-                'code' => $coupon->code,
-                'value' => $coupon->value,
-                'start_date' => Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-                'end_date' => Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-                'type' => $coupon->target
-            ];
-        }));
+        $generalCoupons = collect(Promotion::where('type', 'coupon')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            // ->with([
+            //     'couponRules.products' => function ($query) {
+            //         // $query->select('id', 'coupon_rule_id', 'product_id'); // optional: limit fields
+            //     },
+            // ])
+            ->get()
+            ->flatMap(function ($promotion) {
+                return collect($promotion->couponRules)
+                    ->filter(function ($rule) {
+                        return $rule->apply_to !== 'customer' &&
+                            $rule->coupon_code !== null;
+                    })
+                    ->map(function ($rule) use ($promotion) {
+                        return [
+                            'code' => $rule->coupon_code,
+                            'value' => intval($rule->percentage),
+                            'start_date' => Carbon::parse($promotion->start_date)->format('Y-m-d H:i:s'),
+                            'end_date' => Carbon::parse($promotion->end_date)->format('Y-m-d H:i:s'),
+                            'type' => $rule->apply_to, // or $promotion->type if needed
+                        ];
+                    });
+            }));
 
         // Customer-specific coupons
         $customerCoupons = collect();
-        if ($request->input('customer_id') != '-1') {
-            $customerCoupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date', 'target')
-            ->leftJoin('ec_discounts', 'ec_discounts.id', 'ec_discount_customers.discount_id')
-            ->where('target', 'customer')
-            ->where('customer_id', $request->input('customer_id'))
-            ->whereDate('start_date', '<=', now())
-            ->whereDate('end_date', '>=', now())
-            ->get()
-            ->map(function ($coupon) {
-                return [
-                    'code' => $coupon->code,
-                    'value' => $coupon->value,
-                    'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-                    'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-                    'type' => $coupon->target
-                ];
-            });
+        $customerId = $request->input('customer_id');
+
+        if ($customerId && $customerId != '-1') {
+            $customerCoupons = Promotion::where('type', 'coupon')
+                ->whereDate('start_date', '<=', now())
+                ->whereDate('end_date', '>=', now())
+                ->whereHas('couponRules', function ($query) use ($customerId) {
+                    $query->where('apply_to', 'customer')
+                        ->whereHas('customers', function ($q) use ($customerId) {
+                            $q->where('customer_id', $customerId);
+                        });
+                })
+                ->with([
+                    'couponRules.customers' => function ($query) use ($customerId) {
+                        $query->where('customer_id', $customerId);
+                    }
+                ])
+                ->get()
+                ->flatMap(function ($promotion) {
+                    return $promotion->couponRules
+                        ->filter(function ($rule) {
+                            return $rule->apply_to === 'customer' && $rule->coupon_code;
+                        })
+                        ->map(function ($rule) use ($promotion) {
+                            return [
+                                'code' => $rule->coupon_code,
+                                'value' => intval($rule->percentage),
+                                'start_date' => Carbon::parse($promotion->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => Carbon::parse($promotion->end_date)->format('Y-m-d H:i:s'),
+                                'type' => $rule->apply_to,
+                            ];
+                        });
+                });
         }
 
         // Merge and return

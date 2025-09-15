@@ -44,6 +44,7 @@ class Promotion extends BaseModel
     public function discountRules() { return $this->hasMany(DiscountRule::class); }
     public function couponRules() { return $this->hasMany(CouponRule::class); }
     public function focRules() { return $this->hasMany(FocRule::class); }
+    public function cashbackRule() { return $this->hasOne(CashbackRule::class); }
 }
 
 /*======================== BOGO ========================*/
@@ -132,7 +133,7 @@ class CouponRule extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['promotion_id', 'coupon_code', 'apply_to', 'percentage'];
+    protected $fillable = ['promotion_id', 'coupon_code','coupon_type', 'apply_to', 'percentage','amount','product_type'];
 
     public function promotion() { return $this->belongsTo(Promotion::class); }
     public function products() { return $this->hasMany(CouponProduct::class, 'coupon_rule_id'); }

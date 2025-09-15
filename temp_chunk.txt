@@ -1,0 +1,200 @@
+        'group_products' => [],
+        'coupon_rule' => null,
+        'customers' => [],
+        'foc_rule' => null,
+    ];
+
+    switch ($promotion->type) {
+        case 'buy_x_get_y':
+            if ($promotion->buyXGetYRules->isNotEmpty()) {
+                $rule = $promotion->buyXGetYRules->first();
+                $promotionData['buy_x_get_y_rule'] = $rule;
+                $promotionData['buy_products'] = $rule->products()->where('type', 'buy')->pluck('product_id')->toArray();
+                $promotionData['free_products'] = $rule->products()->where('type', 'free')->pluck('product_id')->toArray();
+            }
+            break;
+        case 'discount':
+            if ($promotion->discountRules->isNotEmpty()) {
+                $rule = $promotion->discountRules->first();
+                $promotionData['discount_rule'] = $rule;
+                if ($rule->apply_to === 'individual') {
+                    $promotionData['individual_rules'] = $rule->individualRules->toArray();
+                } elseif ($rule->apply_to === 'group') {
+                    $promotionData['group_products'] = $rule->products->pluck('product_id')->toArray();
+                }
+            }
+            break;
+        case 'coupon':
+            if ($promotion->couponRules->isNotEmpty()) {
+                $rule = $promotion->couponRules->first();
+                $promotionData['coupon_rule'] = $rule;
+                if ($rule->apply_to === 'group') {
+                    $promotionData['group_products'] = $rule->products->pluck('product_id')->toArray();
+                } elseif ($rule->apply_to === 'customer') {
+                    $promotionData['customers'] = $rule->customers->pluck('id')->toArray();
+                }
+            }
+            break;
+        case 'foc':
+            if ($promotion->focRules->isNotEmpty()) {
+                $rule = $promotion->focRules->first();
+                $promotionData['foc_rule'] = $rule;
+                $promotionData['free_products'] = $rule->products->pluck('product_id')->toArray();
+            }
+            break;
+    }
+
+    return $promotionData;
+}
+
+    private function storeBuyXGetYRules(Promotion $promotion, Request $request)
+    {
+        $rule = BuyXGetYRule::create([
+            'promotion_id' => $promotion->id,
+            'buy_quantity' => $request->input('conditions.buy_x_get_y.buy_quantity'),
+            'get_quantity' => $request->input('rewards.buy_x_get_y.get_quantity'),
+        ]);
+
+        foreach ($request->input('conditions.buy_x_get_y.product_ids', []) as $productId) {
+            BuyXGetYProduct::create([
+                'rule_id' => $rule->id,
+                'product_id' => $productId,
+                'type' => 'buy',
+            ]);
+        }
+
+        foreach ($request->input('rewards.buy_x_get_y.free_product_ids', []) as $productId) {
+            BuyXGetYProduct::create([
+                'rule_id' => $rule->id,
+                'product_id' => $productId,
+                'type' => 'free',
+            ]);
+        }
+    }
+
+    private function storeDiscountRules(Promotion $promotion, Request $request, $discountedProductIds)
+    {
+        $applyTo = $request->input('conditions.discount.apply_to');
+        $rule = DiscountRule::create([
+            'promotion_id' => $promotion->id,
+            'apply_to' => $applyTo,
+            'percentage' => $applyTo === 'all' ? $request->input('rewards.discount.percentage') :
+                          ($applyTo === 'group' ? $request->input('rewards.discount.group_percentage') : null),
+        ]);
+
+        if ($applyTo === 'individual') {
+            $productIds = $request->input('conditions.discount.product_ids', []);
+            $discountTypes = $request->input('rewards.discount.discount_type', []);
+            $values = $request->input('rewards.discount.value', []);
+            $productPrices = $request->input('rewards.discount.product_price', []);
+            $discountAmounts = $request->input('rewards.discount.discount_amount', []);
+            $finalPrices = $request->input('rewards.discount.final_price', []);
+
+            foreach ($productIds as $index => $productId) {
+                if (isset($discountTypes[$index], $values[$index])) {
+                    DiscountIndividualRule::create([
+                        'discount_rule_id' => $rule->id,
+                        'product_id' => $productId,
+                        'discount_type' => $discountTypes[$index],
+                        'value' => $values[$index],
+                        'product_price' => $productPrices[$index],
+                        'discount_amount' => $discountAmounts[$index],
+                        'final_price' => $finalPrices[$index],
+                    ]);
+                }
+            }
+        } elseif ($applyTo === 'group') {
+            foreach ($request->input('conditions.discount.group_product_ids', []) as $productId) {
+                DiscountProduct::create([
+                    'discount_rule_id' => $rule->id,
+                    'product_id' => $productId,
+                ]);
+            }
+        } elseif ($applyTo === 'all') {
+            $allProductIds = Product::query()->pluck('id')->all();
+            $eligibleProductIds = array_diff($allProductIds, $discountedProductIds);
+            foreach ($eligibleProductIds as $productId) {
+                DiscountProduct::create([
+                    'discount_rule_id' => $rule->id,
+                    'product_id' => $productId,
+                ]);
+            }
+        }
+    }
+
+    private function storeCouponRules(Promotion $promotion, Request $request, $discountedProductIds)
+    {
+        $applyTo = $request->input('conditions.coupon.apply_to');
+        $couponType = $request->input('rewards.coupon.type');
+        
+        // Get product_type when apply_to is 'customer'
+        $productType = $applyTo === 'customer' 
+            ? $request->input('conditions.coupon.product_type')
+            : null;
+
+        // Map values to database-safe enum: 'percent' or 'amount'
+        $couponTypeDb = $couponType === 'percentage' ? 'percent' : 'amount';
+        $percentage = $couponTypeDb === 'percent' ? (
+            $applyTo === 'all' ? $request->input('rewards.coupon.percentage') :
+            ($applyTo === 'group' ? $request->input('rewards.coupon.group_percentage') : $request->input('rewards.coupon.customer_percentage'))
+        ) : null;
+
+        $amount = $couponTypeDb === 'amount' ? (
+            $applyTo === 'all' ? $request->input('rewards.coupon.amount') :
+            ($applyTo === 'group' ? $request->input('rewards.coupon.group_amount') : $request->input('rewards.coupon.customer_amount'))
+        ) : null;
+
+        $rule = CouponRule::create([
+            'promotion_id' => $promotion->id,
+            'coupon_code' => $request->input('coupon_code'),
+            'apply_to' => $applyTo,
+            'coupon_type' => $couponTypeDb,
+            'percentage' => $percentage,
+            'amount' => $amount,
+            'product_type' => $productType, // Add this line to save product_type
+        ]);
+
+        if ($applyTo === 'customer') {
+            // Handle customer-specific logic
+            $customerIds = $request->input('conditions.coupon.customer_ids', []);
+            $rule->customers()->sync($customerIds);
+
+            // Handle product assignments based on product_type
+            if ($productType === 'group') {
+                $groupProductIds = $request->input('conditions.coupon.group_product_ids', []);
+                foreach ($groupProductIds as $productId) {
+                    CouponProduct::create([
+                        'coupon_rule_id' => $rule->id,
+                        'product_id' => $productId,
+                    ]);
+                }
+            } elseif ($productType === 'all') {
+                $allProductIds = Product::query()->pluck('id')->all();
+                $eligibleProductIds = array_diff($allProductIds, $discountedProductIds);
+                foreach ($eligibleProductIds as $productId) {
+                    CouponProduct::create([
+                        'coupon_rule_id' => $rule->id,
+                        'product_id' => $productId,
+                    ]);
+                }
+            }
+        } elseif ($applyTo === 'group') {
+            foreach ($request->input('conditions.coupon.group_product_ids', []) as $productId) {
+                CouponProduct::create([
+                    'coupon_rule_id' => $rule->id,
+                    'product_id' => $productId,
+                ]);
+            }
+        } elseif ($applyTo === 'all') {
+            $allProductIds = Product::query()->pluck('id')->all();
+            $eligibleProductIds = array_diff($allProductIds, $discountedProductIds);
+            foreach ($eligibleProductIds as $productId) {
+                CouponProduct::create([
+                    'coupon_rule_id' => $rule->id,
+                    'product_id' => $productId,
+                ]);
+            }
+        }
+    }
+
+    private function storeFocRules(Promotion $promotion, Request $request)

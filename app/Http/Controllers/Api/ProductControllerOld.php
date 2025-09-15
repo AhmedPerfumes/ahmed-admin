@@ -429,7 +429,8 @@ class ProductController extends Controller
                 // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
                 ->join ('ec_product_categories', 'ec_product_categories.id', '=', 'ec_product_category_product.category_id', 'left')
                 // ->select(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, ' &amp; ', '&'), '&', ' '),'[^a-zA-Z0-9-]', '')"))
-                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id','ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description','ec_products.description_ar','ec_products.content','ec_products.content_ar','ec_products.fragrance_notes','ec_products.fragrance_notes_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku','ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5', 'ec_products.itemFamily', 'ec_products.note_1', 'ec_products.note_1_image', 'ec_products.note_2', 'ec_products.note_2_image', 'ec_products.note_3', 'ec_products.note_3_image', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge')
+                // ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku')
+                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar', 'ec_products.content', 'ec_products.content_ar', 'ec_products.fragrance_notes', 'ec_products.fragrance_notes_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5', 'ec_products.itemFamily', 'ec_products.note_1', 'ec_products.note_1_image', 'ec_products.note_2', 'ec_products.note_2_image', 'ec_products.note_3', 'ec_products.note_3_image', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge')
                 ->where('ec_products.status', 'published')
                 ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9]', '')"), '=', implode('', explode(' ', $product)))
                 ->where('ec_product_categories.name', $category)
@@ -528,6 +529,71 @@ class ProductController extends Controller
                             'end_date' => $coupon->end_date,
                         ];
                     }
+                }
+
+                // Check if the main product has an itemFamily value.
+                if (isset($prod->itemFamily) && !empty($prod->itemFamily)) {
+
+                    // This is the itemFamily value from the product we just found
+                    $currentItemFamily = $prod->itemFamily;
+                    // This is the ID of the product we just found
+                    $productId = $prod->product_id;
+
+                    $results = DB::table('ec_products')
+                    ->select(
+                        'ec_products.id as product_id',
+                        DB::raw('MAX(ec_products.name) as product_name'),
+                        DB::raw('MAX(ec_products.image) as image'),
+                        DB::raw('MAX(ec_products.images) as images'),
+                        DB::raw('MAX(ec_products.description) as description'),
+                        DB::raw('MAX(ec_products.quantity) as product_qty'),
+                        DB::raw('CAST(MAX(ec_products.price) AS DECIMAL(10,2)) as price'),
+                        DB::raw('CAST(MAX(ec_products.sale_price) AS DECIMAL(10,2)) as sale_price'),
+                        DB::raw('GROUP_CONCAT(DISTINCT ec_product_collections.name) as collection_name'),
+                        DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category_name'),
+                        DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory_name'),
+                        DB::raw("CONCAT('[', GROUP_CONCAT(DISTINCT JSON_OBJECT('name', ec_product_labels.name, 'color', ec_product_labels.color)), ']') as labels")
+                    )
+                    ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                        $join->on('pivot_main.category_id', '=', 'main_cat.id')
+                            ->where('main_cat.parent_id', 0);
+                    })
+                    ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                        $join->on('pivot_sub.category_id', '=', 'sub_cat.id')
+                            ->where('sub_cat.parent_id', '!=', 0);
+                    })
+                    ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
+                    ->leftJoin('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id')
+                    ->leftJoin('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
+                    ->where('ec_products.itemFamily', $currentItemFamily)
+                    ->where('ec_products.id', '!=', $productId)
+                    ->groupBy('ec_products.id')
+                    ->get();
+
+                    // --- Post-processing to format the data into your desired structure ---
+                    $prod->item_family = $results->map(function ($item) {
+                        // MODIFIED: Added this block to restructure the subcategory
+                        // Create the nested subcategory object
+                        $item->subcategory = $item->subcategory_name ? [
+                            'subcategory_name' => $item->subcategory_name,
+                        ] : null;
+                        // Remove the original flat property
+                        unset($item->subcategory_name);
+
+                        // Handle other transformations as before
+                        $item->labels = json_decode($item->labels);
+                        $item->images = json_decode($item->images, true) ?? [];
+
+                        // You can add other queries here for each item if needed
+                        return $item;
+                    });
+
+                } else {
+                    // If the main product has no itemFamily, return an empty array for consistency.
+                    $prod->item_family = [];
                 }
             $response = response()->json($prod)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 

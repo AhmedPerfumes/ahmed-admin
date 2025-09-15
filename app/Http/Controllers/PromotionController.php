@@ -6,109 +6,92 @@ use App\Models\Promotion;
 use App\Models\BogoRule;
 use App\Models\BuyXGetYRule;
 use App\Models\BuyXGetYProduct;
-use App\Models\BuyXGetYCategory;
 use App\Models\DiscountRule;
 use App\Models\DiscountIndividualRule;
 use App\Models\DiscountProduct;
-use App\Models\DiscountCategory;
 use App\Models\CouponRule;
 use App\Models\CouponProduct;
-use App\Models\CouponCustomer;
-use App\Models\CouponCategory;
 use App\Models\FocRule;
 use App\Models\FocProduct;
-use App\Models\FocCategory;
+use App\Models\CashbackRule;
+use App\Models\CashbackProduct;
+use App\Models\CashbackCustomer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Botble\Ecommerce\Models\Product;
 use Botble\Ecommerce\Models\Customer;
-use App\Tables\PromotionTable;
 use Carbon\Carbon;
 
 class PromotionController extends Controller
 {
-   public function index()
-{
-    $promotions = Promotion::where('isDeleted', false)
-    ->with([
-        'couponRules.products.product',    // <--- add .product
-    'discountRules.products.product',
-    'discountRules.individualRules.product', // if needed
-    'buyXGetYRules.products.product',
-    'focRules.products.product'
-    ])
-        ->orderBy('start_date', 'desc')
-        ->get();
+    public function index()
+    {
+        $promotions = Promotion::where('isDeleted', false)
+            ->with([
+                'couponRules.products.product',
+                'discountRules.products.product',
+                'discountRules.individualRules.product',
+                'buyXGetYRules.products.product',
+                'focRules.products.product',
+                'cashbackRule.products.product',
+                'cashbackRule.customers.customer',
+            ])
+            ->orderBy('start_date', 'desc')
+            ->get();
 
-    return view('promotions.index', compact('promotions'));
-}
-
+        return view('promotions.index', compact('promotions'));
+    }
 
     public function create()
     {
         $products = Product::select('id', 'name', 'price')->get()->toArray();
         $customers = Customer::select('id', 'name')->get()->toArray();
         $today = Carbon::today();
+
         $discountedProductIds = DB::table('promotions')
             ->where('promotions.end_date', '>=', $today)
-            ->where('promotions.isDeleted', false) 
-            // ->where('promotions.type', 'coupon')
-            // ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
-            // ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
-            // ->select('coupon_products.product_id')
-            // ->union(
-            //     DB::table('promotions')
-            //         ->where('promotions.end_date', '>=', $today)
-            //         ->where('promotions.isDeleted', false) 
-            //         ->where('promotions.type', 'discount')
-            //         ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
-            //         ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-            //         ->select('discount_products.product_id')
-            // )
+            ->where('promotions.isDeleted', false)
             ->whereIn('promotions.type', ['coupon', 'discount', 'buy_x_get_y'])
             ->leftJoin('coupon_rules', function ($join) {
                 $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
-                    ->where('promotions.type', '=', 'coupon');
+                     ->where('promotions.type', '=', 'coupon');
             })
             ->leftJoin('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
             ->leftJoin('discount_rules', function ($join) {
                 $join->on('promotions.id', '=', 'discount_rules.promotion_id')
-                    ->where('promotions.type', '=', 'discount');
+                     ->where('promotions.type', '=', 'discount');
             })
             ->leftJoin('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-            // ->leftJoin('bogo_rules', function ($join) {
-            //     $join->on('promotions.id', '=', 'bogo_rules.promotion_id')
-            //         ->where('promotions.type', '=', 'bogo');
-            // })
             ->leftJoin('buy_x_get_y_rules', function ($join) {
                 $join->on('promotions.id', '=', 'buy_x_get_y_rules.promotion_id')
-                    ->where('promotions.type', '=', 'buy_x_get_y');
+                     ->where('promotions.type', '=', 'buy_x_get_y');
             })
             ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
-            // ->selectRaw('COALESCE(coupon_products.product_id, discount_products.product_id, bogo_rules.buy_product_id, bogo_rules.free_product_id, buy_x_get_y_products.product_id) as product_id')
             ->selectRaw('COALESCE(coupon_products.product_id, discount_products.product_id, buy_x_get_y_products.product_id) as product_id')
             ->havingRaw('product_id IS NOT NULL')
             ->pluck('product_id')
             ->unique()
             ->values()
             ->toArray();
+
         return view('promotions.create', compact('products', 'customers', 'discountedProductIds'));
     }
 
     public function store(Request $request)
     {
         $today = Carbon::today();
+
         $discountedProductIds = DB::table('promotions')
-           ->where('promotions.end_date', '>=', $today)
-           ->where('promotions.isDeleted', false)
+            ->where('promotions.end_date', '>=', $today)
+            ->where('promotions.isDeleted', false)
             ->where('promotions.type', 'coupon')
             ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
             ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
             ->select('coupon_products.product_id')
             ->union(
                 DB::table('promotions')
-                   ->where('promotions.end_date', '>=', $today)
+                    ->where('promotions.end_date', '>=', $today)
                     ->where('promotions.type', 'discount')
                     ->where('promotions.isDeleted', false)
                     ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
@@ -122,7 +105,7 @@ class PromotionController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc'])],
+            'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc', 'cashback'])],
             'description' => 'nullable|string',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -140,9 +123,6 @@ class PromotionController extends Controller
             ]);
 
             switch ($request->type) {
-                // case 'bogo':
-                //     $this->storeBogoRules($promotion, $request);
-                //     break;
                 case 'buy_x_get_y':
                     $this->storeBuyXGetYRules($promotion, $request);
                     break;
@@ -155,6 +135,9 @@ class PromotionController extends Controller
                 case 'foc':
                     $this->storeFocRules($promotion, $request);
                     break;
+                case 'cashback':
+                    $this->storeCashbackRules($promotion, $request);
+                    break;
             }
 
             DB::commit();
@@ -165,21 +148,206 @@ class PromotionController extends Controller
         }
     }
 
-    // private function storeBogoRules(Promotion $promotion, Request $request)
-    // {
-    //     $productIds = $request->input('conditions.bogo.product_ids', []);
-    //     $freeProductIds = $request->input('rewards.bogo.free_product_ids', []);
+    public function update(Request $request, $id)
+    {
+        $promotion = Promotion::findOrFail($id);
 
-    //     foreach ($productIds as $index => $buyProductId) {
-    //         if (isset($freeProductIds[$index])) {
-    //             BogoRule::create([
-    //                 'promotion_id' => $promotion->id,
-    //                 'buy_product_id' => $buyProductId,
-    //                 'free_product_id' => $freeProductIds[$index],
-    //             ]);
-    //         }
-    //     }
-    // }
+        // Build discounted product ids excluding current promotion (for eligibility in coupon/discount 'all')
+        $today = Carbon::today();
+        $discountedProductIds = DB::table('promotions')
+            ->where('promotions.end_date', '>=', $today)
+            ->where('promotions.isDeleted', false)
+            ->where('promotions.id', '!=', $promotion->id)
+            ->where('promotions.type', 'coupon')
+            ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
+            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+            ->select('coupon_products.product_id')
+            ->union(
+                DB::table('promotions')
+                    ->where('promotions.end_date', '>=', $today)
+                    ->where('promotions.isDeleted', false)
+                    ->where('promotions.id', '!=', $promotion->id)
+                    ->where('promotions.type', 'discount')
+                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
+                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+                    ->select('discount_products.product_id')
+            )
+            ->pluck('product_id')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc', 'cashback'])],
+            'description' => 'nullable|string',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $oldType = $promotion->type;
+            $newType = $request->input('type', $oldType);
+
+            // Update base fields
+            $promotion->update([
+                'name' => $request->name,
+                'type' => $newType,
+                'description' => $request->description,
+                'start_date' => Carbon::parse($request->start_date)->startOfDay(),
+                'end_date' => Carbon::parse($request->end_date)->endOfDay(),
+            ]);
+
+            // Clear existing rules for previous type
+            $this->clearPromotionRules($promotion->id, $oldType);
+
+            // Recreate rules for new type
+            switch ($newType) {
+                case 'buy_x_get_y':
+                    $this->storeBuyXGetYRules($promotion, $request);
+                    break;
+                case 'discount':
+                    $this->storeDiscountRules($promotion, $request, $discountedProductIds);
+                    break;
+                case 'coupon':
+                    $this->storeCouponRules($promotion, $request, $discountedProductIds);
+                    break;
+                case 'foc':
+                    $this->storeFocRules($promotion, $request);
+                    break;
+                case 'cashback':
+                    $this->storeCashbackRules($promotion, $request);
+                    break;
+            }
+
+            DB::commit();
+            return redirect()->route('promotions.index')->with('success', 'Promotion updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Failed to update promotion: ' . $e->getMessage()]);
+        }
+    }
+
+    public function edit($id)
+{
+    // Find the promotion by its ID, including all its related rules and products.
+    $promotion = Promotion::with([
+        'couponRules.products.product',
+        'discountRules.products.product',
+        'discountRules.individualRules.product',
+        'buyXGetYRules.products.product',
+        'focRules.products.product',
+        'cashbackRule.products.product',
+        'cashbackRule.customers.customer',
+    ])->findOrFail($id);
+
+    // Fetch all products and customers from the database.
+    $products = Product::select('id', 'name', 'price')->get()->toArray();
+    $customers = Customer::select('id', 'name')->get()->toArray();
+
+    // Prepare a structured data array to easily pass to the view.
+    $promotionData = $this->preparePromotionData($promotion);
+
+    // Get a list of products currently under a different, active promotion.
+    $today = Carbon::today();
+    $discountedProductIds = DB::table('promotions')
+        ->where('promotions.end_date', '>=', $today)
+        ->where('promotions.isDeleted', false)
+        ->where('promotions.id', '!=', $id) // Exclude the current promotion
+        ->whereIn('promotions.type', ['coupon', 'discount', 'buy_x_get_y'])
+        ->leftJoin('coupon_rules', function ($join) {
+            $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
+                ->where('promotions.type', '=', 'coupon');
+        })
+        ->leftJoin('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+        ->leftJoin('discount_rules', function ($join) {
+            $join->on('promotions.id', '=', 'discount_rules.promotion_id')
+                ->where('promotions.type', '=', 'discount');
+        })
+        ->leftJoin('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+        ->leftJoin('buy_x_get_y_rules', function ($join) {
+            $join->on('promotions.id', '=', 'buy_x_get_y_rules.promotion_id')
+                ->where('promotions.type', '=', 'buy_x_get_y');
+        })
+        ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
+        ->selectRaw('COALESCE(coupon_products.product_id, discount_products.product_id, buy_x_get_y_products.product_id) as product_id')
+        ->havingRaw('product_id IS NOT NULL')
+        ->pluck('product_id')
+        ->unique()
+        ->values()
+        ->toArray();
+
+    return view('promotions.create', compact('promotion', 'products', 'customers', 'promotionData', 'discountedProductIds'));
+}
+
+private function preparePromotionData(Promotion $promotion)
+{
+    $promotionData = [
+        'buy_x_get_y_rule' => null,
+        'buy_products' => [],
+        'free_products' => [],
+        'discount_rule' => null,
+        'individual_rules' => [],
+        'group_products' => [],
+        'coupon_rule' => null,
+        'customers' => [],
+        'foc_rule' => null,
+        'cashback_rule' => null,
+        'cashback_customers' => [],
+    ];
+
+    switch ($promotion->type) {
+        case 'buy_x_get_y':
+            if ($promotion->buyXGetYRules->isNotEmpty()) {
+                $rule = $promotion->buyXGetYRules->first();
+                $promotionData['buy_x_get_y_rule'] = $rule;
+                $promotionData['buy_products'] = $rule->products()->where('type', 'buy')->pluck('product_id')->toArray();
+                $promotionData['free_products'] = $rule->products()->where('type', 'free')->pluck('product_id')->toArray();
+            }
+            break;
+        case 'discount':
+            if ($promotion->discountRules->isNotEmpty()) {
+                $rule = $promotion->discountRules->first();
+                $promotionData['discount_rule'] = $rule;
+                if ($rule->apply_to === 'individual') {
+                    $promotionData['individual_rules'] = $rule->individualRules->toArray();
+                } elseif ($rule->apply_to === 'group') {
+                    $promotionData['group_products'] = $rule->products->pluck('product_id')->toArray();
+                }
+            }
+            break;
+        case 'coupon':
+            if ($promotion->couponRules->isNotEmpty()) {
+                $rule = $promotion->couponRules->first();
+                $promotionData['coupon_rule'] = $rule;
+                if ($rule->apply_to === 'group') {
+                    $promotionData['group_products'] = $rule->products->pluck('product_id')->toArray();
+                } elseif ($rule->apply_to === 'customer') {
+                    $promotionData['customers'] = $rule->customers->pluck('id')->toArray();
+                }
+            }
+            break;
+        case 'foc':
+            if ($promotion->focRules->isNotEmpty()) {
+                $rule = $promotion->focRules->first();
+                $promotionData['foc_rule'] = $rule;
+                $promotionData['free_products'] = $rule->products->pluck('product_id')->toArray();
+            }
+            break;
+        case 'cashback':
+            if ($promotion->cashbackRule) {
+                $rule = $promotion->cashbackRule;
+                $promotionData['cashback_rule'] = $rule;
+                $promotionData['cashback_customers'] = $rule->customers->pluck('customer_id')->toArray();
+                $promotionData['group_products'] = $rule->products->pluck('product_id')->toArray();
+            }
+            break;
+    }
+
+    return $promotionData;
+}
 
     private function storeBuyXGetYRules(Promotion $promotion, Request $request)
     {
@@ -212,7 +380,7 @@ class PromotionController extends Controller
         $rule = DiscountRule::create([
             'promotion_id' => $promotion->id,
             'apply_to' => $applyTo,
-            'percentage' => $applyTo === 'all' ? $request->input('rewards.discount.percentage') : 
+            'percentage' => $applyTo === 'all' ? $request->input('rewards.discount.percentage') :
                           ($applyTo === 'group' ? $request->input('rewards.discount.group_percentage') : null),
         ]);
 
@@ -259,33 +427,66 @@ class PromotionController extends Controller
     private function storeCouponRules(Promotion $promotion, Request $request, $discountedProductIds)
     {
         $applyTo = $request->input('conditions.coupon.apply_to');
-        $percentage = null;
+        $couponType = $request->input('rewards.coupon.type');
+        
+        // Get product_type when apply_to is 'customer'
+        $productType = $applyTo === 'customer' 
+            ? $request->input('conditions.coupon.product_type')
+            : null;
 
-        if ($applyTo === 'all') {
-            $percentage = $request->input('rewards.coupon.percentage');
-        } elseif ($applyTo === 'group') {
-            $percentage = $request->input('rewards.coupon.group_percentage');
-        } elseif ($applyTo === 'customer') {
-            $percentage = $request->input('rewards.coupon.customer_percentage');
-        }
+        // Map values to database-safe enum: 'percent' or 'amount'
+        $couponTypeDb = $couponType === 'percentage' ? 'percent' : 'amount';
+        $percentage = $couponTypeDb === 'percent' ? (
+            $applyTo === 'all' ? $request->input('rewards.coupon.percentage') :
+            ($applyTo === 'group' ? $request->input('rewards.coupon.group_percentage') : $request->input('rewards.coupon.customer_percentage'))
+        ) : null;
+
+        $amount = $couponTypeDb === 'amount' ? (
+            $applyTo === 'all' ? $request->input('rewards.coupon.amount') :
+            ($applyTo === 'group' ? $request->input('rewards.coupon.group_amount') : $request->input('rewards.coupon.customer_amount'))
+        ) : null;
 
         $rule = CouponRule::create([
             'promotion_id' => $promotion->id,
             'coupon_code' => $request->input('coupon_code'),
             'apply_to' => $applyTo,
+            'coupon_type' => $couponTypeDb,
             'percentage' => $percentage,
+            'amount' => $amount,
+            'product_type' => $productType, // Add this line to save product_type
         ]);
 
-        if ($applyTo === 'group') {
+        if ($applyTo === 'customer') {
+            // Handle customer-specific logic
+            $customerIds = $request->input('conditions.coupon.customer_ids', []);
+            $rule->customers()->sync($customerIds);
+
+            // Handle product assignments based on product_type
+            if ($productType === 'group') {
+                $groupProductIds = $request->input('conditions.coupon.group_product_ids', []);
+                foreach ($groupProductIds as $productId) {
+                    CouponProduct::create([
+                        'coupon_rule_id' => $rule->id,
+                        'product_id' => $productId,
+                    ]);
+                }
+            } elseif ($productType === 'all') {
+                $allProductIds = Product::query()->pluck('id')->all();
+                $eligibleProductIds = array_diff($allProductIds, $discountedProductIds);
+                foreach ($eligibleProductIds as $productId) {
+                    CouponProduct::create([
+                        'coupon_rule_id' => $rule->id,
+                        'product_id' => $productId,
+                    ]);
+                }
+            }
+        } elseif ($applyTo === 'group') {
             foreach ($request->input('conditions.coupon.group_product_ids', []) as $productId) {
                 CouponProduct::create([
                     'coupon_rule_id' => $rule->id,
                     'product_id' => $productId,
                 ]);
             }
-        } elseif ($applyTo === 'customer') {
-            $customerIds = $request->input('conditions.coupon.customer_ids', []);
-            $rule->customers()->sync($customerIds);
         } elseif ($applyTo === 'all') {
             $allProductIds = Product::query()->pluck('id')->all();
             $eligibleProductIds = array_diff($allProductIds, $discountedProductIds);
@@ -314,192 +515,176 @@ class PromotionController extends Controller
         }
     }
 
-    public function edit(Promotion $promotion)
+    private function storeCashbackRules(Promotion $promotion, Request $request)
     {
-        $products = Product::select('id', 'name', 'price')->get()->toArray();
-        $customers = Customer::select('id', 'name')->get()->toArray();
-        $today = Carbon::today();
+        // Validate cashback-specific inputs
+        $request->validate([
+            'conditions.cashback.customer_type' => ['required', Rule::in(['all', 'group'])],
+            'conditions.cashback.product_type' => ['required', Rule::in(['all', 'group'])],
+            'rewards.cashback.type' => ['required', Rule::in(['percentage', 'amount'])],
+            'conditions.cashback.duration' => ['nullable', 'integer', 'min:1'],
+            'rewards.cashback.percentage' => [
+                'nullable', 'numeric', 'min:0.01',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($request->input('rewards.cashback.type') === 'percentage' && ($value === null || $value === '')) {
+                        $fail('Cashback percentage is required.');
+                    }
+                }
+            ],
+            'rewards.cashback.amount' => [
+                'nullable', 'numeric', 'min:0.01',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($request->input('rewards.cashback.type') === 'amount' && ($value === null || $value === '')) {
+                        $fail('Cashback amount is required.');
+                    }
+                }
+            ],
+        ]);
 
-        // Get IDs of products associated with active coupon or discount promotions (excluding the current promotion)
-        $discountedProductIds = DB::table('promotions')
-            ->where('promotions.end_date', '>=', $today)
-            ->where('promotions.isDeleted', false)
-            ->where('promotions.id', '!=', $promotion->id)
-            ->whereIn('promotions.type', ['coupon', 'discount'])
-            ->join('coupon_rules', function ($join) {
-                $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
-                     ->where('promotions.type', 'coupon');
-            })
-            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
-            ->select('coupon_products.product_id')
-            ->union(
-                DB::table('promotions')
-                    ->where('promotions.end_date', '>=', $today)
-                    ->where('promotions.id', '!=', $promotion->id)
-                    ->where('promotions.isDeleted', false)
-                    ->where('promotions.type', 'discount')
-                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
-                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-                    ->select('discount_products.product_id')
-            )
-            ->pluck('product_id')
-            ->unique()
-            ->values()
-            ->toArray();
+        $customerType = $request->input('conditions.cashback.customer_type');
+        $productType = $request->input('conditions.cashback.product_type');
+        $cashbackType = $request->input('rewards.cashback.type');
+        $duration = $request->input('conditions.cashback.duration');
+        $percentage = $cashbackType === 'percentage' ? $request->input('rewards.cashback.percentage') : null;
+        $amount = $cashbackType === 'amount' ? $request->input('rewards.cashback.amount') : null;
 
-        // Load associated rules based on promotion type
-        $promotionData = [];
-        switch ($promotion->type) {
-            case 'bogo':
-                $promotionData['bogo_rules'] = BogoRule::where('promotion_id', $promotion->id)->get()->toArray();
-                break;
+        $rule = CashbackRule::create([
+            'promotion_id' => $promotion->id,
+            'customer_type' => $customerType,
+            'product_type' => $productType,
+            'cashback_percentage' => $percentage,
+            'cashback_amount' => $amount,
+            'duration' => $duration,
+        ]);
+
+        // Customers
+        if ($customerType === 'group') {
+            // Attach only the selected customers
+            $customerIds = $request->input('conditions.cashback.customer_ids', []);
+            foreach ($customerIds as $customerId) {
+                CashbackCustomer::create([
+                    'cashback_rule_id' => $rule->id,
+                    'customer_id' => $customerId,
+                ]);
+            }
+        } elseif ($customerType === 'all') {
+            // For now: if both customer_type and product_type are 'all', skip creating any rows
+            if ($productType !== 'all') {
+                // Else, attach all customers as before
+                $allCustomerIds = Customer::query()->pluck('id')->all();
+                foreach ($allCustomerIds as $customerId) {
+                    CashbackCustomer::create([
+                        'cashback_rule_id' => $rule->id,
+                        'customer_id' => $customerId,
+                    ]);
+                }
+            }
+        }
+
+        // Products: attach per cashback_customer row
+        $cashbackCustomers = CashbackCustomer::where('cashback_rule_id', $rule->id)->get();
+        if ($productType === 'group') {
+            $productIds = $request->input('conditions.cashback.group_product_ids', []);
+            foreach ($productIds as $productId) {
+                foreach ($cashbackCustomers as $cc) {
+                    CashbackProduct::firstOrCreate([
+                        'cashback_rule_id' => $rule->id,
+                        'product_id' => $productId,
+                        'cashback_customer_id' => $cc->id,
+                    ]);
+                }
+            }
+        } elseif ($productType === 'all') {
+            // For now: if both product_type and customer_type are 'all', skip creating any rows
+            if ($customerType === 'all') {
+                // do nothing
+            } else {
+            $allProductIds = Product::query()->pluck('id')->all();
+            foreach ($allProductIds as $productId) {
+                foreach ($cashbackCustomers as $cc) {
+                    CashbackProduct::firstOrCreate([
+                        'cashback_rule_id' => $rule->id,
+                        'product_id' => $productId,
+                        'cashback_customer_id' => $cc->id,
+                    ]);
+                }
+            }
+            }
+        }
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        if (!empty($ids)) {
+            // Cleanup cashback-related rows for these promotions
+            $this->deleteCashbackByPromotionIds($ids);
+            Promotion::whereIn('id', $ids)->update(['isDeleted' => true]);
+        }
+
+        return redirect()->route('promotions.index')
+            ->with('success', 'Selected promotions deleted successfully.');
+    }
+
+    public function destroy($id)
+    {
+        $promotion = Promotion::findOrFail($id);
+        // Cleanup cashback-related rows for this promotion
+        $this->deleteCashbackByPromotionIds([$promotion->id]);
+        $promotion->update(['isDeleted' => true]);
+
+        return redirect()->route('promotions.index')
+            ->with('success', 'Promotion deleted successfully.');
+    }
+
+    private function deleteCashbackByPromotionIds(array $promotionIds): void
+    {
+        if (empty($promotionIds)) return;
+
+        $cashbackRuleIds = CashbackRule::whereIn('promotion_id', $promotionIds)->pluck('id');
+        if ($cashbackRuleIds->isEmpty()) return;
+
+        CashbackCustomer::whereIn('cashback_rule_id', $cashbackRuleIds)->delete();
+        CashbackProduct::whereIn('cashback_rule_id', $cashbackRuleIds)->delete();
+        CashbackRule::whereIn('id', $cashbackRuleIds)->delete();
+    }
+
+    private function clearPromotionRules(int $promotionId, string $type): void
+    {
+        switch ($type) {
             case 'buy_x_get_y':
-                $promotionData['buy_x_get_y_rule'] = BuyXGetYRule::where('promotion_id', $promotion->id)->first();
-                $promotionData['buy_products'] = BuyXGetYProduct::where('rule_id', $promotionData['buy_x_get_y_rule']->id)
-                    ->where('type', 'buy')
-                    ->pluck('product_id')
-                    ->toArray();
-                $promotionData['free_products'] = BuyXGetYProduct::where('rule_id', $promotionData['buy_x_get_y_rule']->id)
-                    ->where('type', 'free')
-                    ->pluck('product_id')
-                    ->toArray();
+                $ruleIds = BuyXGetYRule::where('promotion_id', $promotionId)->pluck('id');
+                if ($ruleIds->isNotEmpty()) {
+                    BuyXGetYProduct::whereIn('rule_id', $ruleIds)->delete();
+                    BuyXGetYRule::whereIn('id', $ruleIds)->delete();
+                }
                 break;
             case 'discount':
-                $promotionData['discount_rule'] = DiscountRule::where('promotion_id', $promotion->id)->first();
-                if ($promotionData['discount_rule']->apply_to === 'individual') {
-                    $promotionData['individual_rules'] = DiscountIndividualRule::where('discount_rule_id', $promotionData['discount_rule']->id)
-                        ->get()
-                        ->toArray();
-                } elseif ($promotionData['discount_rule']->apply_to === 'group') {
-                    $promotionData['group_products'] = DiscountProduct::where('discount_rule_id', $promotionData['discount_rule']->id)
-                        ->pluck('product_id')
-                        ->toArray();
+                $ruleIds = DiscountRule::where('promotion_id', $promotionId)->pluck('id');
+                if ($ruleIds->isNotEmpty()) {
+                    DiscountIndividualRule::whereIn('discount_rule_id', $ruleIds)->delete();
+                    DiscountProduct::whereIn('discount_rule_id', $ruleIds)->delete();
+                    DiscountRule::whereIn('id', $ruleIds)->delete();
                 }
                 break;
             case 'coupon':
-                $promotionData['coupon_rule'] = CouponRule::where('promotion_id', $promotion->id)->first();
-                if ($promotionData['coupon_rule']->apply_to === 'group') {
-                    $promotionData['group_products'] = CouponProduct::where('coupon_rule_id', $promotionData['coupon_rule']->id)
-                        ->pluck('product_id')
-                        ->toArray();
-                } elseif ($promotionData['coupon_rule']->apply_to === 'customer') {
-                    $promotionData['customers'] = DB::table('coupon_customers')->where('coupon_rule_id', $promotionData['coupon_rule']->id)
-                        ->pluck('customer_id')
-                        ->toArray();
+                $ruleIds = CouponRule::where('promotion_id', $promotionId)->pluck('id');
+                if ($ruleIds->isNotEmpty()) {
+                    DB::table('coupon_customers')->whereIn('coupon_rule_id', $ruleIds)->delete();
+                    CouponProduct::whereIn('coupon_rule_id', $ruleIds)->delete();
+                    CouponRule::whereIn('id', $ruleIds)->delete();
                 }
                 break;
             case 'foc':
-                $promotionData['foc_rule'] = FocRule::where('promotion_id', $promotion->id)->first();
-                $promotionData['free_products'] = FocProduct::where('foc_rule_id', $promotionData['foc_rule']->id)
-                    ->pluck('product_id')
-                    ->toArray();
+                $ruleIds = FocRule::where('promotion_id', $promotionId)->pluck('id');
+                if ($ruleIds->isNotEmpty()) {
+                    FocProduct::whereIn('foc_rule_id', $ruleIds)->delete();
+                    FocRule::whereIn('id', $ruleIds)->delete();
+                }
+                break;
+            case 'cashback':
+                $this->deleteCashbackByPromotionIds([$promotionId]);
                 break;
         }
-
-        // Pass the promotion type to the view to restrict form fields
-        return view('promotions.create', compact('promotion', 'products', 'customers', 'discountedProductIds', 'promotionData'));
     }
-
-    public function update(Request $request, Promotion $promotion)
-    {
-        $today = Carbon::today();
-        $discountedProductIds = DB::table('promotions')
-            ->where('promotions.end_date', '>=', $today)
-            ->where('promotions.isDeleted', false)
-            ->where('promotions.id', '!=', $promotion->id)
-            ->whereIn('promotions.type', ['coupon', 'discount'])
-            ->join('coupon_rules', function ($join) {
-                $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
-                     ->where('promotions.type', 'coupon');
-            })
-            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
-            ->select('coupon_products.product_id')
-            ->union(
-                DB::table('promotions')
-                     ->where('promotions.end_date', '>=', $today)
-                    ->where('promotions.id', '!=', $promotion->id)
-                    ->where('promotions.isDeleted', false)
-                    ->where('promotions.type', 'discount')
-                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
-                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-                    ->select('discount_products.product_id')
-            )
-            ->pluck('product_id')
-            ->unique()
-            ->values()
-            ->toArray();
-
-        // Validate that the promotion type cannot be changed
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => ['required', Rule::in([$promotion->type])], // Restrict type to current promotion type
-            'description' => 'nullable|string',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            // Update promotion
-            $promotion->update([
-                'name' => $request->name,
-                'type' => $promotion->type, // Ensure type remains unchanged
-                'description' => $request->description,
-                'start_date' => Carbon::parse($request->start_date)->startOfDay(),
-                'end_date' => Carbon::parse($request->end_date)->endOfDay(),
-            ]);
-
-            // Delete existing rules and update only the relevant ones
-            switch ($promotion->type) {
-                case 'bogo':
-                    BogoRule::where('promotion_id', $promotion->id)->delete();
-                    $this->storeBogoRules($promotion, $request);
-                    break;
-                case 'buy_x_get_y':
-                    BuyXGetYRule::where('promotion_id', $promotion->id)->delete();
-                    $this->storeBuyXGetYRules($promotion, $request);
-                    break;
-                case 'discount':
-                    DiscountRule::where('promotion_id', $promotion->id)->delete();
-                    $this->storeDiscountRules($promotion, $request, $discountedProductIds);
-                    break;
-                case 'coupon':
-                    CouponRule::where('promotion_id', $promotion->id)->delete();
-                    $this->storeCouponRules($promotion, $request, $discountedProductIds);
-                    break;
-                case 'foc':
-                    FocRule::where('promotion_id', $promotion->id)->delete();
-                    $this->storeFocRules($promotion, $request);
-                    break;
-            }
-
-            DB::commit();
-            return redirect()->route('promotions.index')->with('success', 'Promotion updated successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update promotion: ' . $e->getMessage()]);
-        }
-    }
- public function bulkDelete(Request $request)
-{
-    $ids = $request->input('ids', []);
-
-    if (!empty($ids)) {
-       Promotion::whereIn('id', $ids)->update(['isDeleted' => true]);
-    }
-
-    return redirect()->route('promotions.index')
-                     ->with('success', 'Selected promotions deleted successfully.');
-}
-
-
-   public function destroy($id)
-{
-    $promotion = Promotion::findOrFail($id);
-    $promotion->update(['isDeleted' => true]);
-
-    return redirect()->route('promotions.index')
-                     ->with('success', 'Promotion deleted successfully.');
-}
 }

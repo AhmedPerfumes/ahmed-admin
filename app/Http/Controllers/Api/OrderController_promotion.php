@@ -702,7 +702,7 @@ class OrderController extends Controller
                 // $sale_price = '';
                 if(!is_null($exisProduct->discount)) {
                     if($exisProduct->discount->discount_type == 'percent') {
-                         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                         $total_amount = $price * $quantity;
                         $discount_percent = $exisProduct->discount->value;
                         $discount_amount = ($total_amount / 100) * $discount_percent;
@@ -764,7 +764,6 @@ class OrderController extends Controller
                             'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                             'vat' => $request->input('vatTax'),
                         ];
-                        
                     }
                 } elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
                     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
