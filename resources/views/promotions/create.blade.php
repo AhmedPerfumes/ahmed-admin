@@ -439,28 +439,6 @@
 
                             <!-- Cashback Fields -->
                             <div id="cashback_fields" style="display: {{ isset($promotion) && $promotion->type === 'cashback' ? 'block' : 'none' }};">
-                                <!-- Customer Type Selection -->
-                                <div class="mb-3">
-                                    <label for="cashback_customer_type" class="form-label">Customer Type</label>
-                                    <select name="conditions[cashback][customer_type]" id="cashback_customer_type" class="form-select">
-                                        <option value="all" {{ old('conditions.cashback.customer_type', isset($promotionData['cashback_rule']) ? $promotionData['cashback_rule']->customer_type : '') == 'all' ? 'selected' : '' }}>All Customers</option>
-                                        <option value="group" {{ old('conditions.cashback.customer_type', isset($promotionData['cashback_rule']) ? $promotionData['cashback_rule']->customer_type : '') == 'group' ? 'selected' : '' }}>Group Customers</option>
-                                    </select>
-                                </div>
-
-                                <!-- Group Customers Selection (only visible when group is selected) -->
-                                <div class="mb-3" id="cashback_customer_group_field" style="display: {{ old('conditions.cashback.customer_type', isset($promotionData['cashback_rule']) ? $promotionData['cashback_rule']->customer_type : '') == 'group' ? 'block' : 'none' }};">
-                                    <label for="cashback_customer_ids" class="form-label">Select Customers</label>
-                                    <select name="conditions[cashback][customer_ids][]" id="cashback_customer_ids" multiple class="form-select">
-                                        @foreach($customers as $customer)
-                                            <option value="{{ $customer['id'] }}"
-
-                                                @if(isset($promotionData['cashback_customers']) && in_array($customer['id'], $promotionData['cashback_customers'])) selected @endif>
-                                                {{ $customer['name'] }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
 
                                 <!-- Product Type Selection -->
                                 <div class="mb-3">
@@ -552,7 +530,6 @@
             const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 10 });
             const coupon_product_group_ids = new TomSelect('#coupon_product_group_ids', { maxItems: 10 });
             const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 10 });
-            const cashbackCustomerSelect = new TomSelect('#cashback_customer_ids', { maxItems: 10 });
             const cashbackGroupProductSelect = new TomSelect('#cashback_group_product_ids', { maxItems: 10 });
             // const bogoProductSelect = new TomSelect('#bogo_product_ids', { maxItems: 1 });
             // const bogoFreeProductSelect = new TomSelect('#bogo_free_product_ids', { maxItems: 1 });
@@ -613,10 +590,7 @@
              document.getElementById('coupon_product_type').addEventListener('change', function() {
                 toggleCouponFields();
             });
-            document.getElementById('cashback_customer_type').addEventListener('change', function() {
-                const groupField = document.getElementById('cashback_customer_group_field');
-                groupField.style.display = this.value === 'group' ? 'block' : 'none';
-            });
+            // Customer selection removed for cashback
 
             // Cashback type toggle for percentage/amount fields
             const cashbackTypeSelect = document.getElementById('cashback_type');
@@ -897,15 +871,7 @@ if (promotionType === 'coupon') {
                         }
                     }
 
-                    const customerType = document.getElementById('cashback_customer_type').value;
-                    if (customerType === 'group') {
-                        const customerIds = document.getElementById('cashback_customer_ids').tomselect.getValue();
-                        if (customerIds.length === 0) {
-                            event.preventDefault();
-                            alert('At least one customer must be selected for Cashback (Group Customers).');
-                            return;
-                        }
-                    }
+                    // No customer selection for cashback
                 }
 
                 if (promotionType === 'foc') {

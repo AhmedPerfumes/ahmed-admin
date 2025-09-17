@@ -519,10 +519,10 @@ private function preparePromotionData(Promotion $promotion)
     {
         // Validate cashback-specific inputs
         $request->validate([
-            'conditions.cashback.customer_type' => ['required', Rule::in(['all', 'group'])],
+            // Customer selection disabled; do not require customer_type
             'conditions.cashback.product_type' => ['required', Rule::in(['all', 'group'])],
             'rewards.cashback.type' => ['required', Rule::in(['percentage', 'amount'])],
-            'conditions.cashback.duration' => ['nullable', 'integer', 'min:1'],
+                 'conditions.cashback.duration' => ['nullable', 'integer', 'min:1'],
             'rewards.cashback.percentage' => [
                 'nullable', 'numeric', 'min:0.01',
                 function ($attribute, $value, $fail) use ($request) {
@@ -541,16 +541,16 @@ private function preparePromotionData(Promotion $promotion)
             ],
         ]);
 
-        $customerType = $request->input('conditions.cashback.customer_type');
+        // $customerType = $request->input('conditions.cashback.customer_type', 'all');
         $productType = $request->input('conditions.cashback.product_type');
         $cashbackType = $request->input('rewards.cashback.type');
-        $duration = $request->input('conditions.cashback.duration');
+         $duration = $request->input('conditions.cashback.duration');
         $percentage = $cashbackType === 'percentage' ? $request->input('rewards.cashback.percentage') : null;
         $amount = $cashbackType === 'amount' ? $request->input('rewards.cashback.amount') : null;
 
         $rule = CashbackRule::create([
             'promotion_id' => $promotion->id,
-            'customer_type' => $customerType,
+            // 'customer_type' => $customerType,
             'product_type' => $productType,
             'cashback_percentage' => $percentage,
             'cashback_amount' => $amount,
@@ -558,57 +558,56 @@ private function preparePromotionData(Promotion $promotion)
         ]);
 
         // Customers
-        if ($customerType === 'group') {
-            // Attach only the selected customers
-            $customerIds = $request->input('conditions.cashback.customer_ids', []);
-            foreach ($customerIds as $customerId) {
-                CashbackCustomer::create([
-                    'cashback_rule_id' => $rule->id,
-                    'customer_id' => $customerId,
-                ]);
-            }
-        } elseif ($customerType === 'all') {
-            // For now: if both customer_type and product_type are 'all', skip creating any rows
-            if ($productType !== 'all') {
-                // Else, attach all customers as before
-                $allCustomerIds = Customer::query()->pluck('id')->all();
-                foreach ($allCustomerIds as $customerId) {
-                    CashbackCustomer::create([
-                        'cashback_rule_id' => $rule->id,
-                        'customer_id' => $customerId,
-                    ]);
-                }
-            }
-        }
+        // if ($customerType === 'group') {
+          
+        //     $customerIds = $request->input('conditions.cashback.customer_ids', []);
+        //     foreach ($customerIds as $customerId) {
+        //         CashbackCustomer::create([
+        //             'cashback_rule_id' => $rule->id,
+        //             'customer_id' => $customerId,
+        //         ]);
+        //     }
+        // } elseif ($customerType === 'all') {
+       
+        //     $allCustomerIds = Customer::query()->pluck('id')->all();
+        //     foreach ($allCustomerIds as $customerId) {
+        //         CashbackCustomer::create([
+        //             'cashback_rule_id' => $rule->id,
+        //             'customer_id' => $customerId,
+        //         ]);
+        //     }
+        // }
 
-        // Products: attach per cashback_customer row
-        $cashbackCustomers = CashbackCustomer::where('cashback_rule_id', $rule->id)->get();
+        // Products only (no customer linkage)
         if ($productType === 'group') {
             $productIds = $request->input('conditions.cashback.group_product_ids', []);
             foreach ($productIds as $productId) {
-                foreach ($cashbackCustomers as $cc) {
-                    CashbackProduct::firstOrCreate([
+                $exists = CashbackProduct::where('cashback_rule_id', $rule->id)
+                    ->where('product_id', $productId)
+                    ->whereNull('cashback_customer_id')
+                    ->exists();
+                if (!$exists) {
+                    CashbackProduct::create([
                         'cashback_rule_id' => $rule->id,
                         'product_id' => $productId,
-                        'cashback_customer_id' => $cc->id,
+                        'cashback_customer_id' => null,
                     ]);
                 }
             }
         } elseif ($productType === 'all') {
-            // For now: if both product_type and customer_type are 'all', skip creating any rows
-            if ($customerType === 'all') {
-                // do nothing
-            } else {
             $allProductIds = Product::query()->pluck('id')->all();
             foreach ($allProductIds as $productId) {
-                foreach ($cashbackCustomers as $cc) {
-                    CashbackProduct::firstOrCreate([
+                $exists = CashbackProduct::where('cashback_rule_id', $rule->id)
+                    ->where('product_id', $productId)
+                    ->whereNull('cashback_customer_id')
+                    ->exists();
+                if (!$exists) {
+                    CashbackProduct::create([
                         'cashback_rule_id' => $rule->id,
                         'product_id' => $productId,
-                        'cashback_customer_id' => $cc->id,
+                        'cashback_customer_id' => null,
                     ]);
                 }
-            }
             }
         }
     }

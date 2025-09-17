@@ -82,27 +82,16 @@
                                                     <strong>Discount:</strong>
                                                     @foreach($promotion->discountRules as $rule)
                                                         <p>Apply To: {{ $rule->apply_to }}</p>
-
-                                                        @if($rule->apply_to === 'all')
-                                                            <p>All Products: {{ rtrim(rtrim(number_format((float)($rule->percentage ?? 0), 2, '.', ''), '0'), '.') }}%</p>
-
-                                                        @elseif($rule->apply_to === 'group')
-                                                            <p>Group Percent: {{ rtrim(rtrim(number_format((float)($rule->percentage ?? 0), 2, '.', ''), '0'), '.') }}%</p>
+                                                        @if($rule->apply_to === 'group')
                                                             <p>Products:
                                                                 @foreach($rule->products as $p)
                                                                     {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
                                                                 @endforeach
                                                             </p>
-
                                                         @elseif($rule->apply_to === 'individual')
                                                             <p>Individual Discounts:</p>
                                                             @foreach($rule->individualRules as $ind)
-                                                                @php
-                                                                    $label = $ind->discount_type === 'percent' ?
-                                                                        (rtrim(rtrim(number_format((float)$ind->value, 2, '.', ''), '0'), '.') . '%') :
-                                                                        rtrim(rtrim(number_format((float)$ind->value, 2, '.', ''), '0'), '.');
-                                                                @endphp
-                                                                <p>{{ $ind->product->name ?? 'N/A' }} - {{ $ind->discount_type === 'percent' ? 'Percent' : 'Amount' }}: {{ $label }}</p>
+                                                                <p>{{ $ind->product->name ?? 'N/A' }} - {{ $ind->discount_type }} {{ $ind->value }}</p>
                                                             @endforeach
                                                         @endif
                                                     @endforeach
@@ -126,6 +115,35 @@
                                                         @endif
                                                     @endforeach
 
+                                                @elseif($type === 'cashback')
+                                                    <strong>Cashback:</strong>
+                                                    @php $rule = $promotion->cashbackRule; @endphp
+                                                    @if($rule)
+                                                        <p>Product Type: {{ $rule->product_type }}</p>
+                                                        @if($rule->product_type === 'group')
+                                                            <p>Products:
+                                                                @foreach($rule->products as $p)
+                                                                    {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
+                                                                @endforeach
+                                                            </p>
+                                                        @endif
+                                                        @php
+                                                            $hasPercent = !is_null($rule->cashback_percentage);
+                                                            $percentLabel = rtrim(rtrim(number_format((float)($rule->cashback_percentage ?? 0), 2, '.', ''), '0'), '.');
+                                                            $amountLabel = rtrim(rtrim(number_format((float)($rule->cashback_amount ?? 0), 2, '.', ''), '0'), '.');
+                                                        @endphp
+                                                        @if($hasPercent)
+                                                            <p>Cashback: {{ $percentLabel }}%</p>
+                                                        @else
+                                                            <p>Cashback: {{ $amountLabel }}</p>
+                                                        @endif
+                                                        @if(!empty($rule->duration))
+                                                            <p>Duration: {{ $rule->duration }} day(s)</p>
+                                                        @endif
+                                                    @else
+                                                        <p class="text-muted">No cashback rule found.</p>
+                                                    @endif
+
                                                 @elseif($type === 'foc')
                                                     <strong>FOC:</strong>
                                                     @foreach($promotion->focRules as $rule)
@@ -137,42 +155,6 @@
                                                             @endforeach
                                                         </p>
                                                     @endforeach
-
-                                                @elseif($type === 'cashback')
-                                                    <strong>Cashback:</strong>
-                                                    @php $rule = $promotion->cashbackRule; @endphp
-                                                    @if($rule)
-                                                        <p>Customer Type: {{ $rule->customer_type }}</p>
-                                                        @if($rule->customer_type === 'group')
-                                                            <p>Customers:
-                                                                @foreach($rule->customers as $cc)
-                                                                    {{ optional($cc->customer)->name ?? 'N/A' }}@if(!$loop->last), @endif
-                                                                @endforeach
-                                                            </p>
-                                                        @endif
-
-                                                        <p>Product Type: {{ $rule->product_type }}</p>
-                                                        @if($rule->product_type === 'group')
-                                                            <p>Products:
-                                                                @foreach($rule->products as $p)
-                                                                    {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
-                                                                @endforeach
-                                                            </p>
-                                                        @endif
-
-                                                        @php
-                                                            $hasPercent = !is_null($rule->cashback_percentage);
-                                                            $percentLabel = rtrim(rtrim(number_format((float)($rule->cashback_percentage ?? 0), 2, '.', ''), '0'), '.');
-                                                            $amountLabel = rtrim(rtrim(number_format((float)($rule->cashback_amount ?? 0), 2, '.', ''), '0'), '.');
-                                                        @endphp
-                                                        @if($hasPercent)
-                                                            <p>Cashback: {{ $percentLabel }}%</p>
-                                                        @else
-                                                            <p>Cashback: {{ $amountLabel }}</p>
-                                                        @endif
-                                                    @else
-                                                        <p class="text-muted">No cashback rule found.</p>
-                                                    @endif
                                                 @endif
                                             </td>
 
