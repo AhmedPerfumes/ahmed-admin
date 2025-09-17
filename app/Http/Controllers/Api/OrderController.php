@@ -30,6 +30,7 @@ use Botble\Ecommerce\Models\DiscountCustomer;
 use App\Models\Promotion;
 use App\Models\CouponRule;
 use App\Models\CashbackProduct;
+use Botble\Payment\Models\Payment;
 
 class OrderController extends Controller
 {
@@ -406,26 +407,26 @@ class OrderController extends Controller
         //     'cod_charge' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)),
         //     'cod_charge_vat' => $request->input('codPriceVat') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
         // ]);die();
-        // $userId = $customer_id;
-        // $now = Carbon::now();
-        // $fiveMinutesAgo = Carbon::now()->subMinutes(5);
+        $userId = $customer_id;
+        $now = Carbon::now();
+        $fiveMinutesAgo = Carbon::now()->subMinutes(5);
 
-        // // Optionally, get order contents for matching (e.g. same total or cart hash)
-        // $total = $request->input('finalPrice'); // Example field
+        // Optionally, get order contents for matching (e.g. same total or cart hash)
+        $total = $request->input('finalPrice'); // Example field
 
-        // $existingOrder = Order::where('user_id', $userId)
-        //     ->where('amount', $total)
-        //     ->where('created_at', '>=', $fiveMinutesAgo)
-        //     ->whereHas('payment', function ($query) {
-        //         $query->where('status', 'completed');
-        //     })
-        //     ->first();
+        $existingOrder = Order::where('user_id', $userId)
+            ->where('amount', $total)
+            ->where('created_at', '>=', $fiveMinutesAgo)
+            ->whereHas('payment', function ($query) {
+                $query->where('status', 'completed');
+            })
+            ->first();
 
-        // if ($existingOrder) {
-        //     return response()->json([
-        //         'duplicateOrderMessage' => 'You order has been placed already. Order Id: ' . $existingOrder->code
-        //     ]);
-        // }
+        if ($existingOrder) {
+            return response()->json([
+                'duplicateOrderMessage' => 'You order has been placed already. Order Id: ' . $existingOrder->code
+            ]);
+        }
         $order = Order::create([
             'user_id' => $customer_id,
             'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
@@ -1091,32 +1092,66 @@ class OrderController extends Controller
 
                 // echo $response;
 
-                if (in_array($product['product_id'], $cashback_product_ids)) {
-                    $start_date = now();
-                    $promotion = Promotion::create([
-                        'name'      => $coupon_code,
-                        'type'     => 'coupon',
-                        'start_date'     => $start_date,
-                        'end_date' => Carbon::parse($start_date)->addDays($cashback->duration),
-                    ]);
-                    
-                    if($promotion) {
-                        $coupon_rule = CouponRule::create([
-                            'promotion_id'      => $promotion->id,
-                            'coupon_code'     => $coupon_code,
-                            'apply_to' => 'customer',
-                            'coupon_type' => $coupon_type,
-                            'percentage' => $cashback->cashback_percentage,
-                            'amount' => $cashback->cashback_amount,
-                        ]);
+                if($cashback) {
+                    $customer_cash_back_coupon = DB::table('coupon_customers')->where('customer_id', $customer_id)->where('cashback_rule_id', $cashback->id)->first();
 
-                        if($coupon_rule) {
+                    if (in_array($product['product_id'], $cashback_product_ids) && !$customer_cash_back_coupon) {
+                        $start_date = now();
+                        $exist_coupon_rule = Promotion::select('coupon_rules.id')->where('coupon_code', $coupon_code)->where('type', 'coupon')->where('start_date', '<=', now())->where('end_date', '>=', now())->leftJoin('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')->first();
+
+                        if (!$exist_coupon_rule) {
+                            $promotion = Promotion::create([
+                                'name'      => $coupon_code,
+                                'type'     => 'coupon',
+                                'start_date'     => $start_date,
+                                'end_date' => Carbon::parse($start_date)->addDays($cashback->duration),
+                            ]);
+                            if($promotion) {
+                                $coupon_rule = CouponRule::create([
+                                    'promotion_id'      => $promotion->id,
+                                    'coupon_code'     => $coupon_code,
+                                    'apply_to' => 'customer',
+                                    'coupon_type' => $coupon_type,
+                                    'percentage' => $cashback->cashback_percentage,
+                                    'amount' => $cashback->cashback_amount,
+                                ]);
+                                if($coupon_rule) {
+                                    DB::table('coupon_customers')->insert([
+                                        'coupon_rule_id' => $coupon_rule->id,
+                                        'cashback_rule_id' => $cashback->id,
+                                        'customer_id' => $customer_id,
+                                        'created_at' => now()
+                                    ]);
+                                }
+                            }
+                        } else {
                             DB::table('coupon_customers')->insert([
-                                'coupon_rule_id' => $coupon_rule->id,
+                                'coupon_rule_id' => $exist_coupon_rule->id,
+                                'cashback_rule_id' => $cashback->id,
                                 'customer_id' => $customer_id,
                                 'created_at' => now()
                             ]);
                         }
+                        
+                        // if($promotion) {
+                        //     $coupon_rule = CouponRule::create([
+                        //         'promotion_id'      => $promotion->id,
+                        //         'coupon_code'     => $coupon_code,
+                        //         'apply_to' => 'customer',
+                        //         'coupon_type' => $coupon_type,
+                        //         'percentage' => $cashback->cashback_percentage,
+                        //         'amount' => $cashback->cashback_amount,
+                        //     ]);
+
+                        //     if($coupon_rule) {
+                        //         DB::table('coupon_customers')->insert([
+                        //             'coupon_rule_id' => $coupon_rule->id,
+                        //             'cashback_rule_id' => $cashback->id,
+                        //             'customer_id' => $customer_id,
+                        //             'created_at' => now()
+                        //         ]);
+                        //     }
+                        // }
                     }
                 }
             }
@@ -1861,15 +1896,19 @@ class OrderController extends Controller
             }
         }
 
-        $customer = OrderAddress::join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->input('mobile_number'))->get();
+        $customer = OrderAddress::join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->input('mobile_number'))->orderBy('ec_order_addresses.order_id', 'desc')->first();
+
+        // $customer = OrderAddress::select('order_id')->where('phone', $request->input('mobile_number'))->orderBy('order_id', 'desc')->first();
+
+        // $payment = Payment::where('status', 'completed')->where('customer_id', $customer->order_id)->get();
 
         // echo "<pre>";print_r($customer);die;
 
-        if(!$customer->isEmpty()) {
+        if($customer) {
             if(strtolower($request->input('couponCode')) == 'welcome10') {
                 return response()->json(['message' => 'You Have Already Used this Coupon Code']);
             }
-            $customer_discount = DB::table('ec_customer_used_coupons')->where('customer_id', $customer[0]->customer_id)->where('discount_id', $coupon->id)->first();
+            $customer_discount = DB::table('ec_customer_used_coupons')->where('customer_id', $customer->customer_id)->where('discount_id', $coupon->id)->first();
             if($customer_discount) {
                 return response()->json(['message' => 'You Have Already Used this Coupon Code']);
             }
