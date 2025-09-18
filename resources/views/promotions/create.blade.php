@@ -282,7 +282,7 @@
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer['id'] }}"
                                                 @if(isset($promotionData['customers']) && in_array($customer['id'], $promotionData['customers'])) selected @endif>
-                                                {{ $customer['name'] }}
+                                                {{ $customer['name'].' ('.$customer['email'].')'. ' ('.$customer['phone'].')' }}
                                             </option>
                                         @endforeach
                                     </select>
