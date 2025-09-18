@@ -38,6 +38,8 @@ use Botble\Ecommerce\Models\ProductLabel;
 use Botble\Ecommerce\Models\ProductVariation;
 use Botble\Ecommerce\Models\Tax;
 use Botble\Ecommerce\Tables\ProductVariationTable;
+use Botble\Ecommerce\Models\ProductFragranceNote;
+use Botble\Base\Enums\BaseStatusEnum;
 
 class ProductForm extends FormAbstract
 {
@@ -53,6 +55,22 @@ class ProductForm extends FormAbstract
         $productLabels = ProductLabel::query()->pluck('name', 'id')->all();
 
         $productId = null;
+
+        $selectedFragranceNoteId = null;
+        if ($this->getModel() && $this->getModel()->id) {
+            $product = $this->getModel();
+            $fragranceNote = $product->fragranceNote()->first(); // Use ->first() for the new relationship
+            if ($fragranceNote) {
+                $selectedFragranceNoteId = $fragranceNote->id;
+            }
+        }
+
+        // This gets all published profiles to show in the dropdown
+        $fragranceProfiles = ProductFragranceNote::query()
+            ->where('status', BaseStatusEnum::PUBLISHED)
+            ->pluck('itemFamily', 'id')
+            ->all();
+            
         $selectedCategories = [];
         $tags = null;
         $totalProductVariations = 0;
@@ -135,29 +153,34 @@ class ProductForm extends FormAbstract
             ->add('categories_row_end', 'html', ['html' => '</div>']);
         $this->add('categorization_tab_end', 'html', ['html' => '</div>']);
 
-        // --- Section 2: Fragrance Notes (with images) ---
+        // --- Section 2: Fragrance Notes (with Dropdown and Create Button) ---
         $this->add('notes_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_notes" role="tabpanel" aria-labelledby="notes-tab">']);
-        $this->add('notes_header', 'html', ['html' => '<h4 class="mt-4 h2">Fragrance Notes</h4><hr>'])
-            ->add('notes_row_start', 'html', ['html' => '<div class="row">'])
+        $this->add('notes_header', 'html', ['html' => '<h4 class="mt-4 h2">Fragrance Profile</h4><hr>']);
 
-            ->add('top_notes_col_start', 'html', ['html' => '<div class="col-md-4">'])
-            ->add('note_1', TextField::class, TextFieldOption::make()->label('Top Notes')->toArray())
-            ->add('note_1_image', MediaImageField::class, MediaImageFieldOption::make()->label('Top Notes Image')->toArray())
-            ->add('top_notes_col_end', 'html', ['html' => '</div>'])
+        $this->add('fragrance_note_id_wrapper_start', 'html', [
+            'html' => '<div class="form-group mb-3">
+                            <label for="fragrance_note_id" class="control-label">Select Profile</label>
+                            <div >',
+        ]);
 
-            ->add('middle_notes_col_start', 'html', ['html' => '<div class="col-md-4">'])
-            ->add('note_2', TextField::class, TextFieldOption::make()->label('Middle Notes')->toArray())
-            ->add('note_2_image', MediaImageField::class, MediaImageFieldOption::make()->label('Middle Notes Image')->toArray())
-            ->add('middle_notes_col_end', 'html', ['html' => '</div>'])
+        $this->add('fragrance_note_id', SelectField::class, [
+            'label' => false, // Label is provided by the wrapper now
+            'choices' => [0 => '-- None --'] + $fragranceProfiles,
+            'selected' => $selectedFragranceNoteId,
+            'attr' => [
+                'class' => 'form-control select-search-full',
+            ],
+        ]);
 
-            ->add('base_notes_col_start', 'html', ['html' => '<div class="col-md-4">'])
-            ->add('note_3', TextField::class, TextFieldOption::make()->label('Base Notes')->toArray())
-            ->add('note_3_image', MediaImageField::class, MediaImageFieldOption::make()->label('Base Notes Image')->toArray())
-            ->add('base_notes_col_end', 'html', ['html' => '</div>'])
-            ->add('olfactory_family', TextField::class, TextFieldOption::make()->label('Olfactory Family')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('sillage', TextField::class, TextFieldOption::make()->label('Sillage')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('notes_row_end', 'html', ['html' => '</div>']);
-            $this->add('notes_tab_end', 'html', ['html' => '</div>']);
+        $this->add('fragrance_note_id_wrapper_end', 'html', [
+            'html' => '    <a href="' . route('product-fragrance-notes.create') . '" class="btn btn-primary" target="_blank" title="Create New Profile">
+                                <i class="fa fa-plus"></i> Create
+                            </a>
+                        </div>
+                    </div>',
+        ]);
+
+        $this->add('notes_tab_end', 'html', ['html' => '</div>']);
             
         // --- Section 3: Item Specifications ---
         $this->add('specs_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_specifications" role="tabpanel" aria-labelledby="specifications-tab">']);

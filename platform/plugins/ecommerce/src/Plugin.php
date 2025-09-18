@@ -110,4 +110,5 @@ class Plugin extends PluginOperationAbstract
         MenuNode::query()->whereIn('reference_type', [Brand::class, ProductCategory::class])
             ->each(fn (MenuNode $menuNode) => $menuNode->delete());
     }
+    
 }

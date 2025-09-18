@@ -203,6 +203,11 @@ class Product extends BaseModel
         });
     }
 
+    public function fragranceNote(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductFragranceNote::class, 'product_fragrance_map', 'product_id', 'fragrance_note_id');
+    }
+
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(

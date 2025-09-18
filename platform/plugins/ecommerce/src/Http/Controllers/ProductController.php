@@ -141,6 +141,9 @@ class ProductController extends BaseController
             );
         }
 
+        $fragranceNoteId = $request->input('fragrance_note_id');
+        $product->fragranceNote()->sync($fragranceNoteId ?: []);
+
         return $this
             ->httpResponse()
             ->setPreviousUrl(route('products.index'))
@@ -217,6 +220,9 @@ class ProductController extends BaseController
         $relatedProductIds = $product->variations()->pluck('product_id')->all();
 
         Product::query()->whereIn('id', $relatedProductIds)->update(['status' => $product->status]);
+
+        $fragranceNoteId = $request->input('fragrance_note_id');
+        $product->fragranceNote()->sync($fragranceNoteId ?: []);
 
         return $this
             ->httpResponse()
