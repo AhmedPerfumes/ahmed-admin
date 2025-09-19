@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewController;
+use App\Http\Controllers\Api\CartController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -85,4 +87,9 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::get('/bogoProducts', [ProductController::class, 'bogoProducts']);
 
     Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
+
+    Route::post('/getCart', [CartController::class, 'getCart']);
+    Route::post('/addToCart', [CartController::class, 'addToCart']);
+    Route::put('/updateCart/{productId}', [CartController::class, 'updateCart']);
+    Route::delete('/removeFromCart/{productId}', [CartController::class, 'removeFromCart']);
 });
