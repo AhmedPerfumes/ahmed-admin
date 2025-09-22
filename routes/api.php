@@ -89,7 +89,6 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
 
     Route::post('/getCart', [CartController::class, 'getCart']);
-    Route::post('/addToCart', [CartController::class, 'addToCart']);
-    Route::put('/updateCart/{productId}', [CartController::class, 'updateCart']);
-    Route::delete('/removeFromCart/{productId}', [CartController::class, 'removeFromCart']);
+    Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
+    Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
 });
