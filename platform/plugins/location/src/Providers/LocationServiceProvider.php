@@ -76,49 +76,49 @@ class LocationServiceProvider extends ServiceProvider
         }
 
         DashboardMenu::default()->beforeRetrieving(function () {
-            DashboardMenu::make()
-                ->registerItem([
-                    'id' => 'cms-plugins-location',
-                    'priority' => 900,
-                    'name' => 'plugins/location::location.name',
-                    'icon' => 'ti ti-world',
-                    'permissions' => ['country.index'],
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-country',
-                    'priority' => 0,
-                    'parent_id' => 'cms-plugins-location',
-                    'name' => 'plugins/location::country.name',
-                    'route' => 'country.index',
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-state',
-                    'priority' => 1,
-                    'parent_id' => 'cms-plugins-location',
-                    'name' => 'plugins/location::state.name',
-                    'route' => 'state.index',
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-city',
-                    'priority' => 2,
-                    'parent_id' => 'cms-plugins-location',
-                    'name' => 'plugins/location::city.name',
-                    'route' => 'city.index',
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-location-bulk-import',
-                    'priority' => 3,
-                    'parent_id' => 'cms-plugins-location',
-                    'name' => 'plugins/location::bulk-import.name',
-                    'route' => 'location.bulk-import.index',
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-location-export',
-                    'priority' => 4,
-                    'parent_id' => 'cms-plugins-location',
-                    'name' => 'plugins/location::export.name',
-                    'route' => 'location.export.index',
-                ]);
+            // DashboardMenu::make()
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-location',
+            //         'priority' => 900,
+            //         'name' => 'plugins/location::location.name',
+            //         'icon' => 'ti ti-world',
+            //         'permissions' => ['country.index'],
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-country',
+            //         'priority' => 0,
+            //         'parent_id' => 'cms-plugins-location',
+            //         'name' => 'plugins/location::country.name',
+            //         'route' => 'country.index',
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-state',
+            //         'priority' => 1,
+            //         'parent_id' => 'cms-plugins-location',
+            //         'name' => 'plugins/location::state.name',
+            //         'route' => 'state.index',
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-city',
+            //         'priority' => 2,
+            //         'parent_id' => 'cms-plugins-location',
+            //         'name' => 'plugins/location::city.name',
+            //         'route' => 'city.index',
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-location-bulk-import',
+            //         'priority' => 3,
+            //         'parent_id' => 'cms-plugins-location',
+            //         'name' => 'plugins/location::bulk-import.name',
+            //         'route' => 'location.bulk-import.index',
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-location-export',
+            //         'priority' => 4,
+            //         'parent_id' => 'cms-plugins-location',
+            //         'name' => 'plugins/location::export.name',
+            //         'route' => 'location.export.index',
+            //     ]);
         });
 
         PanelSectionManager::setGroupId('data-synchronize')->beforeRendering(function () {
