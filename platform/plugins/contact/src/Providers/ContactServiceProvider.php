@@ -48,28 +48,28 @@ class ContactServiceProvider extends ServiceProvider
             ->publishAssets();
 
         DashboardMenu::default()->beforeRetrieving(function () {
-            DashboardMenu::make()
-                ->registerItem([
-                    'id' => 'cms-plugins-contact',
-                    'priority' => 120,
-                    'name' => 'plugins/contact::contact.menu',
-                    'icon' => 'ti ti-mail',
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-contact-list',
-                    'parent_id' => 'cms-plugins-contact',
-                    'priority' => 120,
-                    'name' => 'plugins/contact::contact.name',
-                    'route' => 'contacts.index',
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-contact-custom-fields',
-                    'parent_id' => 'cms-plugins-contact',
-                    'priority' => 130,
-                    'name' => 'plugins/contact::contact.custom_field.name',
-                    'route' => 'contacts.custom-fields.index',
-                    'permissions' => 'contacts.edit',
-                ]);
+            // DashboardMenu::make()
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-contact',
+            //         'priority' => 120,
+            //         'name' => 'plugins/contact::contact.menu',
+            //         'icon' => 'ti ti-mail',
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-contact-list',
+            //         'parent_id' => 'cms-plugins-contact',
+            //         'priority' => 120,
+            //         'name' => 'plugins/contact::contact.name',
+            //         'route' => 'contacts.index',
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-contact-custom-fields',
+            //         'parent_id' => 'cms-plugins-contact',
+            //         'priority' => 130,
+            //         'name' => 'plugins/contact::contact.custom_field.name',
+            //         'route' => 'contacts.custom-fields.index',
+            //         'permissions' => 'contacts.edit',
+            //     ]);
         });
 
         PanelSectionManager::default()->beforeRendering(function () {

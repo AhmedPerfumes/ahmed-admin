@@ -694,44 +694,44 @@ class EcommerceServiceProvider extends ServiceProvider
                     'url' => fn () => route('orders.index'),
                     'permissions' => ['orders.index'],
                 ])
-                ->registerItem([
-                    'id' => 'cms-plugins-ecommerce-incomplete-order',
-                    'priority' => 20,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::order.incomplete_order',
-                    'icon' => 'ti ti-basket-cancel',
-                    'url' => fn () => route('orders.incomplete-list'),
-                    'permissions' => ['orders.index'],
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-ecommerce-order-return',
-                    'priority' => 30,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::order.order_return',
-                    'icon' => 'ti ti-basket-down',
-                    'url' => fn () => route('order_returns.index'),
-                    'permissions' => ['orders.edit'],
-                ])
-                ->when(! EcommerceHelper::isDisabledPhysicalProduct(), function (DashboardMenuSupport $dashboardMenu) {
-                    $dashboardMenu->registerItem([
-                        'id' => 'cms-plugins-ecommerce-shipping-shipments',
-                        'priority' => 40,
-                        'parent_id' => 'cms-plugins-ecommerce',
-                        'name' => 'plugins/ecommerce::shipping.shipments',
-                        'icon' => 'ti ti-truck-loading',
-                        'url' => fn () => route('ecommerce.shipments.index'),
-                        'permissions' => ['ecommerce.shipments.index'],
-                    ]);
-                })
-                ->registerItem([
-                    'id' => 'cms-plugins-ecommerce-invoice',
-                    'priority' => 50,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::invoice.name',
-                    'icon' => 'ti ti-file-invoice',
-                    'url' => fn () => route('ecommerce.invoice.index'),
-                    'permissions' => ['ecommerce.invoice.index'],
-                ])
+                // ->registerItem([
+                //     'id' => 'cms-plugins-ecommerce-incomplete-order',
+                //     'priority' => 20,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::order.incomplete_order',
+                //     'icon' => 'ti ti-basket-cancel',
+                //     'url' => fn () => route('orders.incomplete-list'),
+                //     'permissions' => ['orders.index'],
+                // ])
+                // ->registerItem([
+                //     'id' => 'cms-plugins-ecommerce-order-return',
+                //     'priority' => 30,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::order.order_return',
+                //     'icon' => 'ti ti-basket-down',
+                //     'url' => fn () => route('order_returns.index'),
+                //     'permissions' => ['orders.edit'],
+                // ])
+                // ->when(! EcommerceHelper::isDisabledPhysicalProduct(), function (DashboardMenuSupport $dashboardMenu) {
+                //     $dashboardMenu->registerItem([
+                //         'id' => 'cms-plugins-ecommerce-shipping-shipments',
+                //         'priority' => 40,
+                //         'parent_id' => 'cms-plugins-ecommerce',
+                //         'name' => 'plugins/ecommerce::shipping.shipments',
+                //         'icon' => 'ti ti-truck-loading',
+                //         'url' => fn () => route('ecommerce.shipments.index'),
+                //         'permissions' => ['ecommerce.shipments.index'],
+                //     ]);
+                // })
+                // ->registerItem([
+                //     'id' => 'cms-plugins-ecommerce-invoice',
+                //     'priority' => 50,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::invoice.name',
+                //     'icon' => 'ti ti-file-invoice',
+                //     'url' => fn () => route('ecommerce.invoice.index'),
+                //     'permissions' => ['ecommerce.invoice.index'],
+                // ])
                 ->registerItem([
                     'id' => 'cms-plugins-ecommerce-product',
                     'priority' => 60,
@@ -741,24 +741,24 @@ class EcommerceServiceProvider extends ServiceProvider
                     'url' => fn () => route('products.index'),
                     'permissions' => ['products.index'],
                 ])
-                ->registerItem([
-                    'id' => 'cms-plugins-ecommerce-product-price',
-                    'priority' => 70,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::product-prices.name',
-                    'icon' => 'ti ti-currency-dollar',
-                    'url' => fn () => route('ecommerce.product-prices.index'),
-                    'permissions' => ['ecommerce.product-prices.index'],
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-ecommerce-product-inventory',
-                    'priority' => 80,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::product-inventory.name',
-                    'icon' => 'ti ti-home-check',
-                    'url' => fn () => route('ecommerce.product-inventory.index'),
-                    'permissions' => ['ecommerce.product-inventory.index'],
-                ])
+                // ->registerItem([
+                //     'id' => 'cms-plugins-ecommerce-product-price',
+                //     'priority' => 70,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::product-prices.name',
+                //     'icon' => 'ti ti-currency-dollar',
+                //     'url' => fn () => route('ecommerce.product-prices.index'),
+                //     'permissions' => ['ecommerce.product-prices.index'],
+                // ])
+                // ->registerItem([
+                //     'id' => 'cms-plugins-ecommerce-product-inventory',
+                //     'priority' => 80,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::product-inventory.name',
+                //     'icon' => 'ti ti-home-check',
+                //     'url' => fn () => route('ecommerce.product-inventory.index'),
+                //     'permissions' => ['ecommerce.product-inventory.index'],
+                // ])
                 ->registerItem([
                     'id' => 'cms-plugins-product-categories',
                     'priority' => 90,
@@ -777,24 +777,24 @@ class EcommerceServiceProvider extends ServiceProvider
                     'url' => fn () => route('product-tag.index'),
                     'permissions' => ['product-tag.index'],
                 ])
-                ->registerItem([
-                    'id' => 'cms-plugins-product-attribute',
-                    'priority' => 110,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::product-attributes.name',
-                    'icon' => 'ti ti-album',
-                    'url' => fn () => route('product-attribute-sets.index'),
-                    'permissions' => ['product-attribute-sets.index'],
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-ecommerce-global-options',
-                    'priority' => 120,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::product-option.name',
-                    'icon' => 'ti ti-database',
-                    'url' => fn () => route('global-option.index'),
-                    'permissions' => ['global-option.index'],
-                ])
+                // ->registerItem([
+                //     'id' => 'cms-plugins-product-attribute',
+                //     'priority' => 110,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::product-attributes.name',
+                //     'icon' => 'ti ti-album',
+                //     'url' => fn () => route('product-attribute-sets.index'),
+                //     'permissions' => ['product-attribute-sets.index'],
+                // ])
+                // ->registerItem([
+                //     'id' => 'cms-plugins-ecommerce-global-options',
+                //     'priority' => 120,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::product-option.name',
+                //     'icon' => 'ti ti-database',
+                //     'url' => fn () => route('global-option.index'),
+                //     'permissions' => ['global-option.index'],
+                // ])
                 ->registerItem([
                     'id' => 'cms-plugins-product-collections',
                     'priority' => 130,
@@ -813,15 +813,15 @@ class EcommerceServiceProvider extends ServiceProvider
                     'url' => fn () => route('product-label.index'),
                     'permissions' => ['product-label.index'],
                 ])
-                ->registerItem([
-                    'id' => 'cms-plugins-brands',
-                    'priority' => 150,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::brands.name',
-                    'icon' => 'ti ti-registered',
-                    'url' => fn () => route('brands.index'),
-                    'permissions' => ['brands.index'],
-                ])
+                // ->registerItem([
+                //     'id' => 'cms-plugins-brands',
+                //     'priority' => 150,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::brands.name',
+                //     'icon' => 'ti ti-registered',
+                //     'url' => fn () => route('brands.index'),
+                //     'permissions' => ['brands.index'],
+                // ])
                 ->registerItem([
                     'id' => 'cms-ecommerce-review',
                     'priority' => 160,
@@ -831,26 +831,26 @@ class EcommerceServiceProvider extends ServiceProvider
                     'url' => fn () => route('reviews.index'),
                     'permissions' => ['reviews.index'],
                 ])
-                ->when(FlashSaleFacade::isEnabled(), function (DashboardMenuSupport $dashboardMenu) {
-                    $dashboardMenu->registerItem([
-                        'id' => 'cms-plugins-flash-sale',
-                        'priority' => 170,
-                        'parent_id' => 'cms-plugins-ecommerce',
-                        'name' => 'plugins/ecommerce::flash-sale.name',
-                        'icon' => 'ti ti-bolt',
-                        'url' => fn () => route('flash-sale.index'),
-                        'permissions' => ['flash-sale.index'],
-                    ]);
-                })
-                ->registerItem([
-                    'id' => 'cms-plugins-ecommerce-discount',
-                    'priority' => 180,
-                    'parent_id' => 'cms-plugins-ecommerce',
-                    'name' => 'plugins/ecommerce::discount.name',
-                    'icon' => 'ti ti-discount',
-                    'url' => fn () => route('discounts.index'),
-                    'permissions' => ['discounts.index'],
-                ])
+                // ->when(FlashSaleFacade::isEnabled(), function (DashboardMenuSupport $dashboardMenu) {
+                //     $dashboardMenu->registerItem([
+                //         'id' => 'cms-plugins-flash-sale',
+                //         'priority' => 170,
+                //         'parent_id' => 'cms-plugins-ecommerce',
+                //         'name' => 'plugins/ecommerce::flash-sale.name',
+                //         'icon' => 'ti ti-bolt',
+                //         'url' => fn () => route('flash-sale.index'),
+                //         'permissions' => ['flash-sale.index'],
+                //     ]);
+                // })
+                // ->registerItem([
+                //     'id' => 'cms-plugins-ecommerce-discount',
+                //     'priority' => 180,
+                //     'parent_id' => 'cms-plugins-ecommerce',
+                //     'name' => 'plugins/ecommerce::discount.name',
+                //     'icon' => 'ti ti-discount',
+                //     'url' => fn () => route('discounts.index'),
+                //     'permissions' => ['discounts.index'],
+                // ])
                 ->registerItem([
                     'id' => 'cms-plugins-ecommerce-customer',
                     'priority' => 190,

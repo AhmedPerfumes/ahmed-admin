@@ -198,9 +198,6 @@
                                         <option value="all-orders" v-if="type_option !== 'same-price'">
                                             {{ __('discount.all_orders') }}
                                         </option>
-                                        <option value="amount-minimum-order" v-if="type_option !== 'same-price'">
-                                            {{ __('discount.order_amount_from') }}
-                                        </option>
                                         <option value="group-products">{{ __('discount.product_collection') }}</option>
                                         <option value="products-by-category">
                                             {{ __('discount.product_category') }}
@@ -209,7 +206,6 @@
                                         <option value="customer" v-if="type_option !== 'same-price'">
                                             {{ __('discount.customer') }}
                                         </option>
-                                        <option value="product-variant">{{ __('discount.variant') }}</option>
                                         <option
                                             value="once-per-customer"
                                             v-if="type_option !== 'same-price' && type === 'coupon'"
@@ -708,7 +704,7 @@
                                     </svg>
                                 </span>
                             </div>
-                            <div class="input-icon">
+                             <div class="input-icon">
                                 <input
                                     type="text"
                                     placeholder="hh:mm"
@@ -804,7 +800,7 @@
                                         <path d="M12 7v5l3 3" />
                                     </svg>
                                 </span>
-                            </div>
+                            </div> 
                         </div>
                     </div>
                     <div class="position-relative">

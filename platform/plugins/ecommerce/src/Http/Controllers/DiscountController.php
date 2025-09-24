@@ -16,6 +16,7 @@ use Botble\Media\Facades\RvMedia;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class DiscountController extends BaseController
 {
@@ -36,9 +37,6 @@ class DiscountController extends BaseController
 
     public function create()
     {
-        
-       
-        
         $this->pageTitle(trans('plugins/ecommerce::discount.create'));
 
         Assets::usingVueJS()
@@ -54,32 +52,41 @@ class DiscountController extends BaseController
 
     public function store(DiscountRequest $request)
     {
-
-        /**
-         * @var Discount $discount
-         */
         $discount = Discount::query()->create($request->validated());
-        
 
-        if ($request->input('target')=='all-orders') {
-            
-            // Attach all products to the discount
+        if ($request->input('target') == 'all-orders') {
             $allProductIds = Product::query()->pluck('id')->all();
-            // echo "<pre>";print_r($allProductIds);die;
-            $discount->products()->attach($allProductIds);
-        } 
-        else {
 
-        if ($discount) {
-            if ($productCollections = $request->input('product_collections')) {
-                if (! is_array($productCollections)) {
-                    $productCollections = [$productCollections];
-                    $discount->productCollections()->attach($productCollections);
-                }
+            if ($request->input('type') == 'coupon') {
+                $now = Carbon::now();
+                $allProductIds = Product::select('id')
+                    ->where(function ($query) {
+                        $query->whereNull('sale_price')->orWhere('sale_price', 0);
+                    })
+                    ->whereDoesntHave('discounts', function ($q) use ($now) {
+                        $q->where('start_date', '<=', $now)
+                            ->where(function ($q2) use ($now) {
+                                $q2->whereNull('end_date')->orWhere('end_date', '>=', $now);
+                            })
+                            ->where('type', 'promotion');
+                    })
+                    ->pluck('id')
+                    ->all();
             }
 
-            if (($productCategories = $request->input('product_categories')) && ! is_array($productCategories)) {
-                $productCategories = [$productCategories];
+            $discount->products()->attach($allProductIds);
+        } else {
+            if ($productCollections = $request->input('product_collections')) {
+                if (!is_array($productCollections)) {
+                    $productCollections = [$productCollections];
+                }
+                $discount->productCollections()->attach($productCollections);
+            }
+
+            if ($productCategories = $request->input('product_categories')) {
+                if (!is_array($productCategories)) {
+                    $productCategories = [$productCategories];
+                }
                 $discount->productCategories()->attach($productCategories);
             }
 
@@ -87,21 +94,16 @@ class DiscountController extends BaseController
                 if (is_string($products) && Str::contains($products, ',')) {
                     $products = explode(',', $products);
                 }
-
-                if (! is_array($products)) {
+                if (!is_array($products)) {
                     $products = [$products];
                 }
 
                 foreach ($products as $productId) {
-                    /**
-                     * @var Product $product
-                     */
                     $product = Product::query()->find($productId);
-
-                    if (! $product || $product->is_variation) {
-                        Arr::forget($products, $productId);
+                    if (!$product || $product->is_variation) {
+                        unset($products[array_search($productId, $products)]);
+                        continue;
                     }
-
                     $products = array_merge($products, $product->variations()->pluck('product_id')->all());
                 }
 
@@ -112,18 +114,15 @@ class DiscountController extends BaseController
                 if (is_string($variants) && Str::contains($variants, ',')) {
                     $variants = explode(',', $variants);
                 }
-
-                if (! is_array($variants)) {
+                if (!is_array($variants)) {
                     $variants = [$variants];
                 }
 
                 foreach ($variants as $variantId) {
                     $product = Product::query()->find($variantId);
-
-                    if (! $product || ! $product->is_variation || ! $product->original_product->id) {
-                        Arr::forget($products, $product->getKey());
+                    if (!$product || !$product->is_variation || !$product->original_product->id) {
+                        continue;
                     }
-
                     $variants = array_merge($variants, [$product->original_product->id]);
                 }
 
@@ -134,14 +133,12 @@ class DiscountController extends BaseController
                 if (is_string($customers) && Str::contains($customers, ',')) {
                     $customers = explode(',', $customers);
                 }
-
-                if (! is_array($customers)) {
+                if (!is_array($customers)) {
                     $customers = [$customers];
                 }
 
                 $discount->customers()->attach(array_unique($customers));
             }
-        }
         }
 
         event(new CreatedContentEvent(DISCOUNT_MODULE_SCREEN_NAME, $request, $discount));
@@ -168,7 +165,6 @@ class DiscountController extends BaseController
             foreach ($productVariant->variationInfo->variationItems as $variationItem) {
                 $variationItem->attribute_title = $variationItem->attribute->title;
             }
-
             $productVariant->variationItems = $productVariant->variationInfo->variationItems;
         }
 
@@ -195,79 +191,33 @@ class DiscountController extends BaseController
     {
         $discount->update($request->validated());
 
-        if ($productCollections = $request->input('product_collections')) {
-            if (! is_array($productCollections)) {
-                $productCollections = [$productCollections];
-                $discount->productCollections()->sync($productCollections);
-            }
-        }
-
-        if (($productCategories = $request->input('product_categories')) && ! is_array($productCategories)) {
-            $productCategories = [$productCategories];
-            $discount->productCategories()->sync($productCategories);
-        }
-
-        if ($products = $request->input('products')) {
-            if (is_string($products) && Str::contains($products, ',')) {
-                $products = explode(',', $products);
-            }
-
-            if (! is_array($products)) {
-                $products = [$products];
-            }
-
-            foreach ($products as $productId) {
-                /**
-                 * @var Product $product
-                 */
-                $product = Product::query()->find($productId);
-
-                if (! $product || $product->is_variation) {
-                    Arr::forget($products, $productId);
-                }
-
-                $products = array_merge($products, $product->variations()->pluck('product_id')->all());
-            }
-
-            $discount->products()->sync(array_unique($products));
-        } else {
+        if ($request->input('target') == 'all-orders') {
             $discount->products()->detach();
-        }
+            $allProductIds = Product::query()->pluck('id')->all();
 
-        if ($variants = $request->input('variants')) {
-            if (is_string($variants) && Str::contains($variants, ',')) {
-                $variants = explode(',', $variants);
+            if ($request->input('type') == 'coupon') {
+                $now = Carbon::now();
+                $allProductIds = Product::select('id')
+                    ->where(function ($query) {
+                        $query->whereNull('sale_price')->orWhere('sale_price', 0);
+                    })
+                    ->whereDoesntHave('discounts', function ($q) use ($now) {
+                        $q->where('start_date', '<=', $now)
+                            ->where(function ($q2) use ($now) {
+                                $q2->whereNull('end_date')->orWhere('end_date', '>=', $now);
+                            })
+                            ->where('type', 'promotion');
+                    })
+                    ->pluck('id')
+                    ->all();
             }
 
-            if (! is_array($variants)) {
-                $variants = [$variants];
-            }
-
-            foreach ($variants as $variantId) {
-                $product = Product::query()->find($variantId);
-
-                if (! $product || ! $product->is_variation || ! $product->original_product->id) {
-                    Arr::forget($products, $product->id);
-                }
-
-                $variants = array_merge($variants, [$product->original_product->id]);
-            }
-
-            $discount->products()->sync(array_unique($variants));
-        }
-
-        if ($customers = $request->input('customers')) {
-            if (is_string($customers) && Str::contains($customers, ',')) {
-                $customers = explode(',', $customers);
-            }
-
-            if (! is_array($customers)) {
-                $customers = [$customers];
-            }
-
-            $discount->customers()->sync(array_unique($customers));
+            $discount->products()->attach($allProductIds);
         } else {
-            $discount->customers()->detach();
+            $discount->productCollections()->sync($request->input('product_collections', []));
+            $discount->productCategories()->sync($request->input('product_categories', []));
+            $discount->products()->sync($request->input('products', []));
+            $discount->customers()->sync($request->input('customers', []));
         }
 
         event(new UpdatedContentEvent(DISCOUNT_MODULE_SCREEN_NAME, $request, $discount));

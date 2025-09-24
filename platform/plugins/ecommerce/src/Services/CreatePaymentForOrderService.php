@@ -26,7 +26,7 @@ class CreatePaymentForOrderService
         string|int|null $customerId = null,
         ?string $chargeId = null,
         ?string $description = null
-        
+
     ): void {
         if (! is_plugin_active('payment')) {
             return;
@@ -90,7 +90,7 @@ class CreatePaymentForOrderService
             $p = "E89_6C3";
             $password = $passw.$pass.$p;
 
-            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Your Total Amount (Incl. VAT) : '. floatval($order->amount) .'AED"')."&msgtype=16");
+            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Please wait for confirmation call! Your Total Bill = '. floatval($order->amount) .'AED"')."&msgtype=16");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 
@@ -130,9 +130,9 @@ class CreatePaymentForOrderService
                 "CTAButtonURLParameter":"",
                 "CTAButtonURLParameter2" : ""
             }',
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json'
-            ),
+                CURLOPT_HTTPHEADER => array(
+                    'Content-Type: application/json'
+                ),
             ));
 
             $response = curl_exec($curl);
@@ -251,8 +251,23 @@ class CreatePaymentForOrderService
                                                                                                                                 </td>
                                                                                                                             </tr>';
                                                                                                                         }
-                                                                                                                    } else if($value->product_category == 'Collections') {
-                                                                                                                        $body .= '<tr>
+                                                                                                                    }
+                                                                                                                    // else if($value->product_category == 'Collections') {
+                                                                                                                    //     $body .= '<tr>
+                                                                                                                    //         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                    //             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
+                                                                                                                    //         </td>
+                                                                                                                    //         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                    //             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
+                                                                                                                    //         </td>
+                                                                                                                    //         <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                    //             <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round($value->gross_amount, 2).'</div>
+                                                                                                                    //         </td>
+                                                                                                                    //     </tr>';
+                                                                                                                    // }
+                                                                                                                    else {
+                                                                                                                        if($value->discount_amount != '0') {
+                                                                                                                            $body .= '<tr>
                                                                                                                             <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
                                                                                                                                 <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
                                                                                                                             </td>
@@ -262,19 +277,21 @@ class CreatePaymentForOrderService
                                                                                                                             <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
                                                                                                                                 <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round($value->gross_amount, 2).'</div>
                                                                                                                             </td>
-                                                                                                                        </tr>';
-                                                                                                                    } else {
-                                                                                                                        $body .= '<tr>
-                                                                                                                        <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
-                                                                                                                        </td>
-                                                                                                                        <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
-                                                                                                                        </td>
-                                                                                                                        <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
-                                                                                                                            <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * 1.05) * $value->qty), 2).'</div>
-                                                                                                                        </td>
-                                                                                                                        </tr>';
+                                                                                                                            </tr>';
+                                                                                                                        }
+                                                                                                                        else {
+                                                                                                                            $body .= '<tr>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->product_name.'</div>
+                                                                                                                                </td>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">'.$value->qty.'</div>
+                                                                                                                                </td>
+                                                                                                                                <td style="color:#636363;text-align:left;vertical-align:middle;padding:12px;border:1px solid #E5E5E5;">
+                                                                                                                                    <div style="font-family:Helvetica Neue,Helvetica,Roboto,Arial,sans-serif;text-align:left;">&#x62F;&#x2E;&#x625;'.round((($value->price * (1 + $value->vat / 100)) * $value->qty), 2).'</div>
+                                                                                                                                </td>
+                                                                                                                                </tr>';
+                                                                                                                        }
                                                                                                                     }
                                                                                                                 }
                                                                                                                 
@@ -424,36 +441,38 @@ class CreatePaymentForOrderService
 
             $mail->send();
 
-            if($order->amount >= 250) {
-                $mail2 = new PHPMailer(true);
+            // $date = '2025-08-31 23:59:00';
 
-                /* Email SMTP Settings */
-                $mail2->SMTPDebug = 0;
-                $mail2->isSMTP();
-                $mail2->Host = env('MAIL_HOST');
-                $mail2->SMTPAuth = true;
-                $mail2->Username = env('MAIL_USERNAME');
-                $mail2->Password = env('MAIL_PASSWORD');
-                $mail2->SMTPSecure = env('MAIL_ENCRYPTION');
-                $mail2->Port = env('MAIL_PORT');
+            // if($order->amount >= 250 && now() < $date) {
+            //     $mail2 = new PHPMailer(true);
 
-                $mail2->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
-                $mail2->addAddress($shipping_data->email);
-                $mail2->addCC(env('MAIL_FROM_ADDRESS'));
+            //     /* Email SMTP Settings */
+            //     $mail2->SMTPDebug = 0;
+            //     $mail2->isSMTP();
+            //     $mail2->Host = env('MAIL_HOST');
+            //     $mail2->SMTPAuth = true;
+            //     $mail2->Username = env('MAIL_USERNAME');
+            //     $mail2->Password = env('MAIL_PASSWORD');
+            //     $mail2->SMTPSecure = env('MAIL_ENCRYPTION');
+            //     $mail2->Port = env('MAIL_PORT');
 
-                $mail2->isHTML(true);
+            //     $mail2->setFrom(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'));
+            //     $mail2->addAddress($shipping_data->email);
+            //     $mail2->addCC(env('MAIL_FROM_ADDRESS'));
 
-                $mail2->Subject = 'Congratulations You Have Entered the Draw';
+            //     $mail2->isHTML(true);
 
-                $body2 = '<div>
-                            <p>Dear customer,</p>
-                            <img alt="Ahmed Al Maghribi Perfumes" src="https://admin.ahmedalmaghribi.com/public/storage/emailer-1.jpg">                        
-                        </div>';
+            //     $mail2->Subject = 'Congratulations You Have Entered the Draw';
 
-                $mail2->Body = $body2;
+            //     $body2 = '<div>
+            //                 <p>Dear customer,</p>
+            //                 <img alt="Ahmed Al Maghribi Perfumes" src="https://admin.ahmedalmaghribi.com/public/storage/emailer-1.jpg">                        
+            //             </div>';
 
-                $mail2->send();
-            }
+            //     $mail2->Body = $body2;
+
+            //     $mail2->send();
+            // }
 
         }
 

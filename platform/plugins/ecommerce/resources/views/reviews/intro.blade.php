@@ -10,8 +10,7 @@
         <x-slot:icon>
             <img
                 src="{{ asset('vendor/core/plugins/ecommerce/images/empty-customer.png') }}"
-                alt="image"
-            >
+                alt="image">
         </x-slot:icon>
     </x-plugins-ecommerce::intro>
 @stop
