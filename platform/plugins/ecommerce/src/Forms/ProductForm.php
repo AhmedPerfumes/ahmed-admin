@@ -65,12 +65,11 @@ class ProductForm extends FormAbstract
             }
         }
 
-        // This gets all published profiles to show in the dropdown
         $fragranceProfiles = ProductFragranceNote::query()
             ->where('status', BaseStatusEnum::PUBLISHED)
             ->pluck('itemFamily', 'id')
             ->all();
-            
+
         $selectedCategories = [];
         $tags = null;
         $totalProductVariations = 0;
@@ -83,6 +82,22 @@ class ProductForm extends FormAbstract
             $totalProductVariations = ProductVariation::query()->where('configurable_product_id', $productId)->count();
 
             $tags = $this->getModel()->tags()->pluck('name')->implode(',');
+        }
+
+        $collectionItemValues = '';
+        if ($this->getModel() && $this->getModel()->is_collection) {
+            $items = $this->getModel()->collectionItems()->with('childProduct')->get();
+            $values = [];
+            foreach ($items as $item) {
+                if ($item->childProduct) {
+                    // This is a real product
+                    $values[] = 'product--' . $item->childProduct->id . ':' . $item->childProduct->name;
+                } else {
+                    // This is a custom text item
+                    $values[] = $item->custom_item_name;
+                }
+            }
+            $collectionItemValues = implode(',', $values);
         }
 
         $this
@@ -98,6 +113,9 @@ class ProductForm extends FormAbstract
                 <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#tab_general" type="button" role="tab" aria-controls="tab_general" aria-selected="true">General Information</button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="collection-tab" data-bs-toggle="tab" data-bs-target="#tab_collection" type="button" role="tab" aria-controls="tab_collection" aria-selected="true">Collection Information</button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="categorization-tab" data-bs-toggle="tab" data-bs-target="#tab_categorization" type="button" role="tab" aria-controls="tab_categorization" aria-selected="false">Categorization</button>
             </li>
             <li class="nav-item" role="presentation">
@@ -107,7 +125,7 @@ class ProductForm extends FormAbstract
                 <button class="nav-link" id="specs-tab" data-bs-toggle="tab" data-bs-target="#tab_specifications" type="button" role="tab" aria-controls="tab_specifications" aria-selected="false">Item Specifications</button>
             </li>
             </ul>
-    ',
+        ',
         ]);
 
         $this->add('tabs_content_start', 'html', ['html' => '<div class="tab-content" id="product-tabs-content">']);
@@ -138,6 +156,41 @@ class ProductForm extends FormAbstract
             ->add('images[]', MediaImagesField::class, ['label' => trans('plugins/ecommerce::products.form.image'), 'values' => $productId ? $this->getModel()->images : [],]);
         $this->add('general_tab_end', 'html', ['html' => '</div>']);
 
+        // --- TAB: COLLECTION DETAILS ---
+        $this->add('collection_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_collection" role="tabpanel" aria-labelledby="collection-tab">'])
+            ->add('collection_header', 'html', ['html' => '<h4 class="mt-4 h2">Collection Details</h4><hr>'])
+            ->add('collection_row_open', 'html', ['html' => '<div class="row">'])
+            ->add('is_collection', OnOffField::class, [
+                'label' => 'Is this a collection?',
+                'label_attr' => ['class' => 'control-label'],
+                'default_value' => false,
+                'wrapper' => [
+                    // Use full width for the switch for better alignment
+                    'class' => 'form-group col-12 mb-3',
+                ],
+            ])
+            // This wrapper contains the field that will be shown/hidden
+            ->add('collection_items_wrapper', 'html', [
+                'html' => '<div id="collection_items_wrapper" class="col-12" style="display: none;">',
+            ])
+            ->add('collection_items', TagField::class, [
+                'label' => 'Items in Collection',
+                'label_attr' => ['class' => 'control-label'],
+                'value' => $collectionItemValues,
+                'wrapper' => [
+                    'class' => 'form-group', // Add the standard form-group wrapper
+                ],
+                'attr' => [
+                    'placeholder' => 'Search for products or type a custom item',
+                    'data-url' => route('products.get-for-tag-input'),
+                ],
+            ])
+            ->add('collection_items_wrapper_end', 'html', [
+                'html' => '</div>', // Closes #collection_items_wrapper
+            ])
+            ->add('collection_row_close', 'html', ['html' => '</div>']) // Closes .row
+            ->add('collection_tab_end', 'html', ['html' => '</div>']);
+
         // --- TAB 2: CATEGORIZATION ---
         $this->add('categorization_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_categorization" role="tabpanel" aria-labelledby="categorization-tab">']);
 
@@ -149,7 +202,7 @@ class ProductForm extends FormAbstract
             ->add('itemCategory_3', TextField::class, TextFieldOption::make()->label('Item Category 3')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('itemCategory_4', TextField::class, TextFieldOption::make()->label('Item Category 4')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('itemCategory_5', TextField::class, TextFieldOption::make()->label('Item Category 5')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('itemFamily', TextField::class, TextFieldOption::make()->label('Item Family')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('product_family', TextField::class, TextFieldOption::make()->label('Product Family')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('categories_row_end', 'html', ['html' => '</div>']);
         $this->add('categorization_tab_end', 'html', ['html' => '</div>']);
 
@@ -181,7 +234,7 @@ class ProductForm extends FormAbstract
         ]);
 
         $this->add('notes_tab_end', 'html', ['html' => '</div>']);
-            
+
         // --- Section 3: Item Specifications ---
         $this->add('specs_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_specifications" role="tabpanel" aria-labelledby="specifications-tab">']);
         $this->add('specs_header', 'html', ['html' => '<h4 class="mt-4 h2">Item Specifications</h4><hr>'])
@@ -236,7 +289,7 @@ class ProductForm extends FormAbstract
                     'other' => 'Other',
                 ])->emptyValue('Select Dispenser Type...')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
             ->add('fragrance_category', TextField::class, TextFieldOption::make()->label('Fragrance Category')->placeholder('e.g., Occidental, Unisex')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            
+
             ->add('item_profile', TextField::class, TextFieldOption::make()->label('Item Profile')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('item_classification', TextField::class, TextFieldOption::make()->label('Item Classification')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
 
@@ -468,6 +521,31 @@ class ProductForm extends FormAbstract
                 return view('plugins/ecommerce::forms.duplicate-action', ['product' => $this->getModel()])->render();
             });
         }
+
+        $this->add('collection_script', 'html', [
+            'html' => '
+        <script>
+            $(document).ready(function () {
+                function toggleCollectionItems(isCollection) {
+                    if (isCollection) {
+                        $("#collection_items_wrapper").show();
+                    } else {
+                        $("#collection_items_wrapper").hide();
+                    }
+                }
+
+                // Initial check on page load
+                var isCollectionChecked = $("#is_collection").is(":checked");
+                toggleCollectionItems(isCollectionChecked);
+
+                // Listen for changes
+                $(document).on("change", "#is_collection", function () {
+                    toggleCollectionItems($(this).is(":checked"));
+                });
+            });
+        </script>
+        '
+        ]);
     }
 
     public function addAssets(): void

@@ -36,6 +36,11 @@ Route::delete('promotions/{promotion}', [PromotionController::class, 'destroy'])
 
 // Creates all the necessary admin pages for managing reviews under a single address
 Route::resource('/admin/product-reviews', ProductReviewController::class);
+Route::get('products/get-for-tag-input', [
+    'as' => 'products.get-for-tag-input',
+    'uses' => '\Botble\Ecommerce\Http\Controllers\ProductController@getForTagInput', // Assumes your admin controller is named ProductController
+    'permission' => 'products.index',
+]);
 
 if (is_in_admin(true)) {
 
@@ -105,4 +110,6 @@ if (is_in_admin(true)) {
         'permissions' => ['products.index'], // Reuse existing permission
     ]);
     // --- END: Fragrance Profiles ---
+
+
 }

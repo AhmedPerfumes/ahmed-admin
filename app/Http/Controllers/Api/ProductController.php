@@ -1045,6 +1045,8 @@ class ProductController extends Controller
                     'ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5',
 
                     // New Fragrance Note columns
+                    'ec_products.is_collection',
+                    'ec_products.product_family',
                     'product_fragrance_notes.itemFamily',
                     'product_fragrance_notes.top_note', 'product_fragrance_notes.top_note_ar', 'product_fragrance_notes.top_note_image', 'product_fragrance_notes.top_note_description', 'product_fragrance_notes.top_note_description_ar',
                     'product_fragrance_notes.heart_note', 'product_fragrance_notes.heart_note_ar', 'product_fragrance_notes.heart_note_image', 'product_fragrance_notes.heart_note_description', 'product_fragrance_notes.heart_note_description_ar',
@@ -1055,6 +1057,172 @@ class ProductController extends Controller
                 ->where('ec_product_categories.name', $category)
                 ->orderBy('ec_products.id', 'desc')
                 ->first();
+                
+
+                if ($prod && $prod->is_collection) {
+                    // Step 1, 2, and 3 remain the same...
+                    $collectionItems = DB::table('ec_collection_items')
+                        ->where('collection_product_id', $prod->product_id)
+                        ->orderBy('sort_order', 'asc')
+                        ->get();
+                    
+                    $childProductIds = $collectionItems->pluck('child_product_id')->filter()->unique()->all();
+
+                    $childProductsData = [];
+                    if (!empty($childProductIds)) {
+                        $childProductsData = DB::table('ec_products')
+                            ->whereIn('ec_products.id', $childProductIds)
+                            ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                                $join->on('pivot_main.category_id', '=', 'main_cat.id')->where('main_cat.parent_id', 0);
+                            })
+                            ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                                $join->on('pivot_sub.category_id', '=', 'sub_cat.id')->where('sub_cat.parent_id', '!=', 0);
+                            })
+                            ->select(
+                                'ec_products.id',
+                                DB::raw('MAX(ec_products.name) as name'),
+                                DB::raw('MAX(ec_products.name_ar) as name_ar'),
+                                DB::raw('MAX(ec_products.price) as price'),
+                                DB::raw('MAX(ec_products.image) as image'),
+                                DB::raw('MAX(ec_products.images) as images'),
+                                DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category'),
+                                DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory')
+                            )
+                            ->groupBy('ec_products.id')
+                            ->get()
+                            ->keyBy('id');
+                    }
+
+                    // Step 4: Combine and Format the data.
+                    $prod->collection_items = $collectionItems->map(function ($item) use ($childProductsData) {
+                        if ($item->child_product_id && isset($childProductsData[$item->child_product_id])) {
+                            $fullProductData = $childProductsData[$item->child_product_id];
+                            $mergedData = (object) array_merge((array)$item, (array)$fullProductData);
+
+                            if (empty($mergedData->subcategory)) {
+                                $mergedData->subcategory = $mergedData->category;
+                            }
+
+                            // --- ADDED: Formatting for category and subcategory ---
+                            if ($mergedData->category) {
+                                $mergedData->category = strtolower(str_replace(' ', '-', $mergedData->category));
+                            }
+                            if ($mergedData->subcategory) {
+                                $mergedData->subcategory = strtolower(str_replace(' ', '-', $mergedData->subcategory));
+                            }
+
+                            // Fetch active discount for the product
+                            $mergedData->discount = null;
+
+                            $individualDiscount = Promotion::where('type', 'discount')
+                                ->whereDate('start_date', '<=', now())
+                                ->whereDate('end_date', '>=', now())
+                                ->whereHas('discountRules', function ($query) {
+                                    $query->where('apply_to', 'individual');
+                                })
+                                ->whereHas('discountRules.individualRules', function ($query) use ($item) {
+                                    $query->where('product_id', $item->child_product_id);
+                                })
+                                ->with(['discountRules' => function ($query) {
+                                    $query->where('apply_to', 'individual')
+                                        ->select('id', 'promotion_id', 'apply_to');
+                                }, 'discountRules.individualRules' => function ($query) use ($item) {
+                                    $query->where('product_id', $item->child_product_id)
+                                        ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                                }])
+                                ->first();
+
+                            if ($individualDiscount) {
+                                $discountRule = $individualDiscount->discountRules->first();
+                                $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+                                if ($individualRule) {
+                                    $mergedData->discount = (object) [
+                                        'value' => intval($individualRule->value),
+                                        'apply_to' => $discountRule->apply_to,
+                                        'discount_type' => $individualRule->discount_type,
+                                        'product_price' => $individualRule->product_price,
+                                        'discount_amount' => $individualRule->discount_amount,
+                                        'final_price' => $individualRule->final_price,
+                                        'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                                        'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                                    ];
+                                }
+                            } else {
+                                // If no individual discount, try to fetch discount for group/all products
+                                $groupDiscount = Promotion::where('type', 'discount')
+                                    ->whereDate('start_date', '<=', now())
+                                    ->whereDate('end_date', '>=', now())
+                                    ->whereHas('discountRules', function ($query) {
+                                        $query->where('apply_to', '!=', 'individual');
+                                    })
+                                    ->whereHas('discountRules.products', function ($query) use ($item) {
+                                        $query->where('product_id', $item->child_product_id);
+                                    })
+                                    ->with(['discountRules' => function ($query) {
+                                        $query->where('apply_to', '!=', 'individual')
+                                            ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                                    }])
+                                    ->first();
+
+                                if ($groupDiscount) {
+                                    $discountRule = $groupDiscount->discountRules->first();
+                                    if ($discountRule) {
+                                        $mergedData->discount = (object) [
+                                            'value' => intval($discountRule->percentage),
+                                            'apply_to' => $discountRule->apply_to,
+                                            'discount_type' => 'percent',
+                                            'product_price' => null,
+                                            'discount_amount' => null,
+                                            'final_price' => null,
+                                            'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                                            'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                                        ];
+                                    }
+                                }
+                            }
+
+                            // Fetch active coupons for the product
+                            $coupons = Promotion::where('type', 'coupon')
+                                ->whereDate('start_date', '<=', now())
+                                ->whereDate('end_date', '>=', now())
+                                ->whereHas('couponRules.products', function ($query) use ($item) {
+                                    $query->where('product_id', $item->child_product_id);
+                                })
+                                ->with(['couponRules' => function ($query) use ($item) {
+                                    $query->whereNotNull('coupon_code')
+                                        ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                                        ->with(['products' => function ($subQuery) use ($item) {
+                                            $subQuery->where('product_id', $item->child_product_id)
+                                                    ->select('id', 'coupon_rule_id', 'product_id');
+                                        }]);
+                                }])
+                                ->get();
+
+                            $mergedData->coupon = [];
+                            foreach ($coupons as $promotion) {
+                                foreach ($promotion->couponRules as $couponRule) {
+                                    if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                                        $mergedData->coupon[strtolower($couponRule->coupon_code)] = [
+                                            'code' => strtolower($couponRule->coupon_code),
+                                            'value' => intval($couponRule->percentage),
+                                            'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                                            'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+                                        ];
+                                    }
+                                }
+                            }
+
+                            return $mergedData;
+                        } else {
+                            return $item;
+                        }
+                    });
+
+                } elseif ($prod) {
+                    $prod->collection_items = [];
+                }
 
                 // ->join ('ec_product_category_product', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 // ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -1368,71 +1536,64 @@ class ProductController extends Controller
                 }
 
                 // Check if the main product has an itemFamily value.
-                if (isset($prod->itemFamily) && !empty($prod->itemFamily)) {
+                if (isset($prod->product_family) && !empty($prod->product_family)) {
 
-    // This is the itemFamily value from the product we just found
-    $currentItemFamily = $prod->itemFamily;
-    // This is the ID of the product we just found
-    $productId = $prod->product_id;
+                    $currentProductFamily = $prod->product_family;
+                    $productId = $prod->product_id;
 
-    $results = DB::table('ec_products')
-        ->select(
-            'ec_products.id as product_id',
-            DB::raw('MAX(ec_products.name) as product_name'),
-            DB::raw('MAX(ec_products.image) as image'),
-            DB::raw('MAX(ec_products.images) as images'),
-            DB::raw('MAX(ec_products.description) as description'),
-            DB::raw('MAX(ec_products.quantity) as product_qty'),
-            DB::raw('CAST(MAX(ec_products.price) AS DECIMAL(10,2)) as price'),
-            DB::raw('CAST(MAX(ec_products.sale_price) AS DECIMAL(10,2)) as sale_price'),
-            DB::raw('GROUP_CONCAT(DISTINCT ec_product_collections.name) as collection_name'),
-            DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category_name'),
-            DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory_name'),
-            DB::raw("CONCAT('[', GROUP_CONCAT(DISTINCT JSON_OBJECT('name', ec_product_labels.name, 'color', ec_product_labels.color)), ']') as labels")
-        )
-        ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
-        ->leftJoin('ec_product_categories as main_cat', function ($join) {
-            $join->on('pivot_main.category_id', '=', 'main_cat.id')
-                ->where('main_cat.parent_id', 0);
-        })
-        ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
-        ->leftJoin('ec_product_categories as sub_cat', function ($join) {
-            $join->on('pivot_sub.category_id', '=', 'sub_cat.id')
-                ->where('sub_cat.parent_id', '!=', 0);
-        })
-        ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
-        ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
-        ->leftJoin('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id')
-        ->leftJoin('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
+                    // This query is now much simpler. It doesn't need to join the notes tables.
+                    $results = DB::table('ec_products')
+                        ->select(
+                            'ec_products.id as product_id',
+                            DB::raw('MAX(ec_products.name) as product_name'),
+                            DB::raw('MAX(ec_products.image) as image'),
+                            DB::raw('MAX(ec_products.images) as images'),
+                            DB::raw('MAX(ec_products.description) as description'),
+                            DB::raw('MAX(ec_products.quantity) as product_qty'),
+                            DB::raw('CAST(MAX(ec_products.price) AS DECIMAL(10,2)) as price'),
+                            DB::raw('CAST(MAX(ec_products.sale_price) AS DECIMAL(10,2)) as sale_price'),
+                            DB::raw('GROUP_CONCAT(DISTINCT ec_product_collections.name) as collection_name'),
+                            DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category_name'),
+                            DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory_name'),
+                            DB::raw("CONCAT('[', GROUP_CONCAT(DISTINCT JSON_OBJECT('name', ec_product_labels.name, 'color', ec_product_labels.color)), ']') as labels")
+                        )
+                        ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                        ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                            $join->on('pivot_main.category_id', '=', 'main_cat.id')
+                                ->where('main_cat.parent_id', 0);
+                        })
+                        ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                        ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                            $join->on('pivot_sub.category_id', '=', 'sub_cat.id')
+                                ->where('sub_cat.parent_id', '!=', 0);
+                        })
+                        ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
+                        ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
+                        ->leftJoin('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id')
+                        ->leftJoin('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
+                        
+                        // This is the key change: we now look at the new 'product_family' column.
+                        ->where('ec_products.product_family', $currentProductFamily)
 
-        // --- START OF FIX ---
-        // ADD these two joins to connect to the notes table
-        ->leftJoin('product_fragrance_map', 'ec_products.id', '=', 'product_fragrance_map.product_id')
-        ->leftJoin('product_fragrance_notes', 'product_fragrance_map.fragrance_note_id', '=', 'product_fragrance_notes.id')
+                        ->where('ec_products.id', '!=', $productId)
+                        ->groupBy('ec_products.id')
+                        ->get();
 
-        // CHANGE this "where" to look in the new notes table
-        ->where('product_fragrance_notes.itemFamily', $currentItemFamily)
-        // --- END OF FIX ---
+                    // The post-processing part remains the same
+                    $prod->item_family = $results->map(function ($item) {
+                        $item->subcategory = $item->subcategory_name ? [
+                            'subcategory_name' => $item->subcategory_name,
+                        ] : null;
+                        unset($item->subcategory_name);
+                        $item->labels = json_decode($item->labels);
+                        $item->images = json_decode($item->images, true) ?? [];
+                        return $item;
+                    });
 
-        ->where('ec_products.id', '!=', $productId)
-        ->groupBy('ec_products.id')
-        ->get();
-
-    // This part below remains the same
-    $prod->item_family = $results->map(function ($item) {
-        $item->subcategory = $item->subcategory_name ? [
-            'subcategory_name' => $item->subcategory_name,
-        ] : null;
-        unset($item->subcategory_name);
-        $item->labels = json_decode($item->labels);
-        $item->images = json_decode($item->images, true) ?? [];
-        return $item;
-    });
-
-} else {
-    // If the main product has no itemFamily, return an empty array for consistency.
-    $prod->item_family = [];
-}
+                } else {
+                    // If the main product has no family, return an empty array for consistency.
+                    $prod->item_family = [];
+                }
             $response = response()->json($prod)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
             if ($response->isNotModified(request())) {
