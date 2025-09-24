@@ -7,7 +7,11 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewController;
+<<<<<<< HEAD
 use App\Http\Controllers\Api\FaqApiController;
+=======
+use App\Http\Controllers\Api\CartController;
+>>>>>>> dev
 
 /*
 |--------------------------------------------------------------------------
@@ -96,4 +100,7 @@ Route::prefix('faqs')->group(function () {
     Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
 });
 
+    Route::post('/getCart', [CartController::class, 'getCart']);
+    Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
+    Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
 });
