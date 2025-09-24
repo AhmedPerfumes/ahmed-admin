@@ -49,30 +49,30 @@ class AdsServiceProvider extends ServiceProvider
             ->loadAndPublishViews();
 
         DashboardMenu::beforeRetrieving(function () {
-            DashboardMenu::make()
-                ->registerItem([
-                    'id' => 'cms-plugins-ads',
-                    'priority' => 8,
-                    'icon' => 'ti ti-ad-circle',
-                    'name' => 'plugins/ads::ads.name',
-                    'permissions' => ['ads.index'],
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-ads-list',
-                    'parent_id' => 'cms-plugins-ads',
-                    'priority' => 1,
-                    'name' => 'plugins/ads::ads.name',
-                    'url' => fn () => route('ads.index'),
-                    'permissions' => ['ads.index'],
-                ])
-                ->registerItem([
-                    'id' => 'cms-plugins-ads-setting',
-                    'parent_id' => 'cms-plugins-ads',
-                    'priority' => 2,
-                    'name' => 'plugins/ads::ads.settings.title',
-                    'url' => fn () => route('ads.settings'),
-                    'permissions' => ['ads.index'],
-                ]);
+            // DashboardMenu::make()
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-ads',
+            //         'priority' => 8,
+            //         'icon' => 'ti ti-ad-circle',
+            //         'name' => 'plugins/ads::ads.name',
+            //         'permissions' => ['ads.index'],
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-ads-list',
+            //         'parent_id' => 'cms-plugins-ads',
+            //         'priority' => 1,
+            //         'name' => 'plugins/ads::ads.name',
+            //         'url' => fn () => route('ads.index'),
+            //         'permissions' => ['ads.index'],
+            //     ])
+            //     ->registerItem([
+            //         'id' => 'cms-plugins-ads-setting',
+            //         'parent_id' => 'cms-plugins-ads',
+            //         'priority' => 2,
+            //         'name' => 'plugins/ads::ads.settings.title',
+            //         'url' => fn () => route('ads.settings'),
+            //         'permissions' => ['ads.index'],
+            //     ]);
         });
 
         PanelSectionManager::default()->beforeRendering(function () {

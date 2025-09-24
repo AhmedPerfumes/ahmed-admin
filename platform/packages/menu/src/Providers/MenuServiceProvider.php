@@ -49,14 +49,14 @@ class MenuServiceProvider extends ServiceProvider
             ->publishAssets();
 
         DashboardMenu::default()->beforeRetrieving(function () {
-            DashboardMenu::make()
-                ->registerItem([
-                    'id' => 'cms-core-menu',
-                    'priority' => 2,
-                    'parent_id' => 'cms-core-appearance',
-                    'name' => 'packages/menu::menu.name',
-                    'route' => 'menus.index',
-                ]);
+            // DashboardMenu::make()
+            //     ->registerItem([
+            //         'id' => 'cms-core-menu',
+            //         'priority' => 2,
+            //         'parent_id' => 'cms-core-appearance',
+            //         'name' => 'packages/menu::menu.name',
+            //         'route' => 'menus.index',
+            //     ]);
         });
 
         $this->app['events']->listen(RenderingAdminBar::class, function () {
