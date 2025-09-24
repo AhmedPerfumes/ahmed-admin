@@ -7,11 +7,8 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewController;
-<<<<<<< HEAD
 use App\Http\Controllers\Api\FaqApiController;
-=======
 use App\Http\Controllers\Api\CartController;
->>>>>>> dev
 
 /*
 |--------------------------------------------------------------------------
