@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewController;
+use App\Http\Controllers\Api\FaqApiController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -85,4 +87,13 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::get('/bogoProducts', [ProductController::class, 'bogoProducts']);
 
     Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
+
+    //FAQ API
+   
+
+Route::prefix('faqs')->group(function () {
+    Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
+    Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
+});
+
 });
