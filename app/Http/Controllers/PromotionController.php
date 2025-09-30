@@ -616,8 +616,11 @@ private function preparePromotionData(Promotion $promotion)
     {
         $ids = $request->input('ids', []);
         if (!empty($ids)) {
-            // Cleanup cashback-related rows for these promotions
-            $this->deleteCashbackByPromotionIds($ids);
+            $promotions = Promotion::whereIn('id', $ids)->get(['id', 'type']);
+            foreach ($promotions as $promotion) {
+                $this->clearPromotionRules($promotion->id, $promotion->type);
+            }
+
             Promotion::whereIn('id', $ids)->update(['isDeleted' => true]);
         }
 
@@ -628,8 +631,7 @@ private function preparePromotionData(Promotion $promotion)
     public function destroy($id)
     {
         $promotion = Promotion::findOrFail($id);
-        // Cleanup cashback-related rows for this promotion
-        $this->deleteCashbackByPromotionIds([$promotion->id]);
+        $this->clearPromotionRules($promotion->id, $promotion->type);
         $promotion->update(['isDeleted' => true]);
 
         return redirect()->route('promotions.index')
