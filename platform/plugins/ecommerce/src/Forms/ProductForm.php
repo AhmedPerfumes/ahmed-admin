@@ -140,8 +140,8 @@ class ProductForm extends FormAbstract
             ->add('name_row_close', 'html', ['html' => '</div>',])
 
             ->add('description_row_start', 'html', ['html' => '<div class="row">'])
-            ->add('description', EditorField::class, EditorFieldOption::make()->label(trans('core/base::forms.description'))->placeholder(trans('core/base::forms.description_placeholder'))->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('description_ar', EditorField::class, EditorFieldOption::make()->label(trans('core/base::forms.description_ar'))->placeholder(trans('core/base::forms.description_ar_placeholder'))->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('description', EditorField::class, EditorFieldOption::make()->label(trans('core/base::forms.description'))->placeholder(trans('core/base::forms.description_placeholder'))->required()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('description_ar', EditorField::class, EditorFieldOption::make()->label(trans('core/base::forms.description_ar'))->placeholder(trans('core/base::forms.description_ar_placeholder'))->required()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('description_row_end', 'html', ['html' => '</div>'])
 
             // ->add('content_row_start', 'html', ['html' => '<div class="row">'])
@@ -197,11 +197,11 @@ class ProductForm extends FormAbstract
         // --- Section 1: Categorization (3-column layout) ---
         $this->add('categories_header', 'html', ['html' => '<h4 class="mt-4 h2">Categorization</h4><hr>'])
             ->add('categories_row_start', 'html', ['html' => '<div class="row">'])
-            ->add('itemCategory_1', TextField::class, TextFieldOption::make()->label('Item Category 1')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('itemCategory_2', TextField::class, TextFieldOption::make()->label('Item Category 2')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('itemCategory_3', TextField::class, TextFieldOption::make()->label('Item Category 3')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('itemCategory_4', TextField::class, TextFieldOption::make()->label('Item Category 4')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            ->add('itemCategory_5', TextField::class, TextFieldOption::make()->label('Item Category 5')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('itemCategory_1', TextField::class, TextFieldOption::make()->label('Item Category 1')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('itemCategory_2', TextField::class, TextFieldOption::make()->label('Item Category 2')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('itemCategory_3', TextField::class, TextFieldOption::make()->label('Item Category 3')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('itemCategory_4', TextField::class, TextFieldOption::make()->label('Item Category 4')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            // ->add('itemCategory_5', TextField::class, TextFieldOption::make()->label('Item Category 5')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('product_family', TextField::class, TextFieldOption::make()->label('Product Family')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('categories_row_end', 'html', ['html' => '</div>']);
         $this->add('categorization_tab_end', 'html', ['html' => '</div>']);
@@ -239,7 +239,15 @@ class ProductForm extends FormAbstract
         $this->add('specs_tab_start', 'html', ['html' => '<div class="tab-pane fade" id="tab_specifications" role="tabpanel" aria-labelledby="specifications-tab">']);
         $this->add('specs_header', 'html', ['html' => '<h4 class="mt-4 h2">Item Specifications</h4><hr>'])
             ->add('specs_row_start', 'html', ['html' => '<div class="row">'])
-            ->add('size', TextField::class, TextFieldOption::make()->label('Size')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
+            // ->add('size', TextField::class, TextFieldOption::make()->label('Size')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
+            ->add('tag', TagField::class, [
+                'label' => trans('plugins/ecommerce::products.form.quantity'),
+                'value' => $tags,
+                'attr' => [
+                    'placeholder' => trans('plugins/ecommerce::products.form.write_some_tags'),
+                    'data-url' => route('product-tag.all'),
+                ],
+            ])
             ->add('fragrance_type', SelectField::class, SelectFieldOption::make()->label('Fragrance Type')
                 ->choices([
                     'Personal Fragrance (By Concentration)' => [
@@ -260,22 +268,8 @@ class ProductForm extends FormAbstract
                         'air_freshener' => 'Air Freshener',
                     ],
                     'other' => 'Other',
-                ])->emptyValue('Select Fragrence Type...')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
-            ->add('badge', SelectField::class, [
-                'label' => 'Badges',
-                'choices' => [
-                    'bestseller' => 'Best Seller',
-                    'newlaunch' => 'New Launch',
-                    'onlineexclusive' => 'Online Exclusive',
-                    'buyonegetone' => 'Buy One Get One',
-                ],
-                'values' => $productId ? $this->getModel()->badge : [],
-                'attr' => [
-                    'class' => 'form-control select-multiple',
-                    'multiple' => true,
-                ],
-                'wrapper' => ['class' => 'form-group col-md-3'],
-            ])
+                ])->emptyValue('Select Fragrence Type...')->required()->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
+            // ->add('badge', SelectField::class, [ 'label' => 'Badges', 'choices' => [ 'bestseller' => 'Best Seller', 'newlaunch' => 'New Launch', 'onlineexclusive' => 'Online Exclusive', 'buyonegetone' => 'Buy One Get One', ], 'values' => $productId ? $this->getModel()->badge : [], 'attr' => [ 'class' => 'form-control select-multiple', 'multiple' => true, ], 'wrapper' => ['class' => 'form-group col-md-3'], ])
             ->add('dispenser_type', SelectField::class, SelectFieldOption::make()->label('Dispenser Type')
                 ->choices([
                     'spray' => 'Spray / Atomizer (for Perfumes, Mists)',
@@ -287,7 +281,7 @@ class ProductForm extends FormAbstract
                     'reed_diffuser' => 'Reed Diffuser (for Air Fresheners)',
                     'dropper' => 'Dropper',
                     'other' => 'Other',
-                ])->emptyValue('Select Dispenser Type...')->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
+                ])->emptyValue('Select Dispenser Type...')->required()->wrapperAttributes(['class' => 'form-group col-md-3'])->toArray())
             ->add('fragrance_category', TextField::class, TextFieldOption::make()->label('Fragrance Category')->placeholder('e.g., Occidental, Unisex')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
 
             ->add('item_profile', TextField::class, TextFieldOption::make()->label('Item Profile')->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
@@ -410,14 +404,14 @@ class ProductForm extends FormAbstract
                             ->toArray()
                     );
             })
-            ->add('tag', TagField::class, [
-                'label' => trans('plugins/ecommerce::products.form.tags'),
-                'value' => $tags,
-                'attr' => [
-                    'placeholder' => trans('plugins/ecommerce::products.form.write_some_tags'),
-                    'data-url' => route('product-tag.all'),
-                ],
-            ])
+            // ->add('tag', TagField::class, [
+            //     'label' => trans('plugins/ecommerce::products.form.quantity'),
+            //     'value' => $tags,
+            //     'attr' => [
+            //         'placeholder' => trans('plugins/ecommerce::products.form.write_some_tags'),
+            //         'data-url' => route('product-tag.all'),
+            //     ],
+            // ])
             ->setBreakFieldPoint('status');
 
         if (EcommerceHelper::isEnabledProductOptions()) {
