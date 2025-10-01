@@ -52,7 +52,7 @@ class PromotionController extends Controller
         $discountedProductIds = DB::table('promotions')
             ->where('promotions.end_date', '>=', $today)
             ->where('promotions.isDeleted', false)
-            ->whereIn('promotions.type', ['coupon', 'discount', 'buy_x_get_y'])
+            ->where('promotions.type', 'discount')
             ->leftJoin('coupon_rules', function ($join) {
                 $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
                      ->where('promotions.type', '=', 'coupon');
@@ -85,7 +85,7 @@ class PromotionController extends Controller
         $discountedProductIds = DB::table('promotions')
             ->where('promotions.end_date', '>=', $today)
             ->where('promotions.isDeleted', false)
-            ->where('promotions.type', 'coupon')
+            ->where('promotions.type', 'discount')
             ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
             ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
             ->select('coupon_products.product_id')
@@ -158,7 +158,7 @@ class PromotionController extends Controller
             ->where('promotions.end_date', '>=', $today)
             ->where('promotions.isDeleted', false)
             ->where('promotions.id', '!=', $promotion->id)
-            ->where('promotions.type', 'coupon')
+             ->where('promotions.type', 'discount')
             ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
             ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
             ->select('coupon_products.product_id')
@@ -256,7 +256,7 @@ class PromotionController extends Controller
         ->where('promotions.end_date', '>=', $today)
         ->where('promotions.isDeleted', false)
         ->where('promotions.id', '!=', $id) // Exclude the current promotion
-        ->whereIn('promotions.type', ['coupon', 'discount', 'buy_x_get_y'])
+        ->where('promotions.type', 'discount')
         ->leftJoin('coupon_rules', function ($join) {
             $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
                 ->where('promotions.type', '=', 'coupon');
