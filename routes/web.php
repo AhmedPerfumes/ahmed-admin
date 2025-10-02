@@ -4,6 +4,7 @@ use App\Http\Controllers\SmsaController;
 use App\Http\Controllers\DynamicSectionController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\ProductReviewController;
+use Botble\Ecommerce\Http\Controllers\ProductFragranceNoteController;
 
 
 // Define a route group with a prefix
@@ -35,8 +36,14 @@ Route::delete('promotions/{promotion}', [PromotionController::class, 'destroy'])
 
 // Creates all the necessary admin pages for managing reviews under a single address
 Route::resource('/admin/product-reviews', ProductReviewController::class);
+Route::get('products/get-for-tag-input', [
+    'as' => 'products.get-for-tag-input',
+    'uses' => '\Botble\Ecommerce\Http\Controllers\ProductController@getForTagInput', // Assumes your admin controller is named ProductController
+    'permission' => 'products.index',
+]);
 
 if (is_in_admin(true)) {
+
     // This group ensures the routes are only for the admin panel,
     // require a user to be logged in, and gives them the correct name prefix.
     Route::group([
@@ -67,7 +74,6 @@ if (is_in_admin(true)) {
         ]);
     });
 
-    // This adds the link to the admin sidebar menu (this part is correct)
     dashboard_menu()->registerItem([
         'id' => 'cms-plugins-product-reviews',
         'priority' => 5,
@@ -77,4 +83,33 @@ if (is_in_admin(true)) {
         'url' => route('product-reviews.index'),
         'permissions' => ['product-reviews.index'],
     ]);
+
+    // V V V PASTE THE NEW CODE STARTING HERE V V V
+
+    // --- START: Fragrance Profiles ---
+    Route::group([
+        'prefix' => 'admin/product-fragrance-notes',
+        'as' => 'product-fragrance-notes.',
+        'middleware' => ['web', 'auth'],
+    ], function () {
+        Route::resource('', ProductFragranceNoteController::class)->parameters(['' => 'id']);
+        Route::delete('items/destroy', [
+            'as' => 'deletes',
+            'uses' => '\Botble\Ecommerce\Http\Controllers\ProductFragranceNoteController@destroy',
+            'permission' => 'products.destroy', // Reuse existing permission
+        ]);
+    });
+
+    dashboard_menu()->registerItem([
+        'id' => 'cms-plugins-product-fragrance-notes',
+        'priority' => 6,
+        'parent_id' => 'cms-plugins-ecommerce',
+        'name' => 'Fragrance Profiles',
+        'icon' => 'fa fa-vial',
+        'url' => route('product-fragrance-notes.index'),
+        'permissions' => ['products.index'], // Reuse existing permission
+    ]);
+    // --- END: Fragrance Profiles ---
+
+
 }

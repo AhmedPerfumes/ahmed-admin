@@ -107,6 +107,8 @@ class Product extends BaseModel
         'additional_details',
         'story',
         'badge',
+        'is_collection',
+        'product_family',
     ];
 
     protected $appends = [
@@ -155,6 +157,7 @@ class Product extends BaseModel
         'size'           => SafeContent::class,
         'ingredients'     => SafeContent::class,
         'badge' => 'array',
+        'is_collection' => 'bool',
     ];
 
     protected static function booted(): void
@@ -201,6 +204,16 @@ class Product extends BaseModel
 
             EcommerceHelper::clearProductMaxPriceCache();
         });
+    }
+
+    public function collectionItems(): HasMany
+    {
+        return $this->hasMany(CollectionItem::class, 'collection_product_id')->orderBy('sort_order');
+    }
+
+    public function fragranceNote(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductFragranceNote::class, 'product_fragrance_map', 'product_id', 'fragrance_note_id');
     }
 
     public function categories(): BelongsToMany

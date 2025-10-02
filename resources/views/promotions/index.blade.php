@@ -88,6 +88,9 @@
                                                                     {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
                                                                 @endforeach
                                                             </p>
+                                                            <p>
+                                                                Value : {{ $rule->discount_type }} {{ $rule->percentage }}%
+                                                            </p>
                                                         @elseif($rule->apply_to === 'individual')
                                                             <p>Individual Discounts:</p>
                                                             @foreach($rule->individualRules as $ind)
@@ -100,12 +103,22 @@
                                                     <strong>Coupon:</strong>
                                                     @foreach($promotion->couponRules as $rule)
                                                         <p>Code: {{ $rule->coupon_code }}</p>
+                                                        @if ($rule->coupon_type === 'percent')
+                                                        <p>Value: {{ number_format($rule->percentage, 2) }}%</p>
+                                                    @else
+                                                        <p>Value: {{($rule->amount) }}</p>
+                                                    @endif
+
+                                                        
                                                         @if($rule->apply_to === 'group')
                                                             <p>Products:
                                                                 @foreach($rule->products as $p)
                                                                     {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
                                                                 @endforeach
                                                             </p>
+                                                        
+                                                     
+                                                         
                                                         @elseif($rule->apply_to === 'customer')
                                                             <p>Customers:
                                                                 @foreach($rule->customers as $c)
