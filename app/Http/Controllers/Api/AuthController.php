@@ -186,16 +186,16 @@ class AuthController extends Controller
                 return response()->json($validator->errors());
             }
 
-            // $mobile_verification = MobileVerification::where('phone', $request->mobile)->where('otp', $request->otp)->orderBy('id', 'desc')->first();
+            $mobile_verification = MobileVerification::where('phone', $request->mobile)->where('otp', $request->otp)->orderBy('id', 'desc')->first();
 
-            // if (!$mobile_verification) {
-            //     return response()->json([
-            //         'message'       => 'Invalid Mobile Number or OTP',
-            //     ]);
-            // }
+            if (!$mobile_verification) {
+                return response()->json([
+                    'message'       => 'Invalid Mobile Number or OTP',
+                ]);
+            }
 
-            // $mobile_verification->otp = 0;
-            // $mobile_verification->save();
+            $mobile_verification->otp = 0;
+            $mobile_verification->save();
 
             $validator = Validator::make($request->all(), [
                 // 'customer_id'      => 'required',
