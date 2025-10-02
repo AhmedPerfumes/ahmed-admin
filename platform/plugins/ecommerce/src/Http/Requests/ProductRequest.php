@@ -46,13 +46,15 @@ class ProductRequest extends Request
     {
         $rules = [
             'name' => ['required', 'string', 'max:250'],
-            'description' => ['nullable', 'string', 'max:300000'],
+            'name_ar' => ['required', 'string', 'max:250'],
+            'description' => ['required', 'string', 'max:300000'],
+            'description_ar' => ['required', 'string', 'max:300000'],
             'content' => ['nullable', 'string', 'max:300000'],
             'fragrance_notes' => ['nullable', 'string', 'max:300000'],
             'price' => [
                 'numeric',
-                'nullable',
-                'min:0',
+                'required',
+                'min:1',
                 Rule::when($this->input('sale_price'), function () {
                     return 'gt:sale_price';
                 }),
@@ -103,25 +105,43 @@ class ProductRequest extends Request
             'minimum_order_quantity' => ['nullable', 'numeric', 'min:0'],
             'maximum_order_quantity' => ['nullable', 'numeric', 'min:0'],
 
-            // ✅ Custom fields
+        ];
+
+        // --- HIGHLIGHTED CHANGES START ---
+
+        // Validations for custom fields from the ProductForm
+        $customRules = [
+            // Categorization Tab
             'itemCategory_1' => ['nullable', 'string', 'max:255'],
             'itemCategory_2' => ['nullable', 'string', 'max:255'],
             'itemCategory_3' => ['nullable', 'string', 'max:255'],
             'itemCategory_4' => ['nullable', 'string', 'max:255'],
             'itemCategory_5' => ['nullable', 'string', 'max:255'],
-            'itemFamily'     => ['nullable', 'string', 'max:255'],
-            'note_1'         => ['nullable', 'string', 'max:255'],
-            'note_2'         => ['nullable', 'string', 'max:255'],
-            'note_3'         => ['nullable', 'string', 'max:255'],
-            'item_profile'   => ['nullable', 'string', 'max:255'],
+            'product_family' => ['nullable', 'string', 'max:255'],
+
+            // Fragrance Notes Tab
+            // 'fragrance_note_id' => ['nullable', 'integer', Rule::exists('ec_product_fragrance_notes', 'id')],
+
+            // Item Specifications Tab
+            // 'size' => ['nullable', 'string', 'max:100'],
+            'fragrance_type' => ['required', 'string', Rule::in(['parfum', 'edp', 'edt', 'edc', 'concentrated_oil', 'dehn_al_oud', 'hair_mist', 'body_gel', 'bakhoor', 'oud_maattar', 'air_freshener', 'other'])],
+            // 'badge' => ['nullable', 'array'],
+            // 'badge.*' => ['string', Rule::in(['bestseller', 'newlaunch', 'onlineexclusive', 'buyonegetone'])],
+            'dispenser_type' => ['required', 'string', Rule::in(['spray', 'serum', 'dabber_stick', 'solid_incense', 'jar', 'tube', 'reed_diffuser', 'dropper', 'other'])],
+            'fragrance_category' => ['nullable', 'string', 'max:255'],
+            'item_profile' => ['nullable', 'string', 'max:255'],
             'item_classification' => ['nullable', 'string', 'max:255'],
-            'sillage'        => ['nullable', 'string', 'max:255'],
-            'longevity'      => ['nullable', 'string', 'max:255'],
-            'how_to_use'     => ['nullable', 'string'],
-            'occasion'       => ['nullable', 'string', 'max:255'],
-            'size'           => ['nullable', 'string', 'max:100'],
-            'ingredients'     => ['nullable', 'string'],
+            'longevity' => ['nullable', 'string', 'max:255'],
+            'occasion' => ['nullable', 'string', 'max:255'],
+            'additional_details' => ['nullable', 'string', 'max:1000'],
+            'how_to_use' => ['nullable', 'string'],
+            'ingredients' => ['nullable', 'string'],
+            'story' => ['nullable', 'string'],
         ];
+
+        $rules = array_merge($rules, $customRules);
+
+        // --- HIGHLIGHT-END ---
 
         if (EcommerceHelper::isEnabledProductOptions()) {
             $options = $this->input('options');
@@ -144,6 +164,7 @@ class ProductRequest extends Request
             'end_date.after' => trans('plugins/ecommerce::products.product_create_validate_end_date_after'),
             'start_date.required_if' => trans('plugins/ecommerce::products.product_create_validate_start_date_required_if'),
             'sale_price' => trans('plugins/ecommerce::products.product_create_validate_sale_price'),
+            'price.min' => 'The price cannot be zero',
         ];
     }
 
