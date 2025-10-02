@@ -89,7 +89,7 @@
                                                                 @endforeach
                                                             </p>
                                                             <p>
-                                                                Value : {{ $rule->discount_type }} {{ $rule->percentage }}
+                                                                Value : {{ $rule->discount_type }} {{ $rule->percentage }}%
                                                             </p>
                                                         @elseif($rule->apply_to === 'individual')
                                                             <p>Individual Discounts:</p>

@@ -258,6 +258,8 @@ class PromotionController extends Controller
         ->where('promotions.id', '!=', $id) // Exclude the current promotion
         ->where('promotions.type', 'discount')
         ->leftJoin('coupon_rules', function ($join) {
+
+            
             $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
                 ->where('promotions.type', '=', 'coupon');
         })
