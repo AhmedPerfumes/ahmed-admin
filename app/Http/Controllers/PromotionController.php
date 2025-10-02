@@ -441,10 +441,14 @@ private function preparePromotionData(Promotion $promotion)
             ($applyTo === 'group' ? $request->input('rewards.coupon.group_percentage') : $request->input('rewards.coupon.customer_percentage'))
         ) : null;
 
-        $amount = $couponTypeDb === 'amount' ? (
-            $applyTo === 'all' ? $request->input('rewards.coupon.amount') :
-            ($applyTo === 'group' ? $request->input('rewards.coupon.group_amount') : $request->input('rewards.coupon.customer_amount'))
-        ) : null;
+        $amount = null;
+        if ($couponTypeDb === 'amount') {
+            if ($applyTo === 'customer') {
+                $amount = $request->input('rewards.coupon.customer_amount');
+            } else {
+                $amount = $request->input('rewards.coupon.amount');
+            }
+        }
 
         $rule = CouponRule::create([
             'promotion_id' => $promotion->id,
