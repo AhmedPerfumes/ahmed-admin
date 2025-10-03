@@ -17,13 +17,40 @@ class BlogController extends Controller
         $limit = (int)$request['limit'];
         $page = (int)$request['page'];
 
-        $blogs = Post::select('id', 'name', 'description', 'image', 'created_at')->where('status', 'published')->orderBy('id', 'DESC')->paginate($limit);
+        $blogs = Post::select('id', 'name', 'description', 'image', 'created_at')->where('status', 'published')->whereDoesntHave('categories', function ($query) { $query->where('categories.name', 'news-article'); })->orderBy('id', 'DESC')->paginate($limit);
 
         foreach ($blogs as $key => $val) {
             $val->permalink = Slug::select('key')->where('reference_id', $val->id)->where('reference_type', 'Botble\Blog\Models\Post')->first();
         }
 
          $response = response()->json($blogs)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($blogs)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+
+        if ($response->isNotModified(request())) {
+            return $response;
+        }
+
+        return $response;
+    }
+    
+    public function getNewsArticles(Request $request)
+    {
+        $limit = (int)$request['limit'];
+        $page = (int)$request['page'];
+
+        $blogs = Post::select('id', 'name', 'description', 'image', 'created_at')
+            ->where('status', 'published')
+            // This line ensures we ONLY get posts from the 'news-article' category
+            ->whereHas('categories', function ($query) {
+                $query->where('categories.name', 'news-article');
+            })
+            ->orderBy('id', 'DESC')
+            ->paginate($limit);
+
+        foreach ($blogs as $key => $val) {
+            $val->permalink = Slug::select('key')->where('reference_id', $val->id)->where('reference_type', 'Botble\Blog\Models\Post')->first();
+        }
+
+        $response = response()->json($blogs)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($blogs))); // Cache 1 Day in the browser, 2 Days at Cloudflare
 
         if ($response->isNotModified(request())) {
             return $response;

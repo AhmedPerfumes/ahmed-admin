@@ -61,6 +61,9 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::withoutMiddleware('customLogs')->post('/getBlogDetails', [BlogController::class, 'getBlogDetails']);
     Route::withoutMiddleware('customLogs')->post('/blogSEO', [BlogController::class, 'getBlogSEO']);
 
+    //News Article Routes
+    Route::withoutMiddleware('customLogs')->post('/news-articles', [BlogController::class, 'getNewsArticles']);
+
     // Contact Route
     Route::post('/contact', [ContactController::class, 'contact']);
     Route::post('/feedback', [ContactController::class, 'feedback']);
