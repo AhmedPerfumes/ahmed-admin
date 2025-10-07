@@ -37,7 +37,7 @@ class BlogController extends Controller
         $limit = (int)$request['limit'];
         $page = (int)$request['page'];
 
-        $blogs = Post::select('id', 'name', 'description', 'image', 'created_at')
+        $blogs = Post::select('id', 'name', 'description', 'image', 'content', 'created_at')
             ->where('status', 'published')
             // This line ensures we ONLY get posts from the 'news-article' category
             ->whereHas('categories', function ($query) {
