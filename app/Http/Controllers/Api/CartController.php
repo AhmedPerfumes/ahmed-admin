@@ -206,80 +206,82 @@ class CartController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        DB::beginTransaction();
         try {
-            $tax = Tax::select('percentage')->where('status', 'published')->first();
+            DB::beginTransaction();
 
             $cart = Cart::where('user_id', $request->customer_id)->first();
             if (!$cart) {
+                DB::rollBack();
                 return response()->json(['success' => false, 'message' => 'Cart not found'], 404);
             }
-
+            
+            // Delete the specific product
             CartProduct::where('cart_id', $cart->id)
                 ->where('product_id', $request->product_id)
                 ->delete();
 
-            // Check if cart is now empty
-            if ($cart->cartProducts()->count() === 0) {
+            // Reload relationship to check updated state
+            $cart->load('cartProducts');
+
+            // ✅ If no products remain, delete the cart itself
+            if ($cart->cartProducts->isEmpty()) {
                 $cart->delete();
-                return response()->json(['success' => true, 'message' => 'Cart deleted (empty now)'], 200);
+                DB::commit();
+                return response()->json([], 200);
             }
 
-            $prod_arr = array();
+            // ✅ Otherwise rebuild and return updated list
+            $tax = Tax::select('percentage')->where('status', 'published')->first();
+            $prod_arr = [];
 
-            // Sync remaining cart products with latest data
             foreach ($cart->cartProducts as $cartProduct) {
                 $latestProduct = CartService::getProductWithDetails($cartProduct->product_id, $cartProduct->qty);
                 
                 if (!$latestProduct) {
+                    DB::rollBack();
                     return response()->json(['notFound' => 'Product not found '.$cartProduct->product_id], 500);
                 }
-
-                // Update CartProduct with fresh price, discount, totals
-                $cartProduct->price = number_format($latestProduct->price, 2, '.', '');
-                $total_amount       = $latestProduct->price * $latestProduct->quantity;
-
+                // --- Calculate prices ---
+                $price = $latestProduct->price;
+                $quantity = $latestProduct->quantity;
+                $total = $price * $quantity;
                 $discount_amount = 0;
-                $discount_percent = 0;
-                $net_amount = $total_amount;
+                $net = $total;
 
                 if ($latestProduct->discount) {
                     if ($latestProduct->discount->discount_type === 'percent') {
-                        $discount_percent = $latestProduct->discount->value;
-                        $discount_amount  = ($total_amount / 100) * $discount_percent;
-                        $net_amount       = $total_amount - $discount_amount;
+                        $discount_amount = ($total * $latestProduct->discount->value) / 100;
+                        $net -= $discount_amount;
                     } elseif ($latestProduct->discount->discount_type === 'amount') {
-                        $discount_amount  = $latestProduct->discount->discount_amount;
-                        $net_amount       = $total_amount - $discount_amount;
+                        $discount_amount = $latestProduct->discount->discount_amount;
+                        $net -= $discount_amount;
                     }
                 }
 
-                $tax_amount   = ($net_amount / 100) * $tax->percentage;
-                $gross_amount = $net_amount + $tax_amount;
+                $tax_amount = ($net / 100) * $tax->percentage;
+                $gross = $net + $tax_amount;
 
-                $cartProduct->qty              = $latestProduct->quantity;
-                $cartProduct->total_amount     = $total_amount;
-                $cartProduct->discount_amount  = $discount_amount;
-                $cartProduct->discount_percent = $discount_percent;
-                $cartProduct->net_amount       = $net_amount;
-                $cartProduct->tax_amount       = $tax_amount;
-                $cartProduct->gross_amount     = $gross_amount;
-                $cartProduct->vat              = $tax->percentage;
-                $cartProduct->save();
-
-                $latestProduct->price = number_format($latestProduct->price * (1 + ($tax->percentage / 100)), 2, '.', '');
-                array_push($prod_arr, $latestProduct);
+                $cartProduct->update([
+                    'price'            => number_format($price, 2, '.', ''),
+                    'qty'              => $quantity,
+                    'total_amount'     => $total,
+                    'discount_amount'  => $discount_amount,
+                    'net_amount'       => $net,
+                    'tax_amount'       => $tax_amount,
+                    'gross_amount'     => $gross,
+                    'vat'              => $tax->percentage,
+                ]);
+                
+                $latestProduct->price = number_format($price * (1 + ($tax->percentage / 100)), 2, '.', '');
+                $prod_arr[] = $latestProduct;
             }
-
             DB::commit();
-
             return response()->json($prod_arr, 200);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
