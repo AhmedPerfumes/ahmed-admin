@@ -147,7 +147,7 @@ class CartController extends Controller
 
                 if ($cartProduct) {
                     // Update existing product
-                    $cartProduct->qty = $product->quantity;
+                    $cartProduct->qty += $product->quantity;
                     $cartProduct->price = $product->price;
                     $cartProduct->total_amount = $total_amount;
                     $cartProduct->discount_percent = $discount_percent;
