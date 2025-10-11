@@ -103,4 +103,7 @@ Route::prefix('faqs')->group(function () {
     Route::post('/getCart', [CartController::class, 'getCart']);
     Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
     Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
+
+    Route::any('/tamaraPaymentRedirect', [OrderController::class, 'tamaraPaymentRedirect']);
+    Route::any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
 });

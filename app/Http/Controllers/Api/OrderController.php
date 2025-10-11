@@ -2350,4 +2350,109 @@ class OrderController extends Controller
             'message' => 'Customer Found Successfully',
         ]);
     }
+
+     public function tamaraPaymentRedirect(Request $request) {
+        echo "<pre>";print_r($request->all());die;
+    }
+
+    public function tamaraPaymentWebhook(Request $request) {
+        if($request->event_type == 'order_approved') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://api-sandbox.tamara.co/orders/".$request->order_id."/authorise");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhY2NvdW50SWQiOiJjYjhiM2E5Yi1lZjExLTQ4ZDgtYTc5Ny1lZmM3MTVlN2JiZWIiLCJ0eXBlIjoibWVyY2hhbnQiLCJzYWx0IjoiMDYzNDNhZjUzYTA0MDk2MWVlZDE4MDVhMTBjMDk3NTAiLCJyb2xlcyI6WyJST0xFX01FUkNIQU5UIl0sImlhdCI6MTc1OTk5MjkzMywiaXNzIjoiVGFtYXJhIn0.k6QzTLUxyCgTcCM92XgRDk_WOB5mdowaXf5420GwuUiEi1XgnX3OdVKZ2ovlsP2MbBlNNSlaLVEjx-ya8RI6OrIb8ShUHxCrg81hVSW0KG_BHqpU41gCC8zWg2CronEZ6jDkW9LKoxcxjHr-0II73XWzN7Krkx5ZPyntj6TlKRwXetC4AA4hdo_u6-NiCz1QPBXhMqVean2aH23z-npnFWNqUZt6IoiOfhfFSfjcKsWbCMPmxsNJ9xZQ6E1Zr0dYAV5NQYtv80GbLlAA07fBxFx9_U0nxkhUMZ4asg2aRjXZVoA4smgb767RCTqhhwd6FHyt0lnSGcLIQK1U1JVTCg'
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                echo 'order_approved Curl error: ' . curl_error($ch);
+            } else {
+                echo 'order_approved Response: ' . $response;
+            }
+
+            // Close cURL session
+            curl_close($ch);
+        } elseif($request->event_type == 'order_authorised') {
+            $url = "https://api-sandbox.tamara.co/payments/capture";
+
+            $data = [
+                "order_id" => $request->order_id,
+                "total_amount" => [
+                    "amount" => 198,
+                    "currency" => "AED"
+                ],
+                "items" => [
+                    [
+                        "name" => "Marj",
+                        "type" => "Physical",
+                        "reference_id" => "49",
+                        "sku" => "FGD01506",
+                        "quantity" => 1,
+                        "tax_amount" => [
+                            "amount" => 7.86,
+                            "currency" => "AED"
+                        ],
+                        "unit_price" => [
+                            "amount" => 157.15,
+                            "currency" => "AED"
+                        ],
+                        "total_amount" => [
+                            "amount" => 165,
+                            "currency" => "AED"
+                        ]
+                    ]
+                ],
+                "shipping_amount" => [
+                    "amount" => 20,
+                    "currency" => "AED"
+                ],
+                "tax_amount" => [
+                    "amount" => 9.43,
+                    "currency" => "AED"
+                ],
+                "shipping_info" => [
+                    "shipped_at" => "2025-10-10T17:25:00.677Z",
+                    "shipping_company" => "SMSA"
+                ]
+            ];
+
+            // Initialize cURL session
+            $ch = curl_init($url);
+
+            // Set cURL options
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhY2NvdW50SWQiOiJjYjhiM2E5Yi1lZjExLTQ4ZDgtYTc5Ny1lZmM3MTVlN2JiZWIiLCJ0eXBlIjoibWVyY2hhbnQiLCJzYWx0IjoiMDYzNDNhZjUzYTA0MDk2MWVlZDE4MDVhMTBjMDk3NTAiLCJyb2xlcyI6WyJST0xFX01FUkNIQU5UIl0sImlhdCI6MTc1OTk5MjkzMywiaXNzIjoiVGFtYXJhIn0.k6QzTLUxyCgTcCM92XgRDk_WOB5mdowaXf5420GwuUiEi1XgnX3OdVKZ2ovlsP2MbBlNNSlaLVEjx-ya8RI6OrIb8ShUHxCrg81hVSW0KG_BHqpU41gCC8zWg2CronEZ6jDkW9LKoxcxjHr-0II73XWzN7Krkx5ZPyntj6TlKRwXetC4AA4hdo_u6-NiCz1QPBXhMqVean2aH23z-npnFWNqUZt6IoiOfhfFSfjcKsWbCMPmxsNJ9xZQ6E1Zr0dYAV5NQYtv80GbLlAA07fBxFx9_U0nxkhUMZ4asg2aRjXZVoA4smgb767RCTqhhwd6FHyt0lnSGcLIQK1U1JVTCg' // Uncomment and set if required
+            ]);
+
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+            // Execute cURL request
+            $response = curl_exec($ch);
+
+            // Error handling
+            if (curl_errno($ch)) {
+                echo 'order_authorised Curl error: ' . curl_error($ch);
+            } else {
+                echo "order_authorised Response:\n" . $response;
+            }
+
+            curl_close($ch);
+
+        }
+
+    }
 }
