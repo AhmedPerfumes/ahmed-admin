@@ -484,7 +484,7 @@ class OrderController extends Controller
                     'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                 ]);
 
-                if($request->input('payment_method') == 'paytabs') {            
+                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {            
                     $data = [
                         "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $loggedInCustomer->name,
                         "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $loggedInCustomer->email,
@@ -493,6 +493,8 @@ class OrderController extends Controller
                         "city"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->city,
                         "state"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->state,
                         "country"=> "AE",
+                        "first_name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name') : $loggedInCustomer->name,
+                        "last_name"=> $request->input('shippingAddress.last_name') ? $request->input('shippingAddress.last_name') : $loggedInCustomer->name,
                         // "zip"=> "54321"
                     ];
                     // $resp = $this->payTabsPayment($request, $data);
@@ -515,7 +517,7 @@ class OrderController extends Controller
                     'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                 ]);
 
-                if($request->input('payment_method') == 'paytabs') {
+                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {
                     $data = [
                         "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
                         "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $request->input('billingAddress.email'),
@@ -524,6 +526,8 @@ class OrderController extends Controller
                         "city"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
                         "state"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
                         "country"=> "AE",
+                        "first_name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name') : $request->input('billingAddress.first_name'),
+                        "last_name"=> $request->input('shippingAddress.last_name') ? $request->input('shippingAddress.last_name') : $request->input('billingAddress.last_name'),
                         // "zip"=> "54321"
                     ];
                     // $resp = $this->payTabsPayment($request, $data);
@@ -1658,6 +1662,23 @@ class OrderController extends Controller
                 }
             }
 
+            if($request->input('payment_method') == 'tamara') {
+                $resp = $this->tamaraPayment($request, $data, $order);
+
+                if($resp['checkout_url']) {
+                    return response()->json([
+                        'message'          => 'Redirecting to Tamara...',
+                        'order_id'         => $order->code,
+                        'payment_method'   => $request->input('payment_method'),
+                        'total'            => $order->amount,
+                        'sub_total'        => $order->sub_total,
+                        'shipping_amount'  => $order->shipping_amount,
+                        'products'         => $prod,
+                        'redirect_url'     => $resp['checkout_url']
+                    ]);
+                }
+            }
+
             // $request['payment_status'] = 'completed';
             $createPaymentForOrderService->execute(
                 $order,
@@ -2351,7 +2372,185 @@ class OrderController extends Controller
         ]);
     }
 
-     public function tamaraPaymentRedirect(Request $request) {
+    public function tamaraPayment(Request $request, $shippingData, $order) {
+
+        $curl = curl_init();
+
+        // curl_setopt_array($curl, array(
+        //     CURLOPT_URL => 'https://api-sandbox.tamara.co/checkout',
+        //     CURLOPT_RETURNTRANSFER => true,
+        //     CURLOPT_ENCODING => '',
+        //     CURLOPT_MAXREDIRS => 10,
+        //     CURLOPT_TIMEOUT => 0,
+        //     CURLOPT_FOLLOWLOCATION => true,
+        //     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        //     CURLOPT_CUSTOMREQUEST => 'POST',
+        //     CURLOPT_POSTFIELDS =>'{
+        //         "total_amount": {
+        //             "amount": '.$request->input('finalPrice').',
+        //             "currency": "AED"
+        //         },
+        //         "order_reference_id": '.explode('#', $order->code)[1].',
+        //         "order_number": '.explode('#', $order->code)[1].',
+        //         "items": [
+        //             {
+        //                 "name": "Marj",
+        //                 "type": "Physical",
+        //                 "reference_id": "49",
+        //                 "sku": "FGD01506",
+        //                 "quantity": 1,
+        //                 "tax_amount": {
+        //                     "amount": 7.86,
+        //                     "currency": "AED"
+        //                 },
+        //                 "unit_price": {
+        //                     "amount": 157.15,
+        //                     "currency": "AED"
+        //                 },
+        //                 "total_amount": {
+        //                     "amount": 165,
+        //                     "currency": "AED"
+        //                 }
+        //             }
+        //         ],
+        //         "consumer": {
+        //             "email": '.$request->input("billingAddress.email").',
+        //             "first_name": '.$request->input("billingAddress.first_name").',
+        //             "last_name": '.$request->input("billingAddress.last_name").',
+        //             "phone_number": '.$request->input('billingAddress.mobile').'
+        //         },
+        //         "country_code": "AE",
+        //         "description": "Marj Marj",
+        //         "merchant_url": {
+        //             "cancel": "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/cancel",
+        //             "failure": "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/fail",
+        //             "success": "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/success"
+                    
+        //         },
+        //         "payment_type": "PAY_BY_INSTALMENTS",
+        //         "instalments": 3,
+        //         "billing_address": {
+        //             "city": '.$request->input("billingAddress.emirates").',
+        //             "country_code": "AE",
+        //             "first_name": '.$request->input("billingAddress.first_name").',
+        //             "last_name": '.$request->input("billingAddress.last_name").',
+        //             "line1": '.$request->input("billingAddress.area")." ".$request->input("billingAddress.building").',
+        //             "phone_number": '.$request->input('billingAddress.mobile').'
+        //         },
+        //         "shipping_address": {
+        //             "city": '.$shippingData["city"].',
+        //             "country_code": "AE",
+        //             "first_name": '.$shippingData["first_name"].',
+        //             "last_name": '.$shippingData["last_name"].',
+        //             "line1": '.$shippingData["street1"].',
+        //             "phone_number": '.$shippingData["phone"].',
+        //         },
+        //         "locale": "en_US"
+        //     }',
+        //     CURLOPT_HTTPHEADER => array(
+        //         'Content-Type: application/json',
+        //         'Authorization: Bearer '.env('TAMARA_TOKEN')
+        //     ),
+        // ));
+
+        $payload = [
+            "total_amount" => [
+                "amount" => (float) $request->input('finalPrice'),
+                "currency" => "AED"
+            ],
+            "shipping_amount" => [
+                "amount" => 20,
+                "currency" => "AED"
+            ],
+            "tax_amount" => [
+                "amount" => 9.43,
+                "currency" => "AED"
+            ],
+            "order_reference_id" => explode('#', $order->code)[1],
+            "order_number" => explode('#', $order->code)[1],
+            "items" => [
+                [
+                    "name" => "Marj",
+                    "type" => "Physical",
+                    "reference_id" => "49",
+                    "sku" => "FGD01506",
+                    "quantity" => 1,
+                    "tax_amount" => [
+                        "amount" => 7.86,
+                        "currency" => "AED"
+                    ],
+                    "unit_price" => [
+                        "amount" => 157.15,
+                        "currency" => "AED"
+                    ],
+                    "total_amount" => [
+                        "amount" => 165,
+                        "currency" => "AED"
+                    ]
+                ]
+            ],
+            "consumer" => [
+                "email" => $request->input("billingAddress.email"),
+                "first_name" => $request->input("billingAddress.first_name"),
+                "last_name" => $request->input("billingAddress.last_name"),
+                "phone_number" => $request->input('billingAddress.mobile')
+            ],
+            "country_code" => "AE",
+            "description" => "Marj Marj",
+            "merchant_url" => [
+                "cancel" => "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/cancel",
+                "failure" => "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/fail",
+                "success" => "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/success"
+            ],
+            "payment_type" => "PAY_BY_INSTALMENTS",
+            "instalments" => 3,
+            "billing_address" => [
+                "city" => $request->input("billingAddress.emirates"),
+                "country_code" => "AE",
+                "first_name" => $request->input("billingAddress.first_name"),
+                "last_name" => $request->input("billingAddress.last_name"),
+                "line1" => $request->input("billingAddress.area") . " " . $request->input("billingAddress.building"),
+                "phone_number" => $request->input('billingAddress.mobile')
+            ],
+            "shipping_address" => [
+                "city" => $shippingData["city"],
+                "country_code" => "AE",
+                "first_name" => $shippingData["first_name"],
+                "last_name" => $shippingData["last_name"],
+                "line1" => $shippingData["street1"],
+                "phone_number" => $shippingData["phone"]
+            ],
+            "locale" => "en_US"
+        ];
+
+        // echo "<pre>";print_r($payload);die;
+
+        $curl = curl_init();
+
+        curl_setopt_array($curl, [
+            CURLOPT_URL => 'https://api-sandbox.tamara.co/checkout',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ],
+        ]);
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        // echo $response;die;
+        return json_decode($response, true);
+    }
+
+    public function tamaraPaymentRedirect(Request $request) {
         echo "<pre>";print_r($request->all());die;
     }
 
@@ -2365,7 +2564,7 @@ class OrderController extends Controller
             $headers = [
                 'Content-Type: application/json',
                 'Accept: application/json',
-                'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhY2NvdW50SWQiOiJjYjhiM2E5Yi1lZjExLTQ4ZDgtYTc5Ny1lZmM3MTVlN2JiZWIiLCJ0eXBlIjoibWVyY2hhbnQiLCJzYWx0IjoiMDYzNDNhZjUzYTA0MDk2MWVlZDE4MDVhMTBjMDk3NTAiLCJyb2xlcyI6WyJST0xFX01FUkNIQU5UIl0sImlhdCI6MTc1OTk5MjkzMywiaXNzIjoiVGFtYXJhIn0.k6QzTLUxyCgTcCM92XgRDk_WOB5mdowaXf5420GwuUiEi1XgnX3OdVKZ2ovlsP2MbBlNNSlaLVEjx-ya8RI6OrIb8ShUHxCrg81hVSW0KG_BHqpU41gCC8zWg2CronEZ6jDkW9LKoxcxjHr-0II73XWzN7Krkx5ZPyntj6TlKRwXetC4AA4hdo_u6-NiCz1QPBXhMqVean2aH23z-npnFWNqUZt6IoiOfhfFSfjcKsWbCMPmxsNJ9xZQ6E1Zr0dYAV5NQYtv80GbLlAA07fBxFx9_U0nxkhUMZ4asg2aRjXZVoA4smgb767RCTqhhwd6FHyt0lnSGcLIQK1U1JVTCg'
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
             ];
 
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -2435,7 +2634,7 @@ class OrderController extends Controller
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 'Content-Type: application/json',
                 'Accept: application/json',
-                'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhY2NvdW50SWQiOiJjYjhiM2E5Yi1lZjExLTQ4ZDgtYTc5Ny1lZmM3MTVlN2JiZWIiLCJ0eXBlIjoibWVyY2hhbnQiLCJzYWx0IjoiMDYzNDNhZjUzYTA0MDk2MWVlZDE4MDVhMTBjMDk3NTAiLCJyb2xlcyI6WyJST0xFX01FUkNIQU5UIl0sImlhdCI6MTc1OTk5MjkzMywiaXNzIjoiVGFtYXJhIn0.k6QzTLUxyCgTcCM92XgRDk_WOB5mdowaXf5420GwuUiEi1XgnX3OdVKZ2ovlsP2MbBlNNSlaLVEjx-ya8RI6OrIb8ShUHxCrg81hVSW0KG_BHqpU41gCC8zWg2CronEZ6jDkW9LKoxcxjHr-0II73XWzN7Krkx5ZPyntj6TlKRwXetC4AA4hdo_u6-NiCz1QPBXhMqVean2aH23z-npnFWNqUZt6IoiOfhfFSfjcKsWbCMPmxsNJ9xZQ6E1Zr0dYAV5NQYtv80GbLlAA07fBxFx9_U0nxkhUMZ4asg2aRjXZVoA4smgb767RCTqhhwd6FHyt0lnSGcLIQK1U1JVTCg' // Uncomment and set if required
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
             ]);
 
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
