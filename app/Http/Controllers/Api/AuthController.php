@@ -202,7 +202,7 @@ class AuthController extends Controller
                 'name' => 'required',
                 'email' => 'required|email|unique:ec_customers,email,',
                 'mobile' => 'required|unique:ec_customers,phone,',
-                'password' => 'required',
+                // 'password' => 'required',
             ]);
 
             if ($validator->fails()) {
@@ -230,6 +230,36 @@ class AuthController extends Controller
             // })->toArray();
 
             // $customer->coupon = $formattedCoupons;
+
+            $apiUrl = env('SMART_VIEW_COUPON_API_URL').'Coupon/Register';
+
+            $postData = [
+                'couponId' => "3FDF342E-52C6-4D73-AD84-DA2605E15DF8",
+                'customerName'  => $customer->name,
+                'email' => $customer->email,
+                'mobileNo' => $customer->phone,
+            ];
+
+                $ch = curl_init($apiUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                ]);
+                
+                $apiResponse = curl_exec($ch);
+                if (curl_errno($ch)) {
+                    echo 'Error:' . curl_error($ch);
+                }
+                curl_close($ch);
+                // echo "<pre>";print_r($apiResponse);
+
+                // Optionally log the API response for debugging
+                // \Log::info('Coupon/Register API Response', [
+                //     'http_code' => $httpCode,
+                //     'response'  => $apiResponse,
+                // ]);
 
             $token = $customer->createToken('auth_token')->plainTextToken;
 
