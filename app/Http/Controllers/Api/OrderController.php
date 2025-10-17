@@ -674,6 +674,7 @@ class OrderController extends Controller
                     $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
                     if ($individualRule) {
                         $exisProduct->discount = (object) [
+                            'name' => $individualDiscount->name,
                             'value' => intval($individualRule->value),
                             'apply_to' => $discountRule->apply_to,
                             'discount_type' => $individualRule->discount_type,
@@ -705,6 +706,7 @@ class OrderController extends Controller
                         $discountRule = $groupDiscount->discountRules->first();
                         if ($discountRule) {
                             $exisProduct->discount = (object) [
+                                'name' => $groupDiscount->name,
                                 'value' => intval($discountRule->percentage),
                                 'apply_to' => $discountRule->apply_to,
                                 'discount_type' => 'percent',
@@ -843,6 +845,7 @@ class OrderController extends Controller
                             'product_category' => $product['category_name'],
                             'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                             'vat' => $request->input('vatTax'),
+                            'campaign' => $exisProduct->discount->name,
                         ];   
                     } elseif($exisProduct->discount->discount_type == 'amount') {
                         // echo "Discount Amount";
@@ -893,6 +896,7 @@ class OrderController extends Controller
                             'product_category' => $product['category_name'],
                             'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                             'vat' => $request->input('vatTax'),
+                            'campaign' => $exisProduct->discount->name,
                         ];
                     }
                 }
@@ -1765,7 +1769,7 @@ class OrderController extends Controller
             }
 
             if($request->input('payment_method') == 'tamara') {
-                $resp = $this->tamaraPayment($request, $data, $order);
+                $resp = $this->tamaraPayment($request, $data, $order, $prod);
 
                 if($resp['checkout_url']) {
                     return response()->json([
@@ -2474,86 +2478,9 @@ class OrderController extends Controller
         ]);
     }
 
-    public function tamaraPayment(Request $request, $shippingData, $order) {
+    public function tamaraPayment(Request $request, $shippingData, $order, $prods) {
 
         $curl = curl_init();
-
-        // curl_setopt_array($curl, array(
-        //     CURLOPT_URL => 'https://api-sandbox.tamara.co/checkout',
-        //     CURLOPT_RETURNTRANSFER => true,
-        //     CURLOPT_ENCODING => '',
-        //     CURLOPT_MAXREDIRS => 10,
-        //     CURLOPT_TIMEOUT => 0,
-        //     CURLOPT_FOLLOWLOCATION => true,
-        //     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        //     CURLOPT_CUSTOMREQUEST => 'POST',
-        //     CURLOPT_POSTFIELDS =>'{
-        //         "total_amount": {
-        //             "amount": '.$request->input('finalPrice').',
-        //             "currency": "AED"
-        //         },
-        //         "order_reference_id": '.explode('#', $order->code)[1].',
-        //         "order_number": '.explode('#', $order->code)[1].',
-        //         "items": [
-        //             {
-        //                 "name": "Marj",
-        //                 "type": "Physical",
-        //                 "reference_id": "49",
-        //                 "sku": "FGD01506",
-        //                 "quantity": 1,
-        //                 "tax_amount": {
-        //                     "amount": 7.86,
-        //                     "currency": "AED"
-        //                 },
-        //                 "unit_price": {
-        //                     "amount": 157.15,
-        //                     "currency": "AED"
-        //                 },
-        //                 "total_amount": {
-        //                     "amount": 165,
-        //                     "currency": "AED"
-        //                 }
-        //             }
-        //         ],
-        //         "consumer": {
-        //             "email": '.$request->input("billingAddress.email").',
-        //             "first_name": '.$request->input("billingAddress.first_name").',
-        //             "last_name": '.$request->input("billingAddress.last_name").',
-        //             "phone_number": '.$request->input('billingAddress.mobile').'
-        //         },
-        //         "country_code": "AE",
-        //         "description": "Marj Marj",
-        //         "merchant_url": {
-        //             "cancel": "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/cancel",
-        //             "failure": "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/fail",
-        //             "success": "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/success"
-                    
-        //         },
-        //         "payment_type": "PAY_BY_INSTALMENTS",
-        //         "instalments": 3,
-        //         "billing_address": {
-        //             "city": '.$request->input("billingAddress.emirates").',
-        //             "country_code": "AE",
-        //             "first_name": '.$request->input("billingAddress.first_name").',
-        //             "last_name": '.$request->input("billingAddress.last_name").',
-        //             "line1": '.$request->input("billingAddress.area")." ".$request->input("billingAddress.building").',
-        //             "phone_number": '.$request->input('billingAddress.mobile').'
-        //         },
-        //         "shipping_address": {
-        //             "city": '.$shippingData["city"].',
-        //             "country_code": "AE",
-        //             "first_name": '.$shippingData["first_name"].',
-        //             "last_name": '.$shippingData["last_name"].',
-        //             "line1": '.$shippingData["street1"].',
-        //             "phone_number": '.$shippingData["phone"].',
-        //         },
-        //         "locale": "en_US"
-        //     }',
-        //     CURLOPT_HTTPHEADER => array(
-        //         'Content-Type: application/json',
-        //         'Authorization: Bearer '.env('TAMARA_TOKEN')
-        //     ),
-        // ));
 
         $payload = [
             "total_amount" => [
@@ -2561,36 +2488,16 @@ class OrderController extends Controller
                 "currency" => "AED"
             ],
             "shipping_amount" => [
-                "amount" => 20,
+                "amount" => (float) $request->input('shippingPrice'),
                 "currency" => "AED"
             ],
             "tax_amount" => [
-                "amount" => 9.43,
+                "amount" => $order->tax_amount * (1 + ($request->input('vatTax') / 100)),
                 "currency" => "AED"
             ],
             "order_reference_id" => explode('#', $order->code)[1],
-            "order_number" => explode('#', $order->code)[1],
-            "items" => [
-                [
-                    "name" => "Marj",
-                    "type" => "Physical",
-                    "reference_id" => "49",
-                    "sku" => "FGD01506",
-                    "quantity" => 1,
-                    "tax_amount" => [
-                        "amount" => 7.86,
-                        "currency" => "AED"
-                    ],
-                    "unit_price" => [
-                        "amount" => 157.15,
-                        "currency" => "AED"
-                    ],
-                    "total_amount" => [
-                        "amount" => 165,
-                        "currency" => "AED"
-                    ]
-                ]
-            ],
+            "order_number" => $order->code,
+            "items" => [],
             "consumer" => [
                 "email" => $request->input("billingAddress.email"),
                 "first_name" => $request->input("billingAddress.first_name"),
@@ -2598,11 +2505,11 @@ class OrderController extends Controller
                 "phone_number" => $request->input('billingAddress.mobile')
             ],
             "country_code" => "AE",
-            "description" => "Marj Marj",
+            "description" => "AMG Order",
             "merchant_url" => [
-                "cancel" => "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/cancel",
-                "failure" => "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/fail",
-                "success" => "https://admin.ahmedalmaghribi.com/public/api/tamaraPaymentRedirect/#/success"
+                "cancel" => env('CUSTOM_URL')."tamara-payment-redirect/#/cancel",
+                "failure" => env('CUSTOM_URL')."tamara-payment-redirect/#/fail",
+                "success" => env('CUSTOM_URL')."tamara-payment-redirect/#/success"
             ],
             "payment_type" => "PAY_BY_INSTALMENTS",
             "instalments" => 3,
@@ -2625,12 +2532,43 @@ class OrderController extends Controller
             "locale" => "en_US"
         ];
 
+        foreach ($prods as $item) {
+            $vatPercent = $request->input('vatTax'); // e.g., 5 or 15
+            $totalAmount = (float) $item['price']; // already includes VAT
+            
+            // Unit price excluding VAT
+            $unitPrice = $totalAmount / (1 + ($vatPercent / 100));
+
+            // Tax = total - unit price
+            $taxAmount = $totalAmount - $unitPrice;
+
+            $payload['items'][] = [
+                "name" => $item['name'],
+                "type" => "Physical",
+                "reference_id" => (string)$item['id'],
+                "quantity" => $item['qty'],
+                "sku" => $item['sku'],
+                "unit_price" => [
+                    "amount" => round($unitPrice, 2),
+                    "currency" => "AED"
+                ],
+                "total_amount" => [
+                    "amount" => round($totalAmount, 2),
+                    "currency" => "AED"
+                ],
+                "tax_amount" => [
+                    "amount" => round($taxAmount, 2),
+                    "currency" => "AED"
+                ],
+            ];
+        }
+
         // echo "<pre>";print_r($payload);die;
 
         $curl = curl_init();
 
         curl_setopt_array($curl, [
-            CURLOPT_URL => 'https://api-sandbox.tamara.co/checkout',
+            CURLOPT_URL => env('TAMARA_API_URL').'checkout',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
@@ -2652,14 +2590,32 @@ class OrderController extends Controller
         return json_decode($response, true);
     }
 
-    public function tamaraPaymentRedirect(Request $request) {
-        echo "<pre>";print_r($request->all());die;
+    public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        // echo "<pre>";print_r($request->all());die;
+         return response()->json([
+            'data' => $request->all(),
+        ]);
+        // $customer = Customer::where('email', $request->input('customerEmail'))->first();
+        // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
+        $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
+        // echo "<pre>";print_r($order);
+        $createPaymentForOrderService->execute(
+            $order,
+            'paytabs',
+            $request['respStatus'],
+            // $customer->id,
+            $order->user_id,
+            $request->input('tranRef'),
+            $request['respMessage'],
+        );
+
+        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
     }
 
     public function tamaraPaymentWebhook(Request $request) {
         if($request->event_type == 'order_approved') {
             $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "https://api-sandbox.tamara.co/orders/".$request->order_id."/authorise");
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id."/authorise");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
 
@@ -2684,7 +2640,7 @@ class OrderController extends Controller
             // Close cURL session
             curl_close($ch);
         } elseif($request->event_type == 'order_authorised') {
-            $url = "https://api-sandbox.tamara.co/payments/capture";
+            $url = env('TAMARA_API_URL')."payments/capture";
 
             $data = [
                 "order_id" => $request->order_id,

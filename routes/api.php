@@ -104,6 +104,6 @@ Route::prefix('faqs')->group(function () {
     Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
     Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
 
-    Route::any('/tamaraPaymentRedirect', [OrderController::class, 'tamaraPaymentRedirect']);
-    Route::any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
+    Route::withoutMiddleware('restrict.domains')->post('/tamaraPaymentResponse', [OrderController::class, 'tamaraPaymentResponse']);
+    Route::withoutMiddleware('restrict.domains')->any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
 });
