@@ -280,31 +280,64 @@ class OrderController extends Controller
         $coupon_code = $request->input('couponCode');
         if(isset($coupon_code) && !empty($request->input('couponCode'))) {
             if(!isset($request->couponData) && empty($request->couponData)) {
-                return response()->json(['couponMessage' => 'Apply Coupon First']);
+                return response()->json(['couponMessage' => 'Apply or Remove Coupon First']);
             }
-                $curl = curl_init();
+            $curl = curl_init();
 
-                curl_setopt_array($curl, array(
-                    CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL').'Coupon/ActiveCoupons?salesType='.$request->couponData['salesType'].'&company='.$request->couponData['company'].'&mobileNo='.$request->billingAddress['mobile'].'&email='.$request->billingAddress['email'].'&couponRegistrationId='.$request->couponData['couponRegistrationId'],
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_ENCODING => '',
-                    CURLOPT_MAXREDIRS => 10,
-                    CURLOPT_TIMEOUT => 0,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                    CURLOPT_CUSTOMREQUEST => 'GET',
-                ));
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL').'Coupon/ActiveCoupons?salesType='.$request->couponData['salesType'].'&company='.$request->couponData['company'].'&mobileNo='.$request->billingAddress['mobile'].'&email='.$request->billingAddress['email'].'&couponRegistrationId='.$request->couponData['couponRegistrationId'],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+            ));
 
-                $response = curl_exec($curl);
+            $response = curl_exec($curl);
 
-                curl_close($curl);
-                $decode = json_decode($response);
-                // echo "<pre>";print_r($decode);
-                if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
-                    return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
-                }
+            curl_close($curl);
+            $decode = json_decode($response);
+            // echo "<pre>";print_r($decode->data[0]);die;
+            if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
+                return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
+            }
+
+            $curl = curl_init();
+
+            $payload = [
+                'couponRegistrationId' => $decode->data[0]->couponRegistrationId,
+                'couponId'             => $decode->data[0]->couponId,
+                'refDocNo'             => '1234567890',
+                'salesType'            => $decode->data[0]->salesType,
+                'company'              => $decode->data[0]->company,
+                'whsCode'              => $decode->data[0]->whsCode,
+                // 'discAmount'           => 27.50,
+                'netAmount'            => 477.50,
+            ];
+
+            curl_setopt_array($curl, [
+                CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING       => '',
+                CURLOPT_MAXREDIRS      => 10,
+                CURLOPT_TIMEOUT        => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST  => 'POST',
+                CURLOPT_POSTFIELDS     => json_encode($payload),
+                CURLOPT_HTTPHEADER     => [
+                    'Content-Type: application/json'
+                ],
+            ]);
+
+            $response = curl_exec($curl);
+
+            curl_close($curl);
+            echo $response;
         }
-        die;
+        // die();
 
         $cashback = Promotion::select('promotions.name', 'cashback_rules.id', 'cashback_percentage', 'cashback_amount', 'duration')->where('type', 'cashback')->where('start_date', '<=', now())->where('end_date', '>=', now())->leftJoin('cashback_rules', 'promotions.id', '=', 'cashback_rules.promotion_id')->first();
         if($cashback) {
@@ -1239,39 +1272,41 @@ class OrderController extends Controller
             //         ]);
             //     }
             // }
+            $coupon_code = $request->input('couponCode');
+            if(isset($coupon_code) && !empty($request->input('couponCode'))) {
+                $curl = curl_init();
 
-            $curl = curl_init();
+                $payload = [
+                    'couponRegistrationId' => $decode->data[0]->couponRegistrationId,
+                    'couponId'             => $decode->data[0]->couponId,
+                    'refDocNo'             => $order->code,
+                    'salesType'            => $decode->data[0]->salesType,
+                    'company'              => $decode->data[0]->company,
+                    'whsCode'              => $decode->data[0]->whsCode,
+                    // 'discAmount'           => 27.50,
+                    'netAmount'            => $order->amount,
+                ];
 
-            $payload = [
-                'couponRegistrationId' => $request->couponData['couponRegistrationId'],
-                'couponId'             => $request->couponData['couponId'],
-                'refDocNo'             => $order->code,
-                'salesType'            => $request->couponData['salesType'],
-                'company'              => $request->couponData['company'],
-                'whsCode'              => $request->couponData['whsCode'],
-                // 'discAmount'           => 27.50,
-                'netAmount'            => $order->amount,
-            ];
+                curl_setopt_array($curl, [
+                    CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_ENCODING       => '',
+                    CURLOPT_MAXREDIRS      => 10,
+                    CURLOPT_TIMEOUT        => 0,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+                    CURLOPT_CUSTOMREQUEST  => 'POST',
+                    CURLOPT_POSTFIELDS     => json_encode($payload),
+                    CURLOPT_HTTPHEADER     => [
+                        'Content-Type: application/json'
+                    ],
+                ]);
 
-            curl_setopt_array($curl, [
-                CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING       => '',
-                CURLOPT_MAXREDIRS      => 10,
-                CURLOPT_TIMEOUT        => 0,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST  => 'POST',
-                CURLOPT_POSTFIELDS     => json_encode($payload),
-                CURLOPT_HTTPHEADER     => [
-                    'Content-Type: application/json'
-                ],
-            ]);
+                $response = curl_exec($curl);
 
-            $response = curl_exec($curl);
-
-            curl_close($curl);
-            // echo $response;
+                curl_close($curl);
+                // echo $response;
+            }
 
             if($request->input('customer_id')) {
                 $loggedInCustomer = Customer::where('id', $request->input('customer_id'))->first();
