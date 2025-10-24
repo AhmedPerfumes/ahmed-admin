@@ -34,7 +34,7 @@ class ProductReviewController extends Controller
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:ec_products,id',
             'star' => 'required|integer|min:1|max:5',
-            'comment' => 'required|string|min:10',
+            'comment' => 'required|string',
             'customer_name' => 'required|string|max:100',
             'customer_email' => 'required|email|max:100',
         ]);
