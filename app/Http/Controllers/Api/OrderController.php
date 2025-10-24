@@ -35,7 +35,8 @@ use Botble\Payment\Models\Payment;
 class OrderController extends Controller
 {
     public function storeOrder(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-        // die;
+        // echo "<pre>";print_r($request->all());die;
+
         $validator = Validator::make($request->all(), [
             'products'      => 'required'
         ]);
@@ -61,8 +62,8 @@ class OrderController extends Controller
                 ]);
             }
 
-            // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=123456";
-            // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
+            // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=123456";
+            // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
 
             // $ch = curl_init();
 
@@ -276,6 +277,68 @@ class OrderController extends Controller
         //     }
         // }
 
+        $coupon_code = $request->input('couponCode');
+        if(isset($coupon_code) && !empty($request->input('couponCode'))) {
+            if(!isset($request->couponData) && empty($request->couponData)) {
+                return response()->json(['couponMessage' => 'Apply or Remove Coupon First']);
+            }
+            $curl = curl_init();
+
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL').'Coupon/ActiveCoupons?salesType='.$request->couponData['salesType'].'&company='.$request->couponData['company'].'&mobileNo='.$request->billingAddress['mobile'].'&email='.$request->billingAddress['email'].'&couponRegistrationId='.$request->couponData['couponRegistrationId'],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+            ));
+
+            $response = curl_exec($curl);
+
+            curl_close($curl);
+            $decode = json_decode($response);
+            // echo "<pre>";print_r($decode->data[0]);die;
+            if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
+                return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
+            }
+
+            $curl = curl_init();
+
+            $payload = [
+                'couponRegistrationId' => $decode->data[0]->couponRegistrationId,
+                'couponId'             => $decode->data[0]->couponId,
+                'refDocNo'             => '1234567890',
+                'salesType'            => $decode->data[0]->salesType,
+                'company'              => $decode->data[0]->company,
+                'whsCode'              => $decode->data[0]->whsCode,
+                // 'discAmount'           => 27.50,
+                'netAmount'            => 477.50,
+            ];
+
+            curl_setopt_array($curl, [
+                CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING       => '',
+                CURLOPT_MAXREDIRS      => 10,
+                CURLOPT_TIMEOUT        => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST  => 'POST',
+                CURLOPT_POSTFIELDS     => json_encode($payload),
+                CURLOPT_HTTPHEADER     => [
+                    'Content-Type: application/json'
+                ],
+            ]);
+
+            $response = curl_exec($curl);
+
+            curl_close($curl);
+            echo $response;
+        }
+        // die();
+
         $cashback = Promotion::select('promotions.name', 'cashback_rules.id', 'cashback_percentage', 'cashback_amount', 'duration')->where('type', 'cashback')->where('start_date', '<=', now())->where('end_date', '>=', now())->leftJoin('cashback_rules', 'promotions.id', '=', 'cashback_rules.promotion_id')->first();
         if($cashback) {
             $coupon_code = !is_null($cashback->cashback_percentage) ? 'CASHBACK'.intval($cashback->cashback_percentage) : 'CASHBACK'.intval($cashback->cashback_amount);
@@ -484,7 +547,7 @@ class OrderController extends Controller
                     'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                 ]);
 
-                if($request->input('payment_method') == 'paytabs') {            
+                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {            
                     $data = [
                         "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $loggedInCustomer->name,
                         "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $loggedInCustomer->email,
@@ -493,6 +556,8 @@ class OrderController extends Controller
                         "city"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->city,
                         "state"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->state,
                         "country"=> "AE",
+                        "first_name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name') : $loggedInCustomer->name,
+                        "last_name"=> $request->input('shippingAddress.last_name') ? $request->input('shippingAddress.last_name') : $loggedInCustomer->name,
                         // "zip"=> "54321"
                     ];
                     // $resp = $this->payTabsPayment($request, $data);
@@ -515,7 +580,7 @@ class OrderController extends Controller
                     'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                 ]);
 
-                if($request->input('payment_method') == 'paytabs') {
+                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {
                     $data = [
                         "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
                         "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $request->input('billingAddress.email'),
@@ -524,6 +589,8 @@ class OrderController extends Controller
                         "city"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
                         "state"=> $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $request->input('billingAddress.emirates'),
                         "country"=> "AE",
+                        "first_name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name') : $request->input('billingAddress.first_name'),
+                        "last_name"=> $request->input('shippingAddress.last_name') ? $request->input('shippingAddress.last_name') : $request->input('billingAddress.last_name'),
                         // "zip"=> "54321"
                     ];
                     // $resp = $this->payTabsPayment($request, $data);
@@ -607,6 +674,7 @@ class OrderController extends Controller
                     $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
                     if ($individualRule) {
                         $exisProduct->discount = (object) [
+                            'name' => $individualDiscount->name,
                             'value' => intval($individualRule->value),
                             'apply_to' => $discountRule->apply_to,
                             'discount_type' => $individualRule->discount_type,
@@ -638,6 +706,7 @@ class OrderController extends Controller
                         $discountRule = $groupDiscount->discountRules->first();
                         if ($discountRule) {
                             $exisProduct->discount = (object) [
+                                'name' => $groupDiscount->name,
                                 'value' => intval($discountRule->percentage),
                                 'apply_to' => $discountRule->apply_to,
                                 'discount_type' => 'percent',
@@ -735,8 +804,8 @@ class OrderController extends Controller
                     $exisProduct->is_gift = 1;
                 }
 
-                if((isset($product['is_customer_coupon']) && $product['is_customer_coupon'] == true)) {
-                    $exisProduct->is_customer_coupon = 1;
+                if((isset($product['is_coupon']) && $product['is_coupon'] == true)) {
+                    $exisProduct->is_coupon = 1;
                 }
 
                 array_push($prod, $exisProduct);
@@ -776,6 +845,7 @@ class OrderController extends Controller
                             'product_category' => $product['category_name'],
                             'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                             'vat' => $request->input('vatTax'),
+                            'campaign' => $exisProduct->discount->name,
                         ];   
                     } elseif($exisProduct->discount->discount_type == 'amount') {
                         // echo "Discount Amount";
@@ -826,43 +896,46 @@ class OrderController extends Controller
                             'product_category' => $product['category_name'],
                             'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                             'vat' => $request->input('vatTax'),
+                            'campaign' => $exisProduct->discount->name,
                         ];
                     }
-                } elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
-                    // echo 'Coupon';
-                    // echo '\n ';
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = $price * $quantity;
-                    $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
-                    $discount_amount = ($total_amount / 100) * $discount_percent;
-                    $net_amount = $total_amount - $discount_amount;
-                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    $gross_amount = $net_amount + $tax_amount;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                }
+                // elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
+                //     // echo 'Coupon';
+                //     // echo '\n ';
+                //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     $total_amount = $price * $quantity;
+                //     $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
+                //     $discount_amount = ($total_amount / 100) * $discount_percent;
+                //     $net_amount = $total_amount - $discount_amount;
+                //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     $gross_amount = $net_amount + $tax_amount;
+                //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                 
-                    $orderProduct = [
-                        'order_id' => $order->id,
-                        'product_id' => $product['product_id'],
-                        'product_name' => $exisProduct->name,
-                        'product_image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'weight' => $exisProduct->weight,
-                        'price' => $price,
-                        'total_amount' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'product_options' => [],
-                        'options' => json_encode($options),
-                        'product_type' => $exisProduct->product_type,
-                        'product_category' => $product['category_name'],
-                        'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                        'vat' => $request->input('vatTax'),
-                        'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : $request->input('couponCode'),
-                    ];
-                } elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price) ) {
+                //     $orderProduct = [
+                //         'order_id' => $order->id,
+                //         'product_id' => $product['product_id'],
+                //         'product_name' => $exisProduct->name,
+                //         'product_image' => $exisProduct->image,
+                //         'qty' => $quantity,
+                //         'weight' => $exisProduct->weight,
+                //         'price' => $price,
+                //         'total_amount' => $total_amount,
+                //         'discount_percent' => $discount_percent,
+                //         'discount_amount' => $discount_amount,
+                //         'net_amount' => $net_amount,
+                //         'tax_amount' => $tax_amount,
+                //         'gross_amount' => $gross_amount,
+                //         'product_options' => [],
+                //         'options' => json_encode($options),
+                //         'product_type' => $exisProduct->product_type,
+                //         'product_category' => $product['category_name'],
+                //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
+                //         'vat' => $request->input('vatTax'),
+                //         'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : $request->input('couponCode'),
+                //     ];
+                // }
+                elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
                     // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
                         // echo 'Customer Coupon Percent';
                         // echo '\n ';
@@ -1067,8 +1140,8 @@ class OrderController extends Controller
                     ->where('quantity', '>=', $quantity)
                     ->decrement('quantity', $quantity);
 
-                // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=123456";
-                // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
+                // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=123456";
+                // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
 
                 // $ch = curl_init();
 
@@ -1157,7 +1230,7 @@ class OrderController extends Controller
             }
             // die(';;;');
 
-            // $url = "https://c21341-ifservice.cloudiax.com/api/ECommerce/StockStatus?itemCode=".implode(',', $barcodes);
+            // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=".implode(',', $barcodes);
 
             // $ch = curl_init();
 
@@ -1203,6 +1276,41 @@ class OrderController extends Controller
             //         ]);
             //     }
             // }
+            $coupon_code = $request->input('couponCode');
+            if(isset($coupon_code) && !empty($request->input('couponCode'))) {
+                $curl = curl_init();
+
+                $payload = [
+                    'couponRegistrationId' => $decode->data[0]->couponRegistrationId,
+                    'couponId'             => $decode->data[0]->couponId,
+                    'refDocNo'             => $order->code,
+                    'salesType'            => $decode->data[0]->salesType,
+                    'company'              => $decode->data[0]->company,
+                    'whsCode'              => $decode->data[0]->whsCode,
+                    // 'discAmount'           => 27.50,
+                    'netAmount'            => $order->amount,
+                ];
+
+                curl_setopt_array($curl, [
+                    CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_ENCODING       => '',
+                    CURLOPT_MAXREDIRS      => 10,
+                    CURLOPT_TIMEOUT        => 0,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+                    CURLOPT_CUSTOMREQUEST  => 'POST',
+                    CURLOPT_POSTFIELDS     => json_encode($payload),
+                    CURLOPT_HTTPHEADER     => [
+                        'Content-Type: application/json'
+                    ],
+                ]);
+
+                $response = curl_exec($curl);
+
+                curl_close($curl);
+                // echo $response;
+            }
 
             if($request->input('customer_id')) {
                 $loggedInCustomer = Customer::where('id', $request->input('customer_id'))->first();
@@ -1458,41 +1566,43 @@ class OrderController extends Controller
                             'options' => json_encode($options),
                         ];
                     }
-                } elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = $price * $quantity;
-                    $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
-                    $discount_amount = ($total_amount / 100) * $discount_percent;
-                    $net_amount = $total_amount - $discount_amount;
-                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    $gross_amount = $net_amount + $tax_amount;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                }
+                // elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
+                //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     $total_amount = $price * $quantity;
+                //     $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
+                //     $discount_amount = ($total_amount / 100) * $discount_percent;
+                //     $net_amount = $total_amount - $discount_amount;
+                //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     $gross_amount = $net_amount + $tax_amount;
+                //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                 
-                    $orderProduct = [
-                        'invoice_id' => $invoice->id,
-                        'reference_type' => 'Botble\Ecommerce\Models\Product',
-                        'reference_id' => $exisProduct->id,
-                        'name' => $exisProduct->name,
-                        // 'description' => $exisProduct->description,
-                        'image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'price' => $price,
-                        'sub_total' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'amount' => $gross_amount,
-                        'options' => json_encode($options),
-                    ];
-                } elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price) ) {
+                //     $orderProduct = [
+                //         'invoice_id' => $invoice->id,
+                //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //         'reference_id' => $exisProduct->id,
+                //         'name' => $exisProduct->name,
+                //         // 'description' => $exisProduct->description,
+                //         'image' => $exisProduct->image,
+                //         'qty' => $quantity,
+                //         'price' => $price,
+                //         'sub_total' => $total_amount,
+                //         'discount_percent' => $discount_percent,
+                //         'discount_amount' => $discount_amount,
+                //         'net_amount' => $net_amount,
+                //         'tax_amount' => $tax_amount,
+                //         'gross_amount' => $gross_amount,
+                //         'amount' => $gross_amount,
+                //         'options' => json_encode($options),
+                //     ];
+                // }
+                elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
                         // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
                         // echo 'Customer Coupon Percent';
                         // echo '\n ';
                         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                         $total_amount = $price * $quantity;
-                        $discount_percent =$product['value'];
+                        $discount_percent = $product['value'];
                         $discount_amount = ($total_amount / 100) * $discount_percent;
                         $net_amount = $total_amount - $discount_amount;
                         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
@@ -1654,6 +1764,23 @@ class OrderController extends Controller
                         'shipping_amount'  => $order->shipping_amount,
                         'products'         => $prod,
                         'redirect_url'     => $resp['redirect_url']
+                    ]);
+                }
+            }
+
+            if($request->input('payment_method') == 'tamara') {
+                $resp = $this->tamaraPayment($request, $data, $order, $prod);
+
+                if($resp['checkout_url']) {
+                    return response()->json([
+                        'message'          => 'Redirecting to Tamara...',
+                        'order_id'         => $order->code,
+                        'payment_method'   => $request->input('payment_method'),
+                        'total'            => $order->amount,
+                        'sub_total'        => $order->sub_total,
+                        'shipping_amount'  => $order->shipping_amount,
+                        'products'         => $prod,
+                        'redirect_url'     => $resp['checkout_url']
                     ]);
                 }
             }
@@ -2349,5 +2476,240 @@ class OrderController extends Controller
         return response()->json([
             'message' => 'Customer Found Successfully',
         ]);
+    }
+
+    public function tamaraPayment(Request $request, $shippingData, $order, $prods) {
+
+        $curl = curl_init();
+
+        $payload = [
+            "total_amount" => [
+                "amount" => (float) $request->input('finalPrice'),
+                "currency" => "AED"
+            ],
+            "shipping_amount" => [
+                "amount" => (float) $request->input('shippingPrice'),
+                "currency" => "AED"
+            ],
+            "tax_amount" => [
+                "amount" => $order->tax_amount * (1 + ($request->input('vatTax') / 100)),
+                "currency" => "AED"
+            ],
+            "order_reference_id" => explode('#', $order->code)[1],
+            "order_number" => $order->code,
+            "items" => [],
+            "consumer" => [
+                "email" => $request->input("billingAddress.email"),
+                "first_name" => $request->input("billingAddress.first_name"),
+                "last_name" => $request->input("billingAddress.last_name"),
+                "phone_number" => $request->input('billingAddress.mobile')
+            ],
+            "country_code" => "AE",
+            "description" => "AMG Order",
+            "merchant_url" => [
+                "cancel" => env('CUSTOM_URL')."tamara-payment-redirect/#/cancel",
+                "failure" => env('CUSTOM_URL')."tamara-payment-redirect/#/fail",
+                "success" => env('CUSTOM_URL')."tamara-payment-redirect/#/success"
+            ],
+            "payment_type" => "PAY_BY_INSTALMENTS",
+            "instalments" => 3,
+            "billing_address" => [
+                "city" => $request->input("billingAddress.emirates"),
+                "country_code" => "AE",
+                "first_name" => $request->input("billingAddress.first_name"),
+                "last_name" => $request->input("billingAddress.last_name"),
+                "line1" => $request->input("billingAddress.area") . " " . $request->input("billingAddress.building"),
+                "phone_number" => $request->input('billingAddress.mobile')
+            ],
+            "shipping_address" => [
+                "city" => $shippingData["city"],
+                "country_code" => "AE",
+                "first_name" => $shippingData["first_name"],
+                "last_name" => $shippingData["last_name"],
+                "line1" => $shippingData["street1"],
+                "phone_number" => $shippingData["phone"]
+            ],
+            "locale" => "en_US"
+        ];
+
+        foreach ($prods as $item) {
+            $vatPercent = $request->input('vatTax'); // e.g., 5 or 15
+            $totalAmount = (float) $item['price']; // already includes VAT
+            
+            // Unit price excluding VAT
+            $unitPrice = $totalAmount / (1 + ($vatPercent / 100));
+
+            // Tax = total - unit price
+            $taxAmount = $totalAmount - $unitPrice;
+
+            $payload['items'][] = [
+                "name" => $item['name'],
+                "type" => "Physical",
+                "reference_id" => (string)$item['id'],
+                "quantity" => $item['qty'],
+                "sku" => $item['sku'],
+                "unit_price" => [
+                    "amount" => round($unitPrice, 2),
+                    "currency" => "AED"
+                ],
+                "total_amount" => [
+                    "amount" => round($totalAmount, 2),
+                    "currency" => "AED"
+                ],
+                "tax_amount" => [
+                    "amount" => round($taxAmount, 2),
+                    "currency" => "AED"
+                ],
+            ];
+        }
+
+        // echo "<pre>";print_r($payload);die;
+
+        $curl = curl_init();
+
+        curl_setopt_array($curl, [
+            CURLOPT_URL => env('TAMARA_API_URL').'checkout',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ],
+        ]);
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        // echo $response;die;
+        return json_decode($response, true);
+    }
+
+    public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        // echo "<pre>";print_r($request->all());die;
+         return response()->json([
+            'data' => $request->all(),
+        ]);
+        // $customer = Customer::where('email', $request->input('customerEmail'))->first();
+        // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
+        $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
+        // echo "<pre>";print_r($order);
+        $createPaymentForOrderService->execute(
+            $order,
+            'paytabs',
+            $request['respStatus'],
+            // $customer->id,
+            $order->user_id,
+            $request->input('tranRef'),
+            $request['respMessage'],
+        );
+
+        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+    }
+
+    public function tamaraPaymentWebhook(Request $request) {
+        if($request->event_type == 'order_approved') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id."/authorise");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                echo 'order_approved Curl error: ' . curl_error($ch);
+            } else {
+                echo 'order_approved Response: ' . $response;
+            }
+
+            // Close cURL session
+            curl_close($ch);
+        } elseif($request->event_type == 'order_authorised') {
+            $url = env('TAMARA_API_URL')."payments/capture";
+
+            $data = [
+                "order_id" => $request->order_id,
+                "total_amount" => [
+                    "amount" => 198,
+                    "currency" => "AED"
+                ],
+                "items" => [
+                    [
+                        "name" => "Marj",
+                        "type" => "Physical",
+                        "reference_id" => "49",
+                        "sku" => "FGD01506",
+                        "quantity" => 1,
+                        "tax_amount" => [
+                            "amount" => 7.86,
+                            "currency" => "AED"
+                        ],
+                        "unit_price" => [
+                            "amount" => 157.15,
+                            "currency" => "AED"
+                        ],
+                        "total_amount" => [
+                            "amount" => 165,
+                            "currency" => "AED"
+                        ]
+                    ]
+                ],
+                "shipping_amount" => [
+                    "amount" => 20,
+                    "currency" => "AED"
+                ],
+                "tax_amount" => [
+                    "amount" => 9.43,
+                    "currency" => "AED"
+                ],
+                "shipping_info" => [
+                    "shipped_at" => "2025-10-10T17:25:00.677Z",
+                    "shipping_company" => "SMSA"
+                ]
+            ];
+
+            // Initialize cURL session
+            $ch = curl_init($url);
+
+            // Set cURL options
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ]);
+
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+            // Execute cURL request
+            $response = curl_exec($ch);
+
+            // Error handling
+            if (curl_errno($ch)) {
+                echo 'order_authorised Curl error: ' . curl_error($ch);
+            } else {
+                echo "order_authorised Response:\n" . $response;
+            }
+
+            curl_close($ch);
+
+        }
+
     }
 }
