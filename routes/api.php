@@ -104,3 +104,15 @@ Route::prefix('faqs')->group(function () {
     Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
     Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
 });
+
+// New route to start the payment process.
+Route::post('/initiate-payment', [OrderController::class, 'initiatePayment']);
+
+// New route for the PayTabs callback to finalize the payment.
+Route::match(['get', 'post'], '/finalize-payment', [OrderController::class, 'finalizePayment']);
+
+Route::get('/order-status/{cartId}', [OrderController::class, 'getOrderStatus']);
+
+Route::match(['get', 'post'], '/payment-test', function (\Illuminate\Http\Request $request) {
+    return $request->all();
+});

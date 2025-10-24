@@ -27,6 +27,7 @@ class Order extends BaseModel
     protected $table = 'ec_orders';
 
     protected $fillable = [
+        'payment_cart_id',
         'status',
         'user_id',
         'amount',
