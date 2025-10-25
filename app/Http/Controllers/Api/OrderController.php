@@ -282,18 +282,31 @@ class OrderController extends Controller
             if(!isset($request->couponData) && empty($request->couponData)) {
                 return response()->json(['couponMessage' => 'Apply or Remove Coupon First']);
             }
+ $postData = [
+        'salesType' => $request->couponData['salesType'] ?? '',
+        'company' => $request->couponData['company'] ?? '',
+        'mobileNo' => $request->billingAddress['mobile'] ?? '',
+        'email' => $request->billingAddress['email'] ?? '',
+        'couponRegistrationId' => $request->couponData['couponRegistrationId'] ?? '',
+        'couponCode' => $coupon_code,
+    ];
+
             $curl = curl_init();
 
-            curl_setopt_array($curl, array(
-                CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL').'Coupon/ActiveCoupons?salesType='.$request->couponData['salesType'].'&company='.$request->couponData['company'].'&mobileNo='.$request->billingAddress['mobile'].'&email='.$request->billingAddress['email'].'&couponRegistrationId='.$request->couponData['couponRegistrationId'],
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST => 'GET',
-            ));
+           curl_setopt_array($curl, [
+        CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL').'Coupon/ActiveCoupons', // ✅ POST URL
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => 'POST', // ✅ Changed to POST
+        CURLOPT_POSTFIELDS => json_encode($postData), // ✅ Send data as JSON
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+        ],
+    ]);
 
             $response = curl_exec($curl);
 
@@ -335,7 +348,7 @@ class OrderController extends Controller
             $response = curl_exec($curl);
 
             curl_close($curl);
-            echo $response;
+            // echo $response; // This was causing the "Unexpected non-whitespace character" error.
         }
         // die();
 
@@ -1309,7 +1322,6 @@ class OrderController extends Controller
                 $response = curl_exec($curl);
 
                 curl_close($curl);
-                // echo $response;
             }
 
             if($request->input('customer_id')) {
@@ -1847,12 +1859,12 @@ class OrderController extends Controller
             "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
         ];
 
-        $PROFILE_ID = config('paytabs.profile_id');;
+        $PROFILE_ID = 48012;
         // $PROFILE_ID = 48353;
-        $SERVER_KEY = config('paytabs.server_key');
+        $SERVER_KEY = 'SBJNLMDM92-HZKWN6WW6D-NTDHZ9RBMJ';
         // $SERVER_KEY = 'S6JNLMDMDL-HZM2DZDHLN-GW2NZ6DKK2';
 
-        $BASE_URL = config('paytabs.base_url');
+        $BASE_URL = 'https://secure.paytabs.com/payment/request';
 
         $data['profile_id'] = $PROFILE_ID;
         $curl = curl_init();
