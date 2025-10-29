@@ -95,10 +95,10 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     //FAQ API
    
 
-Route::prefix('faqs')->group(function () {
-    Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
-    Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
-});
+    Route::prefix('faqs')->group(function () {
+        Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
+        Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
+    });
 
     Route::post('/getCart', [CartController::class, 'getCart']);
     Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);

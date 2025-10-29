@@ -470,26 +470,26 @@ class OrderController extends Controller
         //     'cod_charge' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)),
         //     'cod_charge_vat' => $request->input('codPriceVat') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
         // ]);die();
-        $userId = $customer_id;
-        $now = Carbon::now();
-        $fiveMinutesAgo = Carbon::now()->subMinutes(5);
+        // $userId = $customer_id;
+        // $now = Carbon::now();
+        // $fiveMinutesAgo = Carbon::now()->subMinutes(5);
 
-        // Optionally, get order contents for matching (e.g. same total or cart hash)
-        $total = $request->input('finalPrice'); // Example field
+        // // Optionally, get order contents for matching (e.g. same total or cart hash)
+        // $total = $request->input('finalPrice'); // Example field
 
-        $existingOrder = Order::where('user_id', $userId)
-            ->where('amount', $total)
-            ->where('created_at', '>=', $fiveMinutesAgo)
-            ->whereHas('payment', function ($query) {
-                $query->where('status', 'completed');
-            })
-            ->first();
+        // $existingOrder = Order::where('user_id', $userId)
+        //     ->where('amount', $total)
+        //     ->where('created_at', '>=', $fiveMinutesAgo)
+        //     ->whereHas('payment', function ($query) {
+        //         $query->where('status', 'completed');
+        //     })
+        //     ->first();
 
-        if ($existingOrder) {
-            return response()->json([
-                'duplicateOrderMessage' => 'You order has been placed already. Order Id: ' . $existingOrder->code
-            ]);
-        }
+        // if ($existingOrder) {
+        //     return response()->json([
+        //         'duplicateOrderMessage' => 'You order has been placed already. Order Id: ' . $existingOrder->code
+        //     ]);
+        // }
         $order = Order::create([
             'user_id' => $customer_id,
             'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
@@ -2592,27 +2592,69 @@ class OrderController extends Controller
 
     public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
         // echo "<pre>";print_r($request->all());die;
-         return response()->json([
-            'data' => $request->all(),
-        ]);
-        // $customer = Customer::where('email', $request->input('customerEmail'))->first();
-        // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
-        $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
-        // echo "<pre>";print_r($order);
-        $createPaymentForOrderService->execute(
-            $order,
-            'paytabs',
-            $request['respStatus'],
-            // $customer->id,
-            $order->user_id,
-            $request->input('tranRef'),
-            $request['respMessage'],
-        );
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->orderId);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
 
-        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Authorization: Bearer ' . env('TAMARA_TOKEN')
+        ];
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+        // Execute the request
+        $response = curl_exec($ch);
+
+        // Check for errors
+        if (curl_errno($ch)) {
+            echo 'order_approved Curl error: ' . curl_error($ch);exit;
+        }
+
+        // Close cURL session
+        curl_close($ch);
+
+        $resp = json_decode($response, true);
+
+        // echo "<pre>";print_r($resp);exit;
+
+        if(!$resp['order_number'] && !isset($resp['order_number']) && empty($resp['order_number'])) {
+            return response()->json(['message' => 'Transaction not found']);
+        }
+
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'ec_orders.cod_charge', 'ec_order_addresses.name')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $resp['order_number'])->first();
+
+        if(!$order) {
+            return response()->json(['message' => 'Order not found']);
+        }
+
+        $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        return response()->json([
+            'message'          => 'Details Fetched successfully',
+            'order_id'         => $order->code,
+            // 'payment_method'   => $order->payment_channel,
+            'total'            => $order->amount,
+            'sub_total'        => $order->sub_total,
+            'shipping_amount'  => $order->shipping_amount,
+            'status'           => $order->status,
+            'created_at'       => $order->created_at,
+            'service_amount'   => $order->service_amount,
+            'vat_amount'       => $order->vat,
+            'tax_amount'       => $order->tax_amount,
+            // 'payment_status'   => $order->payment_status,
+            'id'                =>   $order->id,
+            'customer_name'=> $order->name,
+            'products'         => $prod,
+            'cod_charge'   => $order->cod_charge
+        ]);
+
+        // header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
     }
 
-    public function tamaraPaymentWebhook(Request $request) {
+    public function tamaraPaymentWebhook(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
         if($request->event_type == 'order_approved') {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id."/authorise");
@@ -2640,45 +2682,44 @@ class OrderController extends Controller
             // Close cURL session
             curl_close($ch);
         } elseif($request->event_type == 'order_authorised') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $first_response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $first_resp = json_decode($first_response, true);
+
+            // echo "<pre>";print_r($first_resp);exit;
+
             $url = env('TAMARA_API_URL')."payments/capture";
 
             $data = [
                 "order_id" => $request->order_id,
-                "total_amount" => [
-                    "amount" => 198,
-                    "currency" => "AED"
-                ],
-                "items" => [
-                    [
-                        "name" => "Marj",
-                        "type" => "Physical",
-                        "reference_id" => "49",
-                        "sku" => "FGD01506",
-                        "quantity" => 1,
-                        "tax_amount" => [
-                            "amount" => 7.86,
-                            "currency" => "AED"
-                        ],
-                        "unit_price" => [
-                            "amount" => 157.15,
-                            "currency" => "AED"
-                        ],
-                        "total_amount" => [
-                            "amount" => 165,
-                            "currency" => "AED"
-                        ]
-                    ]
-                ],
-                "shipping_amount" => [
-                    "amount" => 20,
-                    "currency" => "AED"
-                ],
-                "tax_amount" => [
-                    "amount" => 9.43,
-                    "currency" => "AED"
-                ],
+                "total_amount" => $first_resp['total_amount'],
+                "items" => $first_resp['items'],
+                "shipping_amount" => $first_resp['shipping_amount'],
+                "tax_amount" => $first_resp['tax_amount'],
                 "shipping_info" => [
-                    "shipped_at" => "2025-10-10T17:25:00.677Z",
+                    "shipped_at" => now(),
                     "shipping_company" => "SMSA"
                 ]
             ];
@@ -2698,18 +2739,140 @@ class OrderController extends Controller
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
             // Execute cURL request
-            $response = curl_exec($ch);
+            $second_response = curl_exec($ch);
 
             // Error handling
             if (curl_errno($ch)) {
                 echo 'order_authorised Curl error: ' . curl_error($ch);
-            } else {
-                echo "order_authorised Response:\n" . $response;
             }
 
             curl_close($ch);
 
-        }
+            $second_resp = json_decode($second_response, true);
 
+            // echo "<pre>";print_r($second_resp);exit;
+
+            if(!isset($second_resp['status']) && $second_resp['status'] != 'fully_captured') {
+                return response()->json([
+                    'message' => 'Order Payment Captured Failed',
+                ]);
+            }
+
+            $order = Order::where('code', $first_resp['order_number'])->orderBy('id', 'desc')->first();
+            // echo "<pre>";print_r($order);
+            $createPaymentForOrderService->execute(
+                $order,
+                'tamara',
+                $second_resp['status'],
+                // $customer->id,
+                $order->user_id,
+                $second_resp['order_id'],
+                $second_resp['status'],
+            );
+
+            return response()->json([
+                'message' => 'Order Payment Captured Successfully',
+            ]);
+        } elseif($request->event_type == 'order_canceled') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            // echo "<pre>";print_r($resp);exit;
+
+            if(!isset($resp['status']) && $resp['status'] != 'canceled') {
+                return response()->json([
+                    'message' => 'Order Payment Canceled Failed',
+                ]);
+            }
+
+            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+            // echo "<pre>";print_r($order);
+            $createPaymentForOrderService->execute(
+                $order,
+                'tamara',
+                $resp['status'],
+                // $customer->id,
+                $order->user_id,
+                $resp['order_id'],
+                $resp['status'],
+            );
+
+            return response()->json([
+                'message' => 'Order Payment Canceled Successfully',
+            ]);
+        } elseif($request->event_type == 'order_declined') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            // echo "<pre>";print_r($resp);exit;
+
+            if(!isset($resp['status']) && $resp['status'] != 'declined') {
+                return response()->json([
+                    'message' => 'Order Payment Declined Failed',
+                ]);
+            }
+
+            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+            // echo "<pre>";print_r($order);
+            $createPaymentForOrderService->execute(
+                $order,
+                'tamara',
+                $resp['status'],
+                // $customer->id,
+                $order->user_id,
+                $resp['order_id'],
+                $request->data->declined_reason,
+            );
+
+            return response()->json([
+                'message' => 'Order Payment Declined Successfully',
+            ]);
+        }
     }
 }

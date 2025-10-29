@@ -48,7 +48,7 @@ class CreatePaymentForOrderService
         if($paymentMethod == 'cod') {
             $paymentStat = $paymentStatus ? $paymentStatus : 'completed';
         } else {
-            $paymentStat = $paymentStatus == 'A' ? 'completed' : 'failed';
+            $paymentStat = $paymentStatus == 'fully_captured' ? 'completed' : 'failed';
         }
 
         $data = [
