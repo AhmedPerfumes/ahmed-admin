@@ -2696,7 +2696,7 @@ class OrderController extends Controller
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
             // Execute the request
-            $first_response = curl_exec($ch);
+            $response = curl_exec($ch);
 
             // Check for errors
             if (curl_errno($ch)) {
@@ -2706,18 +2706,18 @@ class OrderController extends Controller
             // Close cURL session
             curl_close($ch);
 
-            $first_resp = json_decode($first_response, true);
+            $resp = json_decode($response, true);
 
-            // echo "<pre>";print_r($first_resp);exit;
+            // echo "<pre>";print_r($resp);exit;
 
             $url = env('TAMARA_API_URL')."payments/capture";
 
             $data = [
                 "order_id" => $request->order_id,
-                "total_amount" => $first_resp['total_amount'],
-                "items" => $first_resp['items'],
-                "shipping_amount" => $first_resp['shipping_amount'],
-                "tax_amount" => $first_resp['tax_amount'],
+                "total_amount" => $resp['total_amount'],
+                "items" => $resp['items'],
+                "shipping_amount" => $resp['shipping_amount'],
+                "tax_amount" => $resp['tax_amount'],
                 "shipping_info" => [
                     "shipped_at" => now(),
                     "shipping_company" => "SMSA"
@@ -2739,7 +2739,7 @@ class OrderController extends Controller
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
             // Execute cURL request
-            $second_response = curl_exec($ch);
+            $capture_response = curl_exec($ch);
 
             // Error handling
             if (curl_errno($ch)) {
@@ -2748,27 +2748,73 @@ class OrderController extends Controller
 
             curl_close($ch);
 
-            $second_resp = json_decode($second_response, true);
+            $capture_resp = json_decode($capture_response, true);
 
-            // echo "<pre>";print_r($second_resp);exit;
+            // echo "<pre>";print_r($capture_resp);exit;
 
-            if(!isset($second_resp['status']) && $second_resp['status'] != 'fully_captured') {
-                return response()->json([
-                    'message' => 'Order Payment Captured Failed',
-                ]);
-            }
-
-            $order = Order::where('code', $first_resp['order_number'])->orderBy('id', 'desc')->first();
+            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
             // echo "<pre>";print_r($order);
             $createPaymentForOrderService->execute(
                 $order,
                 'tamara',
-                $second_resp['status'],
+                $capture_resp['status'],
                 // $customer->id,
                 $order->user_id,
-                $second_resp['order_id'],
-                $second_resp['status'],
+                $capture_resp['order_id'],
+                $capture_resp['status'],
             );
+
+            if (!isset($capture_resp['status']) || $capture_resp['status'] != 'fully_captured') {
+                // return response()->json([
+                //     'message' => 'Order Payment Captured Failed',
+                // ]);
+
+                $url = env('TAMARA_API_URL')."orders/".$request->order_id."/cancel";
+                
+                // Initialize cURL session
+                $ch = curl_init($url);
+
+                // Set cURL options
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                    'Authorization: Bearer ' . env('TAMARA_TOKEN')
+                ]);
+
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+                // Execute cURL request
+                $cancel_response = curl_exec($ch);
+
+                // Error handling
+                if (curl_errno($ch)) {
+                    echo 'order_authorised Curl error: ' . curl_error($ch);
+                }
+
+                curl_close($ch);
+
+                $cancel_resp = json_decode($cancel_response, true);
+
+                // echo "<pre>";print_r($cancel_resp);exit;
+
+                $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+                // echo "<pre>";print_r($order);
+                $createPaymentForOrderService->execute(
+                    $order,
+                    'tamara',
+                    $cancel_resp['status'],
+                    // $customer->id,
+                    $order->user_id,
+                    $cancel_resp['order_id'],
+                    $cancel_resp['status'],
+                );
+
+                return response()->json([
+                    'message' => 'Order Payment Canceled Successfully',
+                ]);
+            }
 
             return response()->json([
                 'message' => 'Order Payment Captured Successfully',
@@ -2802,7 +2848,7 @@ class OrderController extends Controller
 
             // echo "<pre>";print_r($resp);exit;
 
-            if(!isset($resp['status']) && $resp['status'] != 'canceled') {
+            if(!isset($resp['status']) && $resp['status'] != 'new') {
                 return response()->json([
                     'message' => 'Order Payment Canceled Failed',
                 ]);
@@ -2872,6 +2918,79 @@ class OrderController extends Controller
 
             return response()->json([
                 'message' => 'Order Payment Declined Successfully',
+            ]);
+        } elseif($request->event_type == 'order_refunded') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            // echo "<pre>";print_r($resp);exit;
+
+            if(!isset($resp['status']) || $resp['status'] != 'fully_captured') {
+                return response()->json([
+                    'message' => 'Order Payment Refund Failed',
+                ]);
+            }
+
+            $url = env('TAMARA_API_URL')."payments/simplified-refund/".$request->order_id;
+
+            $data = [
+                "total_amount" => $resp['total_amount'],
+                "comment" => "Refund for the order".$resp['order_number']
+            ];
+
+            // Initialize cURL session
+            $ch = curl_init($url);
+
+            // Set cURL options
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ]);
+
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+            // Execute cURL request
+            $refund_response = curl_exec($ch);
+
+            // Error handling
+            if (curl_errno($ch)) {
+                echo 'order_authorised Curl error: ' . curl_error($ch);
+            }
+
+            curl_close($ch);
+
+            $refund_resp = json_decode($refund_response, true);
+
+            // echo "<pre>";print_r($refund_resp);exit;
+
+            return response()->json([
+                'message' => 'Order Payment Refund Successfully',
             ]);
         }
     }
