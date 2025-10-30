@@ -80,39 +80,26 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     Route::get('/getFilters', [ProductController::class, 'getFilters']);
 
-    // Address to get all reviews for a specific product
     Route::get('/products/{product}/reviews', [ApiProductReviewController::class, 'index']);
-    // Address to submit a new review
     Route::post('/reviews', [ApiProductReviewController::class, 'store']);
 
-
     Route::get('/freeGiftProducts', [ProductController::class, 'freeGiftProducts']);
-
     Route::get('/bogoProducts', [ProductController::class, 'bogoProducts']);
+    Route::get('/getCoupons', [OrderController::class, 'getCoupons']);   
 
-    Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
-
-    //FAQ API
-   
-
-Route::prefix('faqs')->group(function () {
-    Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
-    Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
-});
+    Route::prefix('faqs')->group(function () {
+        Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
+        Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
+    });
 
     Route::post('/getCart', [CartController::class, 'getCart']);
     Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
     Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
+    Route::post('/initiate-payment', [OrderController::class, 'initiatePayment']);
+    Route::withoutMiddleware('restrict.domains')->match(['get', 'post'], '/finalize-payment', [OrderController::class, 'finalizePayment']);
 });
 
-// New route to start the payment process.
-Route::post('/initiate-payment', [OrderController::class, 'initiatePayment']);
-
-// New route for the PayTabs callback to finalize the payment.
-Route::match(['get', 'post'], '/finalize-payment', [OrderController::class, 'finalizePayment']);
-
-Route::get('/order-status/{cartId}', [OrderController::class, 'getOrderStatus']);
-
-Route::match(['get', 'post'], '/payment-test', function (\Illuminate\Http\Request $request) {
-    return $request->all();
-});
+// Route::get('/order-status/{cartId}', [OrderController::class, 'getOrderStatus']);
+// Route::match(['get', 'post'], '/payment-test', function (\Illuminate\Http\Request $request) {
+//     return $request->all();
+// });

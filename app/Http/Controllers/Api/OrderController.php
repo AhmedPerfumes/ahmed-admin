@@ -36,6 +36,7 @@ use Botble\Payment\Models\Payment;
 use App\Models\PaymentCart;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Exception;
 
 class OrderController extends Controller
 {
@@ -2476,6 +2477,7 @@ class OrderController extends Controller
     private function _createFinalOrder(Request $orderRequest, int $customer_id, array $paymentDetails, ?string $paymentCartId = null): ?Order {
         DB::beginTransaction();
         try {
+            throw new Exception('Testing rollback');
             $paymentSuccessful = in_array($paymentDetails['status'], ['completed', 'A']);
 
             // Create the main Order record in the database.
@@ -3949,7 +3951,9 @@ class OrderController extends Controller
 
         // 3. --- LOAD THE SAVED CART DATA ---
         $cartData = $paymentCart->cart_data;
-        $orderRequest = new Request($cartData); // Create a new Request object from the saved data.
+        $orderRequest = new Request($cartData); // Create a new R5
+        // 
+        // equest object from the saved data.
 
         // STEP 3: Prepare the payment details package from the actual PayTabs response.
         $paymentDetails = [
@@ -3980,14 +3984,13 @@ class OrderController extends Controller
             $paymentDetails,
             $paymentCart->id // Pass the temporary cart ID to be saved in the final order.
         );
-
-        $paymentCart->delete();
-
-        // If the helper function returned null, it means order creation failed.
+        
         if (!$order) {
-            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order/failure?reason=processing_error';
+            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?cartId=' . $paymentCart->id;
             return redirect($failureUrl);
         }
+
+        $paymentCart->delete();
 
         // STEP 5: Redirect the user's browser to the correct success or failure page on the frontend.
         $isSuccess = ($paymentDetails['status'] === 'A');

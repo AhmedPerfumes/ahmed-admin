@@ -6,6 +6,8 @@ use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\ProductReviewController;
 use Botble\Ecommerce\Http\Controllers\ProductFragranceNoteController;
 
+use App\Http\Controllers\PaymentCartController;
+
 
 // Define a route group with a prefix
 Route::prefix('admin/ecommerce/smsa')->group(function () {
@@ -34,44 +36,20 @@ Route::put('promotions/{promotion}', [PromotionController::class, 'update'])->na
 Route::delete('/promotions/bulk-delete', [PromotionController::class, 'bulkDelete'])->name('promotions.bulkDelete');
 Route::delete('promotions/{promotion}', [PromotionController::class, 'destroy'])->name('promotions.destroy');
 
-// Creates all the necessary admin pages for managing reviews under a single address
 Route::resource('/admin/product-reviews', ProductReviewController::class);
-Route::get('products/get-for-tag-input', [
-    'as' => 'products.get-for-tag-input',
-    'uses' => '\Botble\Ecommerce\Http\Controllers\ProductController@getForTagInput', // Assumes your admin controller is named ProductController
-    'permission' => 'products.index',
-]);
+Route::get('products/get-for-tag-input', [ 'as' => 'products.get-for-tag-input', 'uses' => '\Botble\Ecommerce\Http\Controllers\ProductController@getForTagInput', 'permission' => 'products.index', ]);
 
 if (is_in_admin(true)) {
 
-    // This group ensures the routes are only for the admin panel,
-    // require a user to be logged in, and gives them the correct name prefix.
-    Route::group([
-        'prefix' => 'admin/product-reviews',
-        'as' => 'product-reviews.',
-        'middleware' => ['web', 'auth'],
-    ], function () {
+    Route::group([ 'prefix' => 'admin/product-reviews', 'as' => 'product-reviews.', 'middleware' => ['web', 'auth'],], function () {
         // ... (Your 'index', 'show', and 'destroy' routes are here) ...
-        Route::get('/', [
-            'as' => 'index',
-            'uses' => '\App\Http\Controllers\ProductReviewController@index',
-        ]);
+        Route::get('/', [ 'as' => 'index', 'uses' => '\App\Http\Controllers\ProductReviewController@index',]);
 
-        Route::get('/{product_review}', [
-            'as' => 'show',
-            'uses' => '\App\Http\Controllers\ProductReviewController@show',
-        ]);
+        Route::get('/{product_review}', [ 'as' => 'show', 'uses' => '\App\Http\Controllers\ProductReviewController@show',]);
 
-        // v-- ADD THIS NEW ROUTE FOR THE APPROVE ACTION --v
-        Route::post('/{product_review}/approve', [
-            'as' => 'approve',
-            'uses' => '\App\Http\Controllers\ProductReviewController@approve',
-        ]);
+        Route::post('/{product_review}/approve', [ 'as' => 'approve', 'uses' => '\App\Http\Controllers\ProductReviewController@approve',]);
 
-        Route::delete('/{product_review}', [
-            'as' => 'destroy',
-            'uses' => '\App\Http\Controllers\ProductReviewController@destroy',
-        ]);
+        Route::delete('/{product_review}', [ 'as' => 'destroy', 'uses' => '\App\Http\Controllers\ProductReviewController@destroy',]);
     });
 
     dashboard_menu()->registerItem([
@@ -85,20 +63,11 @@ if (is_in_admin(true)) {
     ]);
 
 }
-// V V V PASTE THE NEW CODE STARTING HERE V V V
 
 // --- START: Fragrance Profiles ---
-Route::group([
-    'prefix' => 'admin/product-fragrance-notes',
-    'as' => 'product-fragrance-notes.',
-    'middleware' => ['web', 'auth'],
-], function () {
+Route::group([ 'prefix' => 'admin/product-fragrance-notes', 'as' => 'product-fragrance-notes.', 'middleware' => ['web', 'auth'], ], function () {
     Route::resource('', ProductFragranceNoteController::class)->parameters(['' => 'id']);
-    Route::delete('items/destroy', [
-        'as' => 'deletes',
-        'uses' => '\Botble\Ecommerce\Http\Controllers\ProductFragranceNoteController@destroy',
-        'permission' => 'products.destroy', // Reuse existing permission
-    ]);
+    Route::delete('items/destroy', [ 'as' => 'deletes', 'uses' => '\Botble\Ecommerce\Http\Controllers\ProductFragranceNoteController@destroy', 'permission' => 'products.destroy', ]);
 });
 
 dashboard_menu()->registerItem([
@@ -111,3 +80,21 @@ dashboard_menu()->registerItem([
     'permissions' => ['product-fragrance-notes.index'],
 ]);
 // --- END: Fragrance Profiles ---
+
+
+// Group for Payment Cart admin routes
+Route::group([ 'prefix' => 'admin/payment-carts', 'as' => 'payment-carts.', 'middleware' => ['web', 'auth'], 'namespace' => 'App\Http\Controllers', ], function () { 
+    Route::match(['GET', 'POST'], '/', [ 'as' => 'index', 'uses' => 'PaymentCartController@index', 'permissions' => 'payment-carts.index', ]);
+    Route::get('/{payment_cart}', [ 'as' => 'show', 'uses' => 'PaymentCartController@show', 'permissions' => 'payment-carts.index', ]);
+    Route::delete('/{payment_cart}', [ 'as' => 'destroy', 'uses' => 'PaymentCartController@destroy', 'permissions' => 'payment-carts.destroy', ]);
+});
+
+dashboard_menu()->registerItem([
+    'id' => 'cms-plugins-payment-carts',
+    'priority' => 6,
+    'parent_id' => 'cms-plugins-ecommerce',
+    'name' => 'Payment Carts',
+    'icon' => 'ti ti-shopping-cart-x',
+    'url' => route('payment-carts.index'),
+    'permissions' => ['payment-carts.index'],
+]);
