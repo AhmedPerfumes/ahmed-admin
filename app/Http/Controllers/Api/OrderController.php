@@ -1844,7 +1844,7 @@ if (isset($coupon_code) && !empty($coupon_code)) {
             "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
         ];
 
-        $PROFILE_ID = 48012;
+        $PROFILE_ID = config('paytabs.profile_id');
         // $PROFILE_ID = 48353;
         $SERVER_KEY = 'SBJNLMDM92-HZKWN6WW6D-NTDHZ9RBMJ';
         // $SERVER_KEY = 'S6JNLMDMDL-HZM2DZDHLN-GW2NZ6DKK2';
