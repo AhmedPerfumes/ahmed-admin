@@ -1284,8 +1284,8 @@ class OrderController extends Controller
                     'netAmount'            => $order->amount,
                 ];
                   if ($couponRegistrationId == 0) {
-        $payload['couponCode'] = $coupon_code;
-    }
+                    $payload['couponCode'] = $coupon_code;
+                }
                 
                 \Log::info(json_encode($payload)."payload_Response");
 
