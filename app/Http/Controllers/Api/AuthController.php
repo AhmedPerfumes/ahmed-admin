@@ -217,7 +217,7 @@ class AuthController extends Controller
                 'password'  => Hash::make($request->password)
             ]);
 
-            $apiUrl = 'https://c21341-testservice.cloudiax.com/api/Coupon/Register';
+           $apiUrl = env('SMART_VIEW_COUPON_API_URL').'Coupon/Register';
 
     $postData = [
             'couponId' => "3FDF342E-52C6-4D73-AD84-DA2605E15DF8",
