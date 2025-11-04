@@ -2674,13 +2674,16 @@ class OrderController extends Controller
 
             // Check for errors
             if (curl_errno($ch)) {
-                echo 'order_approved Curl error: ' . curl_error($ch);
-            } else {
-                echo 'order_approved Response: ' . $response;
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
             }
 
             // Close cURL session
             curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            \Log::info('Order Approved Response:', ['response' => $resp]);
         } elseif($request->event_type == 'order_authorised') {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
@@ -2700,7 +2703,8 @@ class OrderController extends Controller
 
             // Check for errors
             if (curl_errno($ch)) {
-                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
             }
 
             // Close cURL session
@@ -2709,6 +2713,8 @@ class OrderController extends Controller
             $resp = json_decode($response, true);
 
             // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
 
             $url = env('TAMARA_API_URL')."payments/capture";
 
@@ -2743,7 +2749,8 @@ class OrderController extends Controller
 
             // Error handling
             if (curl_errno($ch)) {
-                echo 'order_authorised Curl error: ' . curl_error($ch);
+                // echo 'order_authorised Curl error: ' . curl_error($ch);
+                \Log::info('Order Captured Error:', ['error' => curl_error($ch)]);exit();
             }
 
             curl_close($ch);
@@ -2751,6 +2758,8 @@ class OrderController extends Controller
             $capture_resp = json_decode($capture_response, true);
 
             // echo "<pre>";print_r($capture_resp);exit;
+
+            \Log::info('Order Captured Response:', ['response' => $capture_resp]);
 
             $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
             // echo "<pre>";print_r($order);
@@ -2790,7 +2799,8 @@ class OrderController extends Controller
 
                 // Error handling
                 if (curl_errno($ch)) {
-                    echo 'order_authorised Curl error: ' . curl_error($ch);
+                    // echo 'order_authorised Curl error: ' . curl_error($ch);
+                    \Log::info('Order Canceled Error:', ['error' => curl_error($ch)]);exit();
                 }
 
                 curl_close($ch);
@@ -2798,6 +2808,8 @@ class OrderController extends Controller
                 $cancel_resp = json_decode($cancel_response, true);
 
                 // echo "<pre>";print_r($cancel_resp);exit;
+
+                \Log::info('Order Canceled Response:', ['response' => $cancel_resp]);
 
                 $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
                 // echo "<pre>";print_r($order);
@@ -2838,7 +2850,8 @@ class OrderController extends Controller
 
             // Check for errors
             if (curl_errno($ch)) {
-                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
             }
 
             // Close cURL session
@@ -2847,6 +2860,8 @@ class OrderController extends Controller
             $resp = json_decode($response, true);
 
             // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
 
             if(!isset($resp['status']) && $resp['status'] != 'new') {
                 return response()->json([
@@ -2888,7 +2903,8 @@ class OrderController extends Controller
 
             // Check for errors
             if (curl_errno($ch)) {
-                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
             }
 
             // Close cURL session
@@ -2897,6 +2913,8 @@ class OrderController extends Controller
             $resp = json_decode($response, true);
 
             // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
 
             if(!isset($resp['status']) && $resp['status'] != 'declined') {
                 return response()->json([
@@ -2938,7 +2956,8 @@ class OrderController extends Controller
 
             // Check for errors
             if (curl_errno($ch)) {
-                echo 'order_approved Curl error: ' . curl_error($ch);exit;
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
             }
 
             // Close cURL session
@@ -2947,6 +2966,8 @@ class OrderController extends Controller
             $resp = json_decode($response, true);
 
             // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
 
             if(!isset($resp['status']) || $resp['status'] != 'fully_captured') {
                 return response()->json([
@@ -2980,7 +3001,8 @@ class OrderController extends Controller
 
             // Error handling
             if (curl_errno($ch)) {
-                echo 'order_authorised Curl error: ' . curl_error($ch);
+                // echo 'order_authorised Curl error: ' . curl_error($ch);
+                \Log::info('Order Refunded Error:', ['error' => curl_error($ch)]);exit();
             }
 
             curl_close($ch);
@@ -2988,6 +3010,8 @@ class OrderController extends Controller
             $refund_resp = json_decode($refund_response, true);
 
             // echo "<pre>";print_r($refund_resp);exit;
+
+            \Log::info('Order Refunded Response:', ['response' => $refund_resp]);
 
             return response()->json([
                 'message' => 'Order Payment Refund Successfully',
