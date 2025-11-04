@@ -2475,12 +2475,17 @@ class OrderController extends Controller
     }
 
     private function tabbyPayment(Request $request, array $shippingData, PaymentCart $paymentCart) { 
+
+        $phoneNumber = ltrim($request->input('billingAddress.mobile'), '0');
+        // Ensure the correct country code is used (e.g., +966 for KSA, +971 for UAE)
+        $buyerPhone = '+971' . $phoneNumber;
+
         $requestParams = [
             "payment" => [
-                "amount" => $request->input('finalPrice'),
+                "amount" => number_format((float)$request->input('finalPrice'), 2, '.', ''),
                 "currency" => "AED", // Make sure this is correct for your config
                 "buyer" => [
-                    "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
+                    "phone" => $buyerPhone,
                     "email" => $request->input('billingAddress.email'),
                     "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
                 ],
@@ -2491,8 +2496,8 @@ class OrderController extends Controller
                     "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
                 ],
                 "order" => [
-                    "tax_amount" => 0, // Simplified, as Tabby recalculates
-                    "shipping_amount" => round((float)$request->input('shippingPrice'), 2),
+                    "tax_amount" => "0.00", // Simplified, as Tabby recalculates
+                    "shipping_amount" => number_format((float)$request->input('shippingPrice'), 2, '.', ''),
                     "discount_amount" => number_format((float)$request->input('discount_amount'), 2, '.', ''),
                     "reference_id" => $paymentCart->id, // CRITICAL: Use the PaymentCart ID
                     "items" => []
@@ -2504,7 +2509,7 @@ class OrderController extends Controller
                 "order_history" => [],
             ],
             "lang" => $request->input('locale', 'en'),
-            "merchant_code" => "assaaste", // This should be from your config
+            "merchant_code" => "APM", // This should be from your config
             "merchant_urls" => [
                 // CRITICAL: Point all URLs to our new callback and include the cartId
                 "success" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
@@ -2518,7 +2523,7 @@ class OrderController extends Controller
             $requestParams['payment']['order']['items'][] = [
                 "title" => $item['product_name'],
                 "quantity" => $item['quantity'],
-                "unit_price" => $item['price'], // Use the base price
+                "unit_price" => number_format((float)$item['price'], 2, '.', ''),
                 "reference_id" => (string)$item['product_id'],
                 "category" => $item['category_name'] ?? 'Default'
             ];
@@ -2529,8 +2534,8 @@ class OrderController extends Controller
             foreach ($shippingData['buyer_history']['order_history'] as $it) {
                 $requestParams['payment']['order_history'][] = [
                     "purchased_at" => Carbon::parse($it->created_at)->utc()->toIso8601String(),
-                    "amount" => $it['amount'],
-                    "status" => $it['status'],
+                    "amount" => number_format((float)$it['amount'], 2, '.', ''),
+                    "status" => (string)$it->status,
                     "buyer" => [
                         "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
                         "email" => $request->input('billingAddress.email'),
@@ -2541,7 +2546,6 @@ class OrderController extends Controller
                         "address" => $shippingData['street1'],
                         "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
                     ],
-                    // ... (you can add buyer/shipping for each history item if needed) ...
                 ];
             }
         } else {
@@ -2563,11 +2567,12 @@ class OrderController extends Controller
         }
 
         // Make the cURL request to Tabby
-        $PROFILE_ID = config('payment.tabby_profile_id');
-        $PUBLIC_KEY = config('payment.tabby_public_key');
-        $BASE_URL = config('payment.tabby_base_url');
+        $PROFILE_ID = env('TABBY_PROFILE_ID');
+        $PUBLIC_KEY = env('TABBY_PUBLIC_KEY');
+        $BASE_URL = env('TABBY_BASE_URL');
 
         $data['profile_id'] = $PROFILE_ID;
+
         $curl = curl_init();
         curl_setopt_array($curl, array(
             CURLOPT_URL => $BASE_URL.'checkout',
@@ -2583,10 +2588,31 @@ class OrderController extends Controller
             ),
         ));
 
-        $response = json_decode(curl_exec($curl), true);
+        // $response = curl_exec($curl);
+        // if (curl_errno($curl)) {
+        //     echo 'Curl error: ' . curl_error($curl) . "\n";
+        // }
+        // curl_close($curl);
+
+        $responseString = curl_exec($curl);
+        if (curl_errno($curl)) {
+            $curlError = curl_error($curl);
+            curl_close($curl);
+            // Log the actual cURL error
+            Log::error('Tabby cURL Error:', ['error' => $curlError]);
+            // Return an error structure so the 'else' block in initiatePayment works
+            return ['status' => 'curl_error', 'message' => $curlError];
+        }
         curl_close($curl);
+        $responseArray = json_decode($responseString, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error('Tabby JSON Decode Error:', ['response_string' => $responseString]);
+            return ['status' => 'json_error', 'message' => 'Failed to decode JSON response from Tabby.'];
+        }
+        Log::info('Tabby Checkout Response:', $responseArray);
         
-        return $response;
+        // return $response;
+        return $responseArray;
     }
 
     public function finalizeTabbyPayment(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
@@ -2599,7 +2625,7 @@ class OrderController extends Controller
 
         if (!$paymentCart) {
             // Invalid session, redirect to a failure page
-            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order/failure?reason=invalid_session';
+            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=invalid_session';
             return redirect($failureUrl);
         }
         
@@ -2611,9 +2637,8 @@ class OrderController extends Controller
         $orderRequest = new Request($paymentCart->cart_data);
 
         // 5. Check the payment status with Tabby
-        $SECRET_KEY = config('payment.tabby_secret_key');
-        $BASE_URL = config('payment.tabby_base_url');
-        
+        $SECRET_KEY = env('TABBY_SECRET_KEY');
+        $BASE_URL = env('TABBY_BASE_URL');
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $BASE_URL . 'payments/' . $payment_id);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -2623,7 +2648,6 @@ class OrderController extends Controller
 
         $paymentDetails = [];
         $finalStatus = 'failure';
-
         if (isset($response['status']) && ($response['status'] == 'AUTHORIZED' || $response['status'] == 'authorized')) {
             // 6. Payment is authorized, so we must CAPTURE it
             $c = curl_init();
@@ -2693,11 +2717,13 @@ class OrderController extends Controller
         }
         
         // 8. Order created successfully! Clean up and redirect.
-        $order = $orderResult['order'];
+        // $order = $orderResult['order'];
         $paymentCart->delete(); // Delete the temporary cart
+        Log::info('Tabby Payment and Order Creation Successful', ['order' => $orderResult]);
 
         // Redirect user to the frontend success/failure page
-        $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/' . $order->lang . '/shop-order-payment-complete?q=' . base64_encode($order->code);
+        $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-order-payment-complete?q=' . base64_encode($orderResult->code);
+        
 
         return redirect($redirectUrl);
     }
@@ -2705,7 +2731,7 @@ class OrderController extends Controller
     private function _createFinalOrder(Request $orderRequest, int $customer_id, array $paymentDetails, ?string $paymentCartId = null): ?Order {
         DB::beginTransaction();
         try {
-            throw new Exception('Testing rollback');
+            // throw new Exception('Testing rollback');
             $paymentSuccessful = in_array($paymentDetails['status'], ['completed', 'A']);
 
             // Create the main Order record in the database.
@@ -4201,16 +4227,22 @@ class OrderController extends Controller
             if (!$paymentCart) {
                 return response()->json(['error' => 'Could not initiate payment session.'], 500);
             }
+            $paymentCart->status = 'pending_tabby';
+            $paymentCart->save();
 
             // 5. --- INITIATE PAYMENT AND GET REDIRECT URL ---
-            $response = $this->tabbyPayment($request, $shippingData, $paymentCart);
-
+            $resp = $this->tabbyPayment($request, $shippingData, $paymentCart);
+            // Log::info('Tabby Payment Response:', $response);
+            // die;
+            // echo json_encode($resp);die;
             if(isset($resp['status']) && ($resp['status'] == 'created' || $resp['status'] == 'CREATED')) {
                 return response()->json([
                     'message'      => 'Redirecting to Tabby...',
                     'redirect_url' => $resp['configuration']['available_products']['installments'][0]['web_url'],
                 ]);
             } else {
+                $paymentCart->status = 'failed_tabby';
+                $paymentCart->save();
                 // Tabby rejected the payment before redirecting
                 return response()->json([
                     'message' => 'Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.',
@@ -4283,23 +4315,5 @@ class OrderController extends Controller
         $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-order-payment-complete' . '?q=' . base64_encode($order->code);
 
         return redirect($redirectUrl);
-    }
-
-
-    public function getOrderStatus(string $cartId): JsonResponse {
-        // Find the final order using the temporary cart ID we saved.
-        $order = Order::where('payment_cart_id', $cartId)->first();
-
-        if ($order) {
-            // If the order is found, it means the payment was successful
-            // and the backend has created the real order.
-            return response()->json([
-                'status' => 'completed',
-                'order_code' => $order->code,
-            ]);
-        } else {
-            // If no order is found yet, tell the frontend it's still pending.
-            return response()->json(['status' => 'pending']);
-        }
     }
 }
