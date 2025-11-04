@@ -97,6 +97,11 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
     Route::post('/initiate-payment', [OrderController::class, 'initiatePayment']);
     Route::withoutMiddleware('restrict.domains')->match(['get', 'post'], '/finalize-payment', [OrderController::class, 'finalizePayment']);
+    // Route::withoutMiddleware('restrict.domains')->match(['get', 'post'], '/finalize-tabby-payment', [OrderController::class, 'finalizeTabbyPayment']);
+    // routes/api.php
+
+    // This is the new callback URL for when Tabby redirects the user back to your site.
+    Route::withoutMiddleware('restrict.domains')->get('finalize-tabby-payment', [ 'as' => 'api.public.payment.tabby-finalize', 'uses' => 'OrderController@finalizeTabbyPayment',]);
 });
 
 // Route::get('/order-status/{cartId}', [OrderController::class, 'getOrderStatus']);

@@ -1798,106 +1798,6 @@ class OrderController extends Controller
     //     header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
     // }
 
-    public function payTabsPayment(Request $request, $shippingData, \App\Models\PaymentCart $paymentCart) {
-        $paymentStr = '';
-        foreach ($request->input('products') as $product) {
-            $quantity = $product['quantity'] ? $product['quantity'] : 1;
-            $exisProduct = Product::select('name')->where('ec_products.id', $product['product_id'])->first();
-            $paymentStr .= $exisProduct->name. ' ('.$quantity.'), ';
-        }
-
-        $data = [
-            "tran_type"=> "sale",
-            "tran_class"=> "ecom",
-            "cart_id"           => $paymentCart->id,
-            "cart_currency"=> "AED",
-            "cart_amount"=> $request->input('finalPrice'),
-            "cart_description"=> $paymentStr,
-            "paypage_lang"=> "en",
-            "customer_details"=> [
-                "name"=> $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
-                "email"=> $request->input('billingAddress.email'),
-                "phone"=> $request->input('billingAddress.mobile'),
-                "street1"=> $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
-                "city"=> $request->input('billingAddress.emirates'),
-                "state"=> $request->input('billingAddress.emirates'),
-                "country"=> "AE",
-                // "zip"=> "12345"
-            ],
-            "shipping_details"=> [
-                "name"=> $shippingData['name'],
-                "email"=> $shippingData['email'],
-                "phone"=> $shippingData['phone'],
-                "street1"=> $shippingData['street1'],
-                "city"=> $shippingData['city'],
-                "state"=> $shippingData['state'],
-                "country"=> "AE",
-                // "zip"=> "54321"
-            ],
-            // // The URL for the secure server-to-server confirmation
-           // The BACKEND URL. PayTabs sends a secure POST request here with ALL data.
-            // "callback"  => url('/api/finalize-payment'), 
-    
-            // The FRONTEND URL. The user's browser goes here.
-            // "return"    => env('FRONTEND_URL', 'http://localhost:3000') . '/order/processing?cartId=' . $paymentCart->id
-            // Set the return URL to point to the API with the cart_id
-            // "return"    => url('/api/finalize-payment')
-            "return"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/finalize-payment?cartId=" . $paymentCart->id
-        ];
-
-        $PROFILE_ID = config('paytabs.profile_id');
-        $SERVER_KEY = config('paytabs.server_key');
-
-        $BASE_URL = config('paytabs.base_url');
-
-        $data['profile_id'] = $PROFILE_ID;
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $BASE_URL,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($data, true),
-            CURLOPT_HTTPHEADER => array(
-                'authorization:' . $SERVER_KEY,
-                'Content-Type:application/json'
-            ),
-            // CURLOPT_SSL_VERIFYPEER => false,  // 👈 Add this
-            // CURLOPT_SSL_VERIFYHOST => false,  // 👈 And this
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_CAINFO => base_path('certs/cacert.pem'),
-        ));
-
-        $response = json_decode(curl_exec($curl), true);
-        curl_close($curl);
-        // print_r($response);die;
-        return $response;
-
-        // $responseRaw = curl_exec($curl);
-        // curl_close($curl);
-
-        // echo "Raw response:\n";
-        // var_dump($responseRaw); // Check if there is anything returned at all
-        // $response = json_decode($responseRaw, true);
-        // print_r($response); // Still might be null if response is not valid JSON
-        // die;
-
-        // $responseRaw = curl_exec($curl);
-
-        // if (curl_errno($curl)) {
-        //     echo 'Curl error: ' . curl_error($curl) . "\n";
-        // }
-
-        // $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        // echo "HTTP Status Code: $httpCode\n";
-
-        // curl_close($curl);
-
-        // die;
-    }
-
     public function payTabsPaymentRedirect(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
         // echo "<pre>";print_r($request->all());die;
         // $customer = Customer::where('email', $request->input('customerEmail'))->first();
@@ -2472,6 +2372,334 @@ class OrderController extends Controller
         return response()->json([
             'message' => 'Customer Found Successfully',
         ]);
+    }
+    
+    public function payTabsPayment(Request $request, $shippingData, \App\Models\PaymentCart $paymentCart) {
+        $paymentStr = '';
+        foreach ($request->input('products') as $product) {
+            $quantity = $product['quantity'] ? $product['quantity'] : 1;
+            $exisProduct = Product::select('name')->where('ec_products.id', $product['product_id'])->first();
+            $paymentStr .= $exisProduct->name. ' ('.$quantity.'), ';
+        }
+
+        $data = [
+            "tran_type"=> "sale",
+            "tran_class"=> "ecom",
+            "cart_id"           => $paymentCart->id,
+            "cart_currency"=> "AED",
+            "cart_amount"=> $request->input('finalPrice'),
+            "cart_description"=> $paymentStr,
+            "paypage_lang"=> "en",
+            "customer_details"=> [
+                "name"=> $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                "email"=> $request->input('billingAddress.email'),
+                "phone"=> $request->input('billingAddress.mobile'),
+                "street1"=> $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                "city"=> $request->input('billingAddress.emirates'),
+                "state"=> $request->input('billingAddress.emirates'),
+                "country"=> "AE",
+                // "zip"=> "12345"
+            ],
+            "shipping_details"=> [
+                "name"=> $shippingData['name'],
+                "email"=> $shippingData['email'],
+                "phone"=> $shippingData['phone'],
+                "street1"=> $shippingData['street1'],
+                "city"=> $shippingData['city'],
+                "state"=> $shippingData['state'],
+                "country"=> "AE",
+                // "zip"=> "54321"
+            ],
+            // // The URL for the secure server-to-server confirmation
+           // The BACKEND URL. PayTabs sends a secure POST request here with ALL data.
+            // "callback"  => url('/api/finalize-payment'), 
+    
+            // The FRONTEND URL. The user's browser goes here.
+            // "return"    => env('FRONTEND_URL', 'http://localhost:3000') . '/order/processing?cartId=' . $paymentCart->id
+            // Set the return URL to point to the API with the cart_id
+            // "return"    => url('/api/finalize-payment')
+            "return"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/finalize-payment?cartId=" . $paymentCart->id
+        ];
+
+        $PROFILE_ID = config('paytabs.profile_id');
+        $SERVER_KEY = config('paytabs.server_key');
+
+        $BASE_URL = config('paytabs.base_url');
+
+        $data['profile_id'] = $PROFILE_ID;
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $BASE_URL,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($data, true),
+            CURLOPT_HTTPHEADER => array(
+                'authorization:' . $SERVER_KEY,
+                'Content-Type:application/json'
+            ),
+            // CURLOPT_SSL_VERIFYPEER => false,  // 👈 Add this
+            // CURLOPT_SSL_VERIFYHOST => false,  // 👈 And this
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_CAINFO => base_path('certs/cacert.pem'),
+        ));
+
+        $response = json_decode(curl_exec($curl), true);
+        curl_close($curl);
+        // print_r($response);die;
+        return $response;
+
+        // $responseRaw = curl_exec($curl);
+        // curl_close($curl);
+
+        // echo "Raw response:\n";
+        // var_dump($responseRaw); // Check if there is anything returned at all
+        // $response = json_decode($responseRaw, true);
+        // print_r($response); // Still might be null if response is not valid JSON
+        // die;
+
+        // $responseRaw = curl_exec($curl);
+
+        // if (curl_errno($curl)) {
+        //     echo 'Curl error: ' . curl_error($curl) . "\n";
+        // }
+
+        // $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        // echo "HTTP Status Code: $httpCode\n";
+
+        // curl_close($curl);
+
+        // die;
+    }
+
+    private function tabbyPayment(Request $request, array $shippingData, PaymentCart $paymentCart) { 
+        $requestParams = [
+            "payment" => [
+                "amount" => $request->input('finalPrice'),
+                "currency" => "AED", // Make sure this is correct for your config
+                "buyer" => [
+                    "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
+                    "email" => $request->input('billingAddress.email'),
+                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+                ],
+                // CHECK WITH YAZIL BHAIII
+                "shipping_address" => [
+                    "city" => $shippingData['city'],
+                    "address" => $shippingData['street1'],
+                    "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
+                ],
+                "order" => [
+                    "tax_amount" => 0, // Simplified, as Tabby recalculates
+                    "shipping_amount" => round((float)$request->input('shippingPrice'), 2),
+                    "discount_amount" => number_format((float)$request->input('discount_amount'), 2, '.', ''),
+                    "reference_id" => $paymentCart->id, // CRITICAL: Use the PaymentCart ID
+                    "items" => []
+                ],
+                "buyer_history" => [
+                    "registered_since" => $shippingData['buyer_history']['registered_since'],
+                    "loyalty_level" => $shippingData['buyer_history']['loyalty_level'],
+                ],
+                "order_history" => [],
+            ],
+            "lang" => $request->input('locale', 'en'),
+            "merchant_code" => "assaaste", // This should be from your config
+            "merchant_urls" => [
+                // CRITICAL: Point all URLs to our new callback and include the cartId
+                "success" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
+                "cancel"  => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
+                "failure" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
+            ]
+        ];
+
+        // Loop through request products to populate 'items'
+        foreach ($request->input('products') as $item) {
+            $requestParams['payment']['order']['items'][] = [
+                "title" => $item['product_name'],
+                "quantity" => $item['quantity'],
+                "unit_price" => $item['price'], // Use the base price
+                "reference_id" => (string)$item['product_id'],
+                "category" => $item['category_name'] ?? 'Default'
+            ];
+        }
+
+        // Loop through buyer's order history
+        if (!empty($shippingData['buyer_history']['order_history'])) {
+            foreach ($shippingData['buyer_history']['order_history'] as $it) {
+                $requestParams['payment']['order_history'][] = [
+                    "purchased_at" => Carbon::parse($it->created_at)->utc()->toIso8601String(),
+                    "amount" => $it['amount'],
+                    "status" => $it['status'],
+                    "buyer" => [
+                        "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
+                        "email" => $request->input('billingAddress.email'),
+                        "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+                    ],
+                    "shipping_address" => [
+                        "city" => $shippingData['city'],
+                        "address" => $shippingData['street1'],
+                        "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
+                    ],
+                    // ... (you can add buyer/shipping for each history item if needed) ...
+                ];
+            }
+        } else {
+            $requestParams['payment']['order_history'][] = [
+                "purchased_at" => Carbon::now()->utc()->toIso8601String(),
+                "amount" => $request->input('finalPrice'),
+                "status" => "N/A",
+                "buyer" => [
+                    "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
+                    "email" => $request->input('billingAddress.email'),
+                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+                ],
+                "shipping_address" => [
+                    "city" => $shippingData['city'],
+                    "address" => $shippingData['street1'],
+                    "zip" => "00000" // Tabby requires a zip, use a placeholder if not available    
+                ],
+            ];
+        }
+
+        // Make the cURL request to Tabby
+        $PROFILE_ID = config('payment.tabby_profile_id');
+        $PUBLIC_KEY = config('payment.tabby_public_key');
+        $BASE_URL = config('payment.tabby_base_url');
+
+        $data['profile_id'] = $PROFILE_ID;
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $BASE_URL.'checkout',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($requestParams),
+            CURLOPT_HTTPHEADER => array(
+                'authorization: Bearer ' . $PUBLIC_KEY,
+                'Content-Type:application/json'
+            ),
+        ));
+
+        $response = json_decode(curl_exec($curl), true);
+        curl_close($curl);
+        
+        return $response;
+    }
+
+    public function finalizeTabbyPayment(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        // 1. Get the payment_id from Tabby's redirect
+        // $payment_id = $request->query('payment_id');
+        $payment_id = $request->input('payment_id') ? $request->input('payment_id') : $request->query('payment_id');
+
+        // 2. Get our temporary cart ID from the URL
+        $paymentCart = PaymentCart::find($request->query('cartId'));
+
+        if (!$paymentCart) {
+            // Invalid session, redirect to a failure page
+            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order/failure?reason=invalid_session';
+            return redirect($failureUrl);
+        }
+        
+        // 3. Update the temporary cart's status
+        $paymentCart->status = 'pending_authorization'; // Mark as returned
+        $paymentCart->save();
+
+        // 4. Re-load the original order data
+        $orderRequest = new Request($paymentCart->cart_data);
+
+        // 5. Check the payment status with Tabby
+        $SECRET_KEY = config('payment.tabby_secret_key');
+        $BASE_URL = config('payment.tabby_base_url');
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $BASE_URL . 'payments/' . $payment_id);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['authorization: Bearer ' . $SECRET_KEY]);
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        $paymentDetails = [];
+        $finalStatus = 'failure';
+
+        if (isset($response['status']) && ($response['status'] == 'AUTHORIZED' || $response['status'] == 'authorized')) {
+            // 6. Payment is authorized, so we must CAPTURE it
+            $c = curl_init();
+            curl_setopt_array($c, array(
+                CURLOPT_URL => $BASE_URL . 'payments/' . $response["id"] . '/captures',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => json_encode(["amount" => $response["amount"]]),
+                // CURLOPT_POSTFIELDS => json_encode(["amount" => $response["amount"], true]),
+                CURLOPT_HTTPHEADER => [
+                    'authorization: Bearer ' . $SECRET_KEY,
+                    'Content-Type:application/json'
+                ],
+            ));
+            $captureResponse = json_decode(curl_exec($c), true);
+            curl_close($c);
+
+            if (isset($captureResponse['status']) && ($captureResponse['status'] == 'CLOSED' || $captureResponse['status'] == 'closed')) {
+                // SUCCESS! Payment is captured.
+                $paymentDetails = [
+                    'method'          => 'tabby',
+                    'status'          => 'A', // 'A' for Accepted/Approved, to match our helper logic
+                    'transaction_ref' => $captureResponse['id'],
+                    'message'         => $captureResponse['status'],
+                ];
+                $finalStatus = 'complete';
+                $paymentCart->status = 'A'; // Update temp cart status
+            } else {
+                // Capture failed
+                $paymentDetails = [
+                    'method'          => 'tabby',
+                    'status'          => 'F', // 'F' for Failed
+                    'transaction_ref' => $payment_id,
+                    'message'         => $captureResponse['status'] ?? 'Capture Failed',
+                ];
+                $paymentCart->status = 'failed_capture';
+            }
+        } else {
+            // Authorization failed
+            $paymentDetails = [
+                'method'          => 'tabby',
+                'status'          => 'F', // 'F' for Failed
+                'transaction_ref' => $payment_id,
+                'message'         => $response['status'] ?? 'Authorization Failed',
+            ];
+            $paymentCart->status = $response['status'] ?? 'failed_auth';
+        }
+
+        $paymentCart->save(); // Save the final status to the temp cart
+
+        // 7. Call the one, central _createFinalOrder helper
+        $orderResult = $this->_createFinalOrder(
+            $orderRequest,
+            $paymentCart->customer_id,
+            $paymentDetails,
+            $paymentCart->id
+        );
+
+        if (!$orderResult) {
+            // Order creation failed! Redirect to failure page.
+            // The PaymentCart is NOT deleted, so admin can see the error.
+            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=processing_error&cartId=' . $paymentCart->id;
+            return redirect($failureUrl);
+        }
+        
+        // 8. Order created successfully! Clean up and redirect.
+        $order = $orderResult['order'];
+        $paymentCart->delete(); // Delete the temporary cart
+
+        // Redirect user to the frontend success/failure page
+        $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/' . $order->lang . '/shop-order-payment-complete?q=' . base64_encode($order->code);
+
+        return redirect($redirectUrl);
     }
 
     private function _createFinalOrder(Request $orderRequest, int $customer_id, array $paymentDetails, ?string $paymentCartId = null): ?Order {
@@ -3773,7 +4001,7 @@ class OrderController extends Controller
         //     $cashback_product_ids = [];
         // }
 
-        // 2. --- FIND OR CREATE CUSTOMER ---
+        // --- FIND OR CREATE CUSTOMER ---
         $customer_id = $request->input('customer_id');
         if (!$customer_id) {
             $validator = Validator::make($request->all(), [
@@ -3852,7 +4080,36 @@ class OrderController extends Controller
             }
         }
 
-        // --- STEP 3: HANDLE PAYMENT BASED ON METHOD ---
+        $useShippingAddress = $request->input('shippingAddress.first_name');
+        $addressPrefix = $useShippingAddress ? 'shippingAddress' : 'billingAddress';
+        $shippingData = [
+            "name"    => $request->input("$addressPrefix.first_name") . ' ' . $request->input("$addressPrefix.last_name"),
+            "email"   => $request->input("$addressPrefix.email"),
+            "phone"   => $request->input("$addressPrefix.mobile"),
+            "street1" => $request->input("$addressPrefix.area") . ' ' . $request->input("$addressPrefix.building"),
+            "city"    => $request->input("$addressPrefix.emirates"), // Note: Your old code uses 'emirates' and 'province'. Adjust as needed.
+            "state"   => $request->input("$addressPrefix.emirates"),
+        ];
+
+        $customer = Customer::find($customer_id);
+        if ($customer) {
+            $orderHistory = Order::where('user_id', $customer_id)->get();
+            $shippingData['buyer_history'] = [
+                'registered_since' => Carbon::parse($customer->created_at)->utc()->toIso8601String(),
+                'loyalty_level'    => $orderHistory->count(),
+                'order_history'    => $orderHistory,
+            ];
+        } else {
+            // Handle guest user history for Tabby
+            $shippingData['buyer_history'] = [
+                'registered_since' => Carbon::now()->utc()->toIso8601String(),
+                'loyalty_level'    => 0,
+                'order_history'    => [],
+            ];
+        }
+
+
+        // --- HANDLE PAYMENT BASED ON METHOD ---
         $paymentMethod = $request->input('payment_method');
 
         // --- HANDLE COD DIRECTLY ---
@@ -3901,27 +4158,27 @@ class OrderController extends Controller
                 return response()->json(['error' => 'Could not initiate payment session.'], 500);
             }
 
-            // 4. --- PREPARE SHIPPING DATA FOR PAYTABS ---
-            $cartData = $paymentCart->cart_data;
-            if (!empty($cartData['shippingAddress']['first_name'])) {
-                $shippingData = [
-                    "name"    => $cartData['shippingAddress']['first_name'] . ' ' . $cartData['shippingAddress']['last_name'],
-                    "email"   => $cartData['shippingAddress']['email'],
-                    "phone"   => $cartData['shippingAddress']['mobile'],
-                    "street1" => $cartData['shippingAddress']['area'] . ' ' . $cartData['shippingAddress']['building'],
-                    "city"    => $cartData['shippingAddress']['emirates'],
-                    "state"   => $cartData['shippingAddress']['emirates'],
-                ];
-            } else {
-                $shippingData = [
-                    "name"    => $cartData['billingAddress']['first_name'] . ' ' . $cartData['billingAddress']['last_name'],
-                    "email"   => $cartData['billingAddress']['email'],
-                    "phone"   => $cartData['billingAddress']['mobile'],
-                    "street1" => $cartData['billingAddress']['area'] . ' ' . $cartData['billingAddress']['building'],
-                    "city"    => $cartData['billingAddress']['emirates'],
-                    "state"   => $cartData['billingAddress']['emirates'],
-                ];
-            }
+            // // 4. --- PREPARE SHIPPING DATA FOR PAYTABS ---
+            // $cartData = $paymentCart->cart_data;
+            // if (!empty($cartData['shippingAddress']['first_name'])) {
+            //     $shippingData = [
+            //         "name"    => $cartData['shippingAddress']['first_name'] . ' ' . $cartData['shippingAddress']['last_name'],
+            //         "email"   => $cartData['shippingAddress']['email'],
+            //         "phone"   => $cartData['shippingAddress']['mobile'],
+            //         "street1" => $cartData['shippingAddress']['area'] . ' ' . $cartData['shippingAddress']['building'],
+            //         "city"    => $cartData['shippingAddress']['emirates'],
+            //         "state"   => $cartData['shippingAddress']['emirates'],
+            //     ];
+            // } else {
+            //     $shippingData = [
+            //         "name"    => $cartData['billingAddress']['first_name'] . ' ' . $cartData['billingAddress']['last_name'],
+            //         "email"   => $cartData['billingAddress']['email'],
+            //         "phone"   => $cartData['billingAddress']['mobile'],
+            //         "street1" => $cartData['billingAddress']['area'] . ' ' . $cartData['billingAddress']['building'],
+            //         "city"    => $cartData['billingAddress']['emirates'],
+            //         "state"   => $cartData['billingAddress']['emirates'],
+            //     ];
+            // }
 
             // 5. --- INITIATE PAYMENT AND GET REDIRECT URL ---
             $response = $this->payTabsPayment($request, $shippingData, $paymentCart);
@@ -3934,7 +4191,35 @@ class OrderController extends Controller
             }
 
             return response()->json(['error' => 'Failed to connect to payment gateway.'], 500);
-        }
+        } elseif ($paymentMethod === 'tabby') { 
+            // For PayTabs, create a temporary cart and get a redirect URL.
+            $paymentCart = PaymentCart::create([
+                'customer_id' => $customer_id,
+                'cart_data'   => $request->all(),
+            ]);
+
+            if (!$paymentCart) {
+                return response()->json(['error' => 'Could not initiate payment session.'], 500);
+            }
+
+            // 5. --- INITIATE PAYMENT AND GET REDIRECT URL ---
+            $response = $this->tabbyPayment($request, $shippingData, $paymentCart);
+
+            if(isset($resp['status']) && ($resp['status'] == 'created' || $resp['status'] == 'CREATED')) {
+                return response()->json([
+                    'message'      => 'Redirecting to Tabby...',
+                    'redirect_url' => $resp['configuration']['available_products']['installments'][0]['web_url'],
+                ]);
+            } else {
+                // Tabby rejected the payment before redirecting
+                return response()->json([
+                    'message' => 'Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.',
+                    'error'   => $resp['message'] ?? 'Tabby approval failed.'
+                ], 422); // Use 422 for a processable entity error
+            }
+
+            return response()->json(['error' => 'Failed to connect to payment gateway.'], 500);
+        } 
 
         // Handle any other invalid payment methods.
         return response()->json(['error' => 'Invalid payment method provided.'], 400);  
