@@ -277,58 +277,58 @@ class OrderController extends Controller
         //     }
         // }
 
-       $coupon_code = $request->input('couponCode');
+        $coupon_code = $request->input('couponCode');
 
-if (isset($coupon_code) && !empty($coupon_code)) {
+        if (isset($coupon_code) && !empty($coupon_code)) {
 
-    if (!isset($request->couponData) || empty($request->couponData)) {
-        return response()->json(['couponMessage' => 'Apply or Remove Coupon First']);
-    }
+            if (!isset($request->couponData) || empty($request->couponData)) {
+                return response()->json(['couponMessage' => 'Apply or Remove Coupon First']);
+            }
 
-    $couponRegistrationId = $request->couponData['couponRegistrationId'] ?? 0;
+            $couponRegistrationId = $request->couponData['couponRegistrationId'] ?? 0;
 
-    // ✅ Build payload conditionally
-    $postData = [
-        'salesType' => $request->couponData['salesType'] ?? '',
-        'company' => $request->couponData['company'] ?? '',
-        'mobileNo' => $request->billingAddress['mobile'] ?? '',
-        'email' => $request->billingAddress['email'] ?? '',
-        'couponRegistrationId' => $couponRegistrationId,
-    ];
+            // ✅ Build payload conditionally
+            $postData = [
+                'salesType' => $request->couponData['salesType'] ?? '',
+                'company' => $request->couponData['company'] ?? '',
+                'mobileNo' => $request->billingAddress['mobile'] ?? '',
+                'email' => $request->billingAddress['email'] ?? '',
+                'couponRegistrationId' => $couponRegistrationId,
+            ];
 
-    // ✅ Only include couponCode when registrationId = 0
-    if ($couponRegistrationId == 0) {
-        $postData['couponCode'] = $coupon_code;
-    }
+            // ✅ Only include couponCode when registrationId = 0
+            if ($couponRegistrationId == 0) {
+                $postData['couponCode'] = $coupon_code;
+            }
 
-    // 🔥 CURL setup
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/ActiveCoupons',
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_POSTFIELDS => json_encode($postData),
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-        ],
-    ]);
+            // 🔥 CURL setup
+            $curl = curl_init();
+            curl_setopt_array($curl, [
+                CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/ActiveCoupons',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => json_encode($postData),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                ],
+            ]);
 
-    $response = curl_exec($curl);
-    curl_close($curl);
+            $response = curl_exec($curl);
+            curl_close($curl);
 
-    $decode = json_decode($response);
+            $decode = json_decode($response);
 
-    // ✅ Validation check
-    if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
-        return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
-    }
-}
- // die();
+            // ✅ Validation check
+            if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
+                return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
+            }
+        }
+        // die();
 
         $cashback = Promotion::select('promotions.name', 'cashback_rules.id', 'cashback_percentage', 'cashback_amount', 'duration')->where('type', 'cashback')->where('start_date', '<=', now())->where('end_date', '>=', now())->leftJoin('cashback_rules', 'promotions.id', '=', 'cashback_rules.promotion_id')->first();
         if($cashback) {

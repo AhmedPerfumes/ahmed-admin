@@ -217,38 +217,38 @@ class AuthController extends Controller
                 'password'  => Hash::make($request->password)
             ]);
 
-           $apiUrl = env('SMART_VIEW_COUPON_API_URL').'Coupon/Register';
+            $apiUrl = env('SMART_VIEW_COUPON_API_URL').'Coupon/Register';
 
-    $postData = [
-            'couponId' => "3FDF342E-52C6-4D73-AD84-DA2605E15DF8",
-        'customerName'  => $customer->name,
-        'email' => $customer->email,
-        'mobileNo' => $customer->phone,
-    ];
+            $postData = [
+                    'couponId' => "3FDF342E-52C6-4D73-AD84-DA2605E15DF8",
+                'customerName'  => $customer->name,
+                'email' => $customer->email,
+                'mobileNo' => $customer->phone,
+            ];
 
-    try {
-        $ch = curl_init($apiUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-        ]);
-        
-        $apiResponse = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        // echo "<pre>";print_r($apiResponse);
+            $ch = curl_init($apiUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+            ]);
+            
+            $apiResponse = curl_exec($ch);
+            if (curl_errno($ch)) {
+                // echo 'Error:' . curl_error($ch);
+                \Log::info('Coupon Register API Response', [
+                    'error' => curl_error($ch),
+                ]);
+            }
+            curl_close($ch);
+            // echo "<pre>";print_r($apiResponse);
 
-        // Optionally log the API response for debugging
-        // \Log::info('Coupon/Register API Response', [
-        //     'http_code' => $httpCode,
-        //     'response'  => $apiResponse,
-        // ]);
-
-    } catch (\Exception $e) {
-        echo 'Error: ' . $e->getMessage();
-    }
+            // Optionally log the API response for debugging
+            // \Log::info('Coupon/Register API Response', [
+            //     'http_code' => $httpCode,
+            //     'response'  => $apiResponse,
+            // ]);
 
 
             // $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
