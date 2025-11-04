@@ -3951,9 +3951,7 @@ class OrderController extends Controller
 
         // 3. --- LOAD THE SAVED CART DATA ---
         $cartData = $paymentCart->cart_data;
-        $orderRequest = new Request($cartData); // Create a new R5
-        // 
-        // equest object from the saved data.
+        $orderRequest = new Request($cartData); // Create a new Request object from the saved data.
 
         // STEP 3: Prepare the payment details package from the actual PayTabs response.
         $paymentDetails = [
