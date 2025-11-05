@@ -1267,47 +1267,47 @@ class OrderController extends Controller
             //         ]);
             //     }
             // }
-            $coupon_code = $request->input('couponCode');
-            if(isset($coupon_code) && !empty($request->input('couponCode'))) {
-                $curl = curl_init();
+            // $coupon_code = $request->input('couponCode');
+            // if(isset($coupon_code) && !empty($request->input('couponCode'))) {
+            //     $curl = curl_init();
 
-                $payload = [
-                    'couponRegistrationId' => $decode->data[0]->couponRegistrationId,
-                    // 'couponId'             => $decode->data[0]->couponId,
-                    'refDocNo'             => $order->code,
-                    'salesType'            => $decode->data[0]->salesType,
-                    'company'              => $decode->data[0]->company,
-                    'whsCode'              => $decode->data[0]->whsCode,
-                    'custNo'               => $customer_id,
-                    'mobileNo'             => $request->input('billingAddress.mobile'),
-                    // 'discAmount'           => 27.50,
-                    'netAmount'            => $order->amount,
-                ];
-                  if ($couponRegistrationId == 0) {
-                    $payload['couponCode'] = $coupon_code;
-                }
+            //     $payload = [
+            //         'couponRegistrationId' => $decode->data[0]->couponRegistrationId,
+            //         // 'couponId'             => $decode->data[0]->couponId,
+            //         'refDocNo'             => $order->code,
+            //         'salesType'            => $decode->data[0]->salesType,
+            //         'company'              => $decode->data[0]->company,
+            //         'whsCode'              => $decode->data[0]->whsCode,
+            //         'custNo'               => $customer_id,
+            //         'mobileNo'             => $request->input('billingAddress.mobile'),
+            //         // 'discAmount'           => 27.50,
+            //         'netAmount'            => $order->amount,
+            //     ];
+            //       if ($couponRegistrationId == 0) {
+            //         $payload['couponCode'] = $coupon_code;
+            //     }
                 
-                \Log::info(json_encode($payload)."payload_Response");
+            //     \Log::info(json_encode($payload)."payload_Response");
 
-                curl_setopt_array($curl, [
-                    CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_ENCODING       => '',
-                    CURLOPT_MAXREDIRS      => 10,
-                    CURLOPT_TIMEOUT        => 0,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
-                    CURLOPT_CUSTOMREQUEST  => 'POST',
-                    CURLOPT_POSTFIELDS     => json_encode($payload),
-                    CURLOPT_HTTPHEADER     => [
-                        'Content-Type: application/json'
-                    ],
-                ]);
+            //     curl_setopt_array($curl, [
+            //         CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
+            //         CURLOPT_RETURNTRANSFER => true,
+            //         CURLOPT_ENCODING       => '',
+            //         CURLOPT_MAXREDIRS      => 10,
+            //         CURLOPT_TIMEOUT        => 0,
+            //         CURLOPT_FOLLOWLOCATION => true,
+            //         CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            //         CURLOPT_CUSTOMREQUEST  => 'POST',
+            //         CURLOPT_POSTFIELDS     => json_encode($payload),
+            //         CURLOPT_HTTPHEADER     => [
+            //             'Content-Type: application/json'
+            //         ],
+            //     ]);
 
-                $response = curl_exec($curl);
+            //     $response = curl_exec($curl);
 
-                curl_close($curl);
-            }
+            //     curl_close($curl);
+            // }
 
             if($request->input('customer_id')) {
                 $loggedInCustomer = Customer::where('id', $request->input('customer_id'))->first();
@@ -1787,7 +1787,10 @@ class OrderController extends Controller
                 $order,
                 $request->input('payment_method'),
                 'completed',
-                $customer_id
+                $customer_id,
+                null,
+                null,
+                $decode
             );
 
             return response()->json([

@@ -27,6 +27,7 @@ class PageForm extends FormAbstract
             ->hasTabs()
             ->add('name', TextField::class, NameFieldOption::make()->maxLength(120)->required()->toArray())
             ->add('description', TextareaField::class, DescriptionFieldOption::make()->toArray())
+            ->add('link', TextField::class)
             ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->toArray())
             ->add('status', SelectField::class, StatusFieldOption::make()->toArray())
             ->when(Template::getPageTemplates(), function (PageForm $form, array $templates) {

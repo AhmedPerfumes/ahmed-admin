@@ -83,7 +83,7 @@ class ProductCategoryController extends Controller
         $home_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'desktop')->orderBy('order', 'asc')->get();
         $home_mobile_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'mobile')->orderBy('order', 'asc')->get();
         // $dynamic_sections= DB::table('dynamic_sections')->select('heading', 'description','link','image','video1','video2')->get();
-        $pop_up = Page::select('name','content','description','image','mobile_image')->get();
+        $pop_up = Page::select('name','content','description','image','mobile_image','link')->get();
         $top_header=ProductAttribute::select('title','color')->get();
         
 

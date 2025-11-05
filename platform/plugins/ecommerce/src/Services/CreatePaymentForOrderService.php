@@ -25,7 +25,8 @@ class CreatePaymentForOrderService
         string $paymentStatus = PaymentStatusEnum::PENDING,
         string|int|null $customerId = null,
         ?string $chargeId = null,
-        ?string $description = null
+        ?string $description = null,
+        $couponData = null
 
     ): void {
         if (! is_plugin_active('payment')) {
@@ -83,6 +84,56 @@ class CreatePaymentForOrderService
         $order_products = OrderProduct::where('order_id', $order->getKey())->get();
 
         if($paymentStat == 'completed' || $paymentMethod == 'cod') {
+
+
+            if (!empty($order->coupon_code)) {
+                
+                try {
+                    $curl = curl_init();
+
+                    $payload = [
+                    'couponRegistrationId' => $couponData->data[0]->couponRegistrationId,
+                            // 'couponId'             => $decode->data[0]->couponId,
+                            'refDocNo'             => $order->code,
+                            'salesType'            => $couponData->data[0]->salesType,
+                            'company'              => $couponData->data[0]->company,
+                            'whsCode'              => $couponData->data[0]->whsCode,
+                            'custNo'               => $customerId,
+                            'mobileNo'             => $shipping_data->phone ?? '',
+                            // 'discAmount'           => 27.50,
+                            'netAmount'            => $order->amount,
+                    ];
+
+                    if (($order->couponRegistrationId ?? 0) == 0) {
+                        $payload['couponCode'] = $order->coupon_code;
+                    }
+
+                    \Log::info('Redeem Payload: ' . json_encode($payload));
+
+                    curl_setopt_array($curl, [
+                        CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING       => '',
+                        CURLOPT_MAXREDIRS      => 10,
+                        CURLOPT_TIMEOUT        => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST  => 'POST',
+                        CURLOPT_POSTFIELDS     => json_encode($payload),
+                        CURLOPT_HTTPHEADER     => [
+                            'Content-Type: application/json'
+                        ],
+                    ]);
+
+                    $response = curl_exec($curl);
+                    \Log::info('Redeem API Response: ' . $response);
+
+                    curl_close($curl);
+                } catch (\Exception $e) {
+                    \Log::error('Redeem API Error: ' . $e->getMessage());
+                }
+            }
+            
             $ch = curl_init();
 
             $passw = "11F2";
