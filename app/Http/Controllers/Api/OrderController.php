@@ -547,7 +547,7 @@ class OrderController extends Controller
                     'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                 ]);
 
-                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {            
+                if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {
                     $data = [
                         "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $loggedInCustomer->name,
                         "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $loggedInCustomer->email,
@@ -2532,6 +2532,8 @@ class OrderController extends Controller
             "locale" => "en_US"
         ];
 
+        \Log::info('Order Checkout Payload:', ['request' => $payload]);
+
         foreach ($prods as $item) {
             $vatPercent = $request->input('vatTax'); // e.g., 5 or 15
             $totalAmount = (float) $item['price']; // already includes VAT
@@ -2585,9 +2587,16 @@ class OrderController extends Controller
 
         $response = curl_exec($curl);
 
+        if (curl_errno($curl)) {
+            // echo 'Order checkout Error: ' . curl_error($ch);
+            \Log::info('Order Checkout Error:', ['error' => curl_error($curl)]);exit;
+        }
+
         curl_close($curl);
         // echo $response;die;
-        return json_decode($response, true);
+        $resp = json_decode($response, true);
+        \Log::info('Order Checkout Response:', ['response' => $resp]);
+        return $resp;
     }
 
     public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
@@ -2610,7 +2619,8 @@ class OrderController extends Controller
 
         // Check for errors
         if (curl_errno($ch)) {
-            echo 'order_approved Curl error: ' . curl_error($ch);exit;
+            // echo 'order_approved Curl error: ' . curl_error($ch);
+            \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit;
         }
 
         // Close cURL session
@@ -2619,6 +2629,7 @@ class OrderController extends Controller
         $resp = json_decode($response, true);
 
         // echo "<pre>";print_r($resp);exit;
+        \Log::info('Order Get Response:', ['response' => $resp]);
 
         if(!$resp['order_number'] && !isset($resp['order_number']) && empty($resp['order_number'])) {
             return response()->json(['message' => 'Transaction not found']);
