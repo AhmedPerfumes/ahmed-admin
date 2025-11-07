@@ -2727,70 +2727,22 @@ class OrderController extends Controller
 
             \Log::info('Order Get Response:', ['response' => $resp]);
 
-            $url = env('TAMARA_API_URL')."payments/capture";
+            if (isset($resp['status']) && ($resp['status'] != 'fully_captured' && $resp['status'] != 'partially_captured')) {
 
-            $data = [
-                "order_id" => $request->order_id,
-                "total_amount" => $resp['total_amount'],
-                "items" => $resp['items'],
-                "shipping_amount" => $resp['shipping_amount'],
-                "tax_amount" => $resp['tax_amount'],
-                "shipping_info" => [
-                    "shipped_at" => now(),
-                    "shipping_company" => "SMSA"
-                ]
-            ];
+                $url = env('TAMARA_API_URL')."payments/capture";
 
-            // Initialize cURL session
-            $ch = curl_init($url);
+                $data = [
+                    "order_id" => $request->order_id,
+                    "total_amount" => $resp['total_amount'],
+                    "items" => $resp['items'],
+                    "shipping_amount" => $resp['shipping_amount'],
+                    "tax_amount" => $resp['tax_amount'],
+                    "shipping_info" => [
+                        "shipped_at" => now(),
+                        "shipping_company" => "SMSA"
+                    ]
+                ];
 
-            // Set cURL options
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json',
-                'Accept: application/json',
-                'Authorization: Bearer ' . env('TAMARA_TOKEN')
-            ]);
-
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-
-            // Execute cURL request
-            $capture_response = curl_exec($ch);
-
-            // Error handling
-            if (curl_errno($ch)) {
-                // echo 'order_authorised Curl error: ' . curl_error($ch);
-                \Log::info('Order Captured Error:', ['error' => curl_error($ch)]);exit();
-            }
-
-            curl_close($ch);
-
-            $capture_resp = json_decode($capture_response, true);
-
-            // echo "<pre>";print_r($capture_resp);exit;
-
-            \Log::info('Order Captured Response:', ['response' => $capture_resp]);
-
-            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
-            // echo "<pre>";print_r($order);
-            $createPaymentForOrderService->execute(
-                $order,
-                'tamara',
-                $capture_resp['status'],
-                // $customer->id,
-                $order->user_id,
-                $capture_resp['order_id'],
-                $capture_resp['status'],
-            );
-
-            if (!isset($capture_resp['status']) || $capture_resp['status'] != 'fully_captured') {
-                // return response()->json([
-                //     'message' => 'Order Payment Captured Failed',
-                // ]);
-
-                $url = env('TAMARA_API_URL')."orders/".$request->order_id."/cancel";
-                
                 // Initialize cURL session
                 $ch = curl_init($url);
 
@@ -2806,41 +2758,107 @@ class OrderController extends Controller
                 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
                 // Execute cURL request
-                $cancel_response = curl_exec($ch);
+                $capture_response = curl_exec($ch);
 
                 // Error handling
                 if (curl_errno($ch)) {
                     // echo 'order_authorised Curl error: ' . curl_error($ch);
-                    \Log::info('Order Canceled Error:', ['error' => curl_error($ch)]);exit();
+                    \Log::info('Order Captured Error:', ['error' => curl_error($ch)]);exit();
                 }
 
                 curl_close($ch);
 
-                $cancel_resp = json_decode($cancel_response, true);
+                $capture_resp = json_decode($capture_response, true);
 
-                // echo "<pre>";print_r($cancel_resp);exit;
+                // echo "<pre>";print_r($capture_resp);exit;
 
-                \Log::info('Order Canceled Response:', ['response' => $cancel_resp]);
+                \Log::info('Order Captured Response:', ['response' => $capture_resp]);
 
                 $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
                 // echo "<pre>";print_r($order);
                 $createPaymentForOrderService->execute(
                     $order,
                     'tamara',
-                    $cancel_resp['status'],
+                    $capture_resp['status'],
                     // $customer->id,
                     $order->user_id,
-                    $cancel_resp['order_id'],
-                    $cancel_resp['status'],
+                    $capture_resp['order_id'],
+                    $capture_resp['status'],
                 );
 
+                if (isset($capture_resp['status']) && $capture_resp['status'] != 'fully_captured') {
+                    // return response()->json([
+                    //     'message' => 'Order Payment Captured Failed',
+                    // ]);
+
+                    $url = env('TAMARA_API_URL')."orders/".$request->order_id."/cancel";
+                    
+                    // Initialize cURL session
+                    $ch = curl_init($url);
+
+                    // Set cURL options
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/json',
+                        'Accept: application/json',
+                        'Authorization: Bearer ' . env('TAMARA_TOKEN')
+                    ]);
+
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+                    // Execute cURL request
+                    $cancel_response = curl_exec($ch);
+
+                    // Error handling
+                    if (curl_errno($ch)) {
+                        // echo 'order_authorised Curl error: ' . curl_error($ch);
+                        \Log::info('Order Canceled Error:', ['error' => curl_error($ch)]);exit();
+                    }
+
+                    curl_close($ch);
+
+                    $cancel_resp = json_decode($cancel_response, true);
+
+                    // echo "<pre>";print_r($cancel_resp);exit;
+
+                    \Log::info('Order Canceled Response:', ['response' => $cancel_resp]);
+
+                    $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+                    // echo "<pre>";print_r($order);
+                    $createPaymentForOrderService->execute(
+                        $order,
+                        'tamara',
+                        $cancel_resp['status'],
+                        // $customer->id,
+                        $order->user_id,
+                        $cancel_resp['order_id'],
+                        $cancel_resp['status'],
+                    );
+
+                    return response()->json([
+                        'message' => 'Order Payment Canceled Successfully',
+                    ]);
+                }
+
                 return response()->json([
-                    'message' => 'Order Payment Canceled Successfully',
+                    'message' => 'Order Payment Captured Successfully',
                 ]);
             }
+            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+                // echo "<pre>";print_r($order);
+                $createPaymentForOrderService->execute(
+                    $order,
+                    'tamara',
+                    $resp['status'],
+                    // $customer->id,
+                    $order->user_id,
+                    $resp['order_id'],
+                    $resp['status'],
+            );
 
             return response()->json([
-                'message' => 'Order Payment Captured Successfully',
+                'message' => 'Order Payment Auto Captured Successfully',
             ]);
         } elseif($request->event_type == 'order_canceled') {
             $ch = curl_init();
