@@ -1760,8 +1760,7 @@ class OrderController extends Controller
                 $couponData = (array) $couponObject;
 
                 // Add the order's ID to the data
-                // Assumes 'order_number' column stores the $order->id.
-                $couponData['order_number'] = $order->id;
+                $couponData['order_id'] = $order->id;
 
                 // **IMPORTANT**: Your schema for 'column1' is NOT NULL
                 // but the JSON does not provide it. We must set a default.

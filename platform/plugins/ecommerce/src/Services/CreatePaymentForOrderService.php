@@ -84,7 +84,7 @@ class CreatePaymentForOrderService
         $order_products = OrderProduct::where('order_id', $order->getKey())->get();
 
         if($paymentStat == 'completed' || $paymentMethod == 'cod') {
-            $activeCoupon = ActiveCoupon::where('order_number', $order->id)->first();
+            $activeCoupon = ActiveCoupon::where('order_id', $order->id)->first();
             if ($activeCoupon) {
                 try {
                     $curl = curl_init();

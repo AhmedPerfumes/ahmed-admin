@@ -29,7 +29,7 @@ class ActiveCoupon extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'order_number',
+        'order_id',
         'couponRegistrationId',
         'couponCode',
         'promotionName',
