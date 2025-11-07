@@ -1790,7 +1790,7 @@ class OrderController extends Controller
                 $customer_id,
                 null,
                 null,
-                $decode
+                isset($decode)
             );
 
             return response()->json([
