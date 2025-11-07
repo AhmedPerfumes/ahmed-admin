@@ -16,6 +16,7 @@ use Botble\Ecommerce\Models\OrderAddress;
 use Botble\Ecommerce\Models\Address;
 use Botble\Ecommerce\Models\OrderProduct;
 use PHPMailer\PHPMailer\PHPMailer;
+use App\Models\ActiveCoupon;
 
 class CreatePaymentForOrderService
 {
@@ -25,8 +26,7 @@ class CreatePaymentForOrderService
         string $paymentStatus = PaymentStatusEnum::PENDING,
         string|int|null $customerId = null,
         ?string $chargeId = null,
-        ?string $description = null,
-        $couponData = null
+        ?string $description = null
 
     ): void {
         if (! is_plugin_active('payment')) {
@@ -84,33 +84,25 @@ class CreatePaymentForOrderService
         $order_products = OrderProduct::where('order_id', $order->getKey())->get();
 
         if($paymentStat == 'completed' || $paymentMethod == 'cod') {
-
-
-            if (!empty($order->coupon_code)) {
-                
+            $activeCoupon = ActiveCoupon::where('order_number', $order->id)->first();
+            if ($activeCoupon) {
                 try {
                     $curl = curl_init();
-
                     $payload = [
-                    'couponRegistrationId' => $couponData->data[0]->couponRegistrationId,
-                            // 'couponId'             => $decode->data[0]->couponId,
-                            'refDocNo'             => $order->code,
-                            'salesType'            => $couponData->data[0]->salesType,
-                            'company'              => $couponData->data[0]->company,
-                            'whsCode'              => $couponData->data[0]->whsCode,
-                            'custNo'               => $customerId,
-                            'mobileNo'             => $shipping_data->phone ?? '',
-                            // 'discAmount'           => 27.50,
-                            'netAmount'            => $order->amount,
+                        'couponRegistrationId' => $activeCoupon->couponRegistrationId,
+                        'refDocNo'             => $order->code,
+                        'salesType'            => $activeCoupon->salesType,
+                        'company'              => $activeCoupon->company,
+                        'whsCode'              => $activeCoupon->whsCode,
+                        'custNo'               => $customerId,
+                        'mobileNo'             => $shipping_data->phone ?? '',
+                        'netAmount'            => $order->amount,
                     ];
-
-                    if (($order->couponRegistrationId ?? 0) == 0) {
-                        $payload['couponCode'] = $order->coupon_code;
+                    if ($activeCoupon->couponRegistrationId == 0) {
+                        $payload['couponCode'] = $activeCoupon->couponCode;
                     }
-
                     \Log::info('Redeem Payload: ' . json_encode($payload));
-
-                    curl_setopt_array($curl, [
+                        curl_setopt_array($curl, [
                         CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
                         CURLOPT_RETURNTRANSFER => true,
                         CURLOPT_ENCODING       => '',
@@ -124,15 +116,79 @@ class CreatePaymentForOrderService
                             'Content-Type: application/json'
                         ],
                     ]);
-
                     $response = curl_exec($curl);
+                    $curlError = curl_error($curl);
+
                     \Log::info('Redeem API Response: ' . $response);
 
+                    if ($curlError) {
+                        // Handle cURL-level errors (e.g., timeout, connection failed)
+                        \Log::error('Redeem API cURL Error: ' . $curlError);
+                        $activeCoupon->status = 'Redeem cURL Error';
+                    } else {
+                        $responseData = json_decode($response);
+
+                        // Check if JSON decoded and responseType is 0 (assuming 0 is success)
+                        if ($responseData && isset($responseData->responseType) && $responseData->responseType == 0) {
+                            $activeCoupon->status = 'Redeemed';
+                        } else {
+                            // Store the API's error message, or a generic failure
+                            $errorMessage = $responseData->message ?? 'Redeem Failed';
+                            $activeCoupon->status = !empty($errorMessage) ? Str::limit($errorMessage, 250) : 'Redeem Failed';
+                        }
+                    }
+
+                    $activeCoupon->save();
                     curl_close($curl);
                 } catch (\Exception $e) {
                     \Log::error('Redeem API Error: ' . $e->getMessage());
+                    
+                    $activeCoupon->status = 'Redeem Exception';
+                    $activeCoupon->save();
                 }
             }
+            
+            
+            // if (!empty($order->coupon_code)) {
+            //     try {
+            //         $curl = curl_init();
+            //         $payload = [
+            //             'couponRegistrationId' => $couponData->data[0]->couponRegistrationId,
+            //                 // 'couponId'             => $decode->data[0]->couponId,
+            //                 'refDocNo'             => $order->code,
+            //                 'salesType'            => $couponData->data[0]->salesType,
+            //                 'company'              => $couponData->data[0]->company,
+            //                 'whsCode'              => $couponData->data[0]->whsCode,
+            //                 'custNo'               => $customerId,
+            //                 'mobileNo'             => $shipping_data->phone ?? '',
+            //                 // 'discAmount'           => 27.50,
+            //                 'netAmount'            => $order->amount,
+            //         ];
+            //         if (($order->couponRegistrationId ?? 0) == 0) { $payload['couponCode'] = $order->coupon_code; }
+            //         \Log::info('Redeem Payload: ' . json_encode($payload));
+            //         curl_setopt_array($curl, [
+            //             CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
+            //             CURLOPT_RETURNTRANSFER => true,
+            //             CURLOPT_ENCODING       => '',
+            //             CURLOPT_MAXREDIRS      => 10,
+            //             CURLOPT_TIMEOUT        => 0,
+            //             CURLOPT_FOLLOWLOCATION => true,
+            //             CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            //             CURLOPT_CUSTOMREQUEST  => 'POST',
+            //             CURLOPT_POSTFIELDS     => json_encode($payload),
+            //             CURLOPT_HTTPHEADER     => [
+            //                 'Content-Type: application/json'
+            //             ],
+            //         ]);
+
+            //         $response = curl_exec($curl);
+            //         \Log::info('Redeem API Response: ' . $response);
+
+            //         curl_close($curl);
+            //     } catch (\Exception $e) {
+            //         \Log::error('Redeem API Error: ' . $e->getMessage());
+            //     }
+            // }
             
             $ch = curl_init();
 
