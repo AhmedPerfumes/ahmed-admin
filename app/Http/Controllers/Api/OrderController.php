@@ -2373,360 +2373,6 @@ class OrderController extends Controller
             'message' => 'Customer Found Successfully',
         ]);
     }
-    
-    public function payTabsPayment(Request $request, $shippingData, \App\Models\PaymentCart $paymentCart) {
-        $paymentStr = '';
-        foreach ($request->input('products') as $product) {
-            $quantity = $product['quantity'] ? $product['quantity'] : 1;
-            $exisProduct = Product::select('name')->where('ec_products.id', $product['product_id'])->first();
-            $paymentStr .= $exisProduct->name. ' ('.$quantity.'), ';
-        }
-
-        $data = [
-            "tran_type"=> "sale",
-            "tran_class"=> "ecom",
-            "cart_id"           => $paymentCart->id,
-            "cart_currency"=> "AED",
-            "cart_amount"=> $request->input('finalPrice'),
-            "cart_description"=> $paymentStr,
-            "paypage_lang"=> "en",
-            "customer_details"=> [
-                "name"=> $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
-                "email"=> $request->input('billingAddress.email'),
-                "phone"=> $request->input('billingAddress.mobile'),
-                "street1"=> $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
-                "city"=> $request->input('billingAddress.emirates'),
-                "state"=> $request->input('billingAddress.emirates'),
-                "country"=> "AE",
-                // "zip"=> "12345"
-            ],
-            "shipping_details"=> [
-                "name"=> $shippingData['name'],
-                "email"=> $shippingData['email'],
-                "phone"=> $shippingData['phone'],
-                "street1"=> $shippingData['street1'],
-                "city"=> $shippingData['city'],
-                "state"=> $shippingData['state'],
-                "country"=> "AE",
-                // "zip"=> "54321"
-            ],
-            // // The URL for the secure server-to-server confirmation
-           // The BACKEND URL. PayTabs sends a secure POST request here with ALL data.
-            // "callback"  => url('/api/finalize-payment'), 
-    
-            // The FRONTEND URL. The user's browser goes here.
-            // "return"    => env('FRONTEND_URL', 'http://localhost:3000') . '/order/processing?cartId=' . $paymentCart->id
-            // Set the return URL to point to the API with the cart_id
-            // "return"    => url('/api/finalize-payment')
-            "return"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/finalize-payment?cartId=" . $paymentCart->id
-        ];
-
-        $PROFILE_ID = config('paytabs.profile_id');
-        $SERVER_KEY = config('paytabs.server_key');
-
-        $BASE_URL = config('paytabs.base_url');
-
-        $data['profile_id'] = $PROFILE_ID;
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $BASE_URL,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($data, true),
-            CURLOPT_HTTPHEADER => array(
-                'authorization:' . $SERVER_KEY,
-                'Content-Type:application/json'
-            ),
-            // CURLOPT_SSL_VERIFYPEER => false,  // 👈 Add this
-            // CURLOPT_SSL_VERIFYHOST => false,  // 👈 And this
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_CAINFO => base_path('certs/cacert.pem'),
-        ));
-
-        $response = json_decode(curl_exec($curl), true);
-        curl_close($curl);
-        // print_r($response);die;
-        return $response;
-
-        // $responseRaw = curl_exec($curl);
-        // curl_close($curl);
-
-        // echo "Raw response:\n";
-        // var_dump($responseRaw); // Check if there is anything returned at all
-        // $response = json_decode($responseRaw, true);
-        // print_r($response); // Still might be null if response is not valid JSON
-        // die;
-
-        // $responseRaw = curl_exec($curl);
-
-        // if (curl_errno($curl)) {
-        //     echo 'Curl error: ' . curl_error($curl) . "\n";
-        // }
-
-        // $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        // echo "HTTP Status Code: $httpCode\n";
-
-        // curl_close($curl);
-
-        // die;
-    }
-
-    private function tabbyPayment(Request $request, array $shippingData, PaymentCart $paymentCart) { 
-
-        $phoneNumber = ltrim($request->input('billingAddress.mobile'), '0');
-        // Ensure the correct country code is used (e.g., +966 for KSA, +971 for UAE)
-        $buyerPhone = '+971' . $phoneNumber;
-
-        $requestParams = [
-            "payment" => [
-                "amount" => number_format((float)$request->input('finalPrice'), 2, '.', ''),
-                "currency" => "AED", // Make sure this is correct for your config
-                "buyer" => [
-                    "phone" => $buyerPhone,
-                    "email" => $request->input('billingAddress.email'),
-                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
-                ],
-                // CHECK WITH YAZIL BHAIII
-                "shipping_address" => [
-                    "city" => $shippingData['city'],
-                    "address" => $shippingData['street1'],
-                    "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
-                ],
-                "order" => [
-                    "tax_amount" => "0.00", // Simplified, as Tabby recalculates
-                    "shipping_amount" => number_format((float)$request->input('shippingPrice'), 2, '.', ''),
-                    "discount_amount" => number_format((float)$request->input('discount_amount'), 2, '.', ''),
-                    "reference_id" => $paymentCart->id, // CRITICAL: Use the PaymentCart ID
-                    "items" => []
-                ],
-                "buyer_history" => [
-                    "registered_since" => $shippingData['buyer_history']['registered_since'],
-                    "loyalty_level" => $shippingData['buyer_history']['loyalty_level'],
-                ],
-                "order_history" => [],
-            ],
-            "lang" => $request->input('locale', 'en'),
-            "merchant_code" => "APM", // This should be from your config
-            "merchant_urls" => [
-                // CRITICAL: Point all URLs to our new callback and include the cartId
-                "success" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
-                "cancel"  => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
-                "failure" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
-            ]
-        ];
-
-        // Loop through request products to populate 'items'
-        foreach ($request->input('products') as $item) {
-            $requestParams['payment']['order']['items'][] = [
-                "title" => $item['product_name'],
-                "quantity" => $item['quantity'],
-                "unit_price" => number_format((float)$item['price'], 2, '.', ''),
-                "reference_id" => (string)$item['product_id'],
-                "category" => $item['category_name'] ?? 'Default'
-            ];
-        }
-
-        // Loop through buyer's order history
-        if (!empty($shippingData['buyer_history']['order_history'])) {
-            foreach ($shippingData['buyer_history']['order_history'] as $it) {
-                $requestParams['payment']['order_history'][] = [
-                    "purchased_at" => Carbon::parse($it->created_at)->utc()->toIso8601String(),
-                    "amount" => number_format((float)$it['amount'], 2, '.', ''),
-                    "status" => (string)$it->status,
-                    "buyer" => [
-                        "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
-                        "email" => $request->input('billingAddress.email'),
-                        "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
-                    ],
-                    "shipping_address" => [
-                        "city" => $shippingData['city'],
-                        "address" => $shippingData['street1'],
-                        "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
-                    ],
-                ];
-            }
-        } else {
-            $requestParams['payment']['order_history'][] = [
-                "purchased_at" => Carbon::now()->utc()->toIso8601String(),
-                "amount" => $request->input('finalPrice'),
-                "status" => "N/A",
-                "buyer" => [
-                    "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
-                    "email" => $request->input('billingAddress.email'),
-                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
-                ],
-                "shipping_address" => [
-                    "city" => $shippingData['city'],
-                    "address" => $shippingData['street1'],
-                    "zip" => "00000" // Tabby requires a zip, use a placeholder if not available    
-                ],
-            ];
-        }
-
-        // Make the cURL request to Tabby
-        $PROFILE_ID = env('TABBY_PROFILE_ID');
-        $PUBLIC_KEY = env('TABBY_PUBLIC_KEY');
-        $BASE_URL = env('TABBY_BASE_URL');
-
-        $data['profile_id'] = $PROFILE_ID;
-
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $BASE_URL.'checkout',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($requestParams),
-            CURLOPT_HTTPHEADER => array(
-                'authorization: Bearer ' . $PUBLIC_KEY,
-                'Content-Type:application/json'
-            ),
-        ));
-
-        // $response = curl_exec($curl);
-        // if (curl_errno($curl)) {
-        //     echo 'Curl error: ' . curl_error($curl) . "\n";
-        // }
-        // curl_close($curl);
-
-        $responseString = curl_exec($curl);
-        if (curl_errno($curl)) {
-            $curlError = curl_error($curl);
-            curl_close($curl);
-            // Log the actual cURL error
-            Log::error('Tabby cURL Error:', ['error' => $curlError]);
-            // Return an error structure so the 'else' block in initiatePayment works
-            return ['status' => 'curl_error', 'message' => $curlError];
-        }
-        curl_close($curl);
-        $responseArray = json_decode($responseString, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::error('Tabby JSON Decode Error:', ['response_string' => $responseString]);
-            return ['status' => 'json_error', 'message' => 'Failed to decode JSON response from Tabby.'];
-        }
-        Log::info('Tabby Checkout Response:', $responseArray);
-        
-        // return $response;
-        return $responseArray;
-    }
-
-    public function finalizeTabbyPayment(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-        // 1. Get the payment_id from Tabby's redirect
-        // $payment_id = $request->query('payment_id');
-        $payment_id = $request->input('payment_id') ? $request->input('payment_id') : $request->query('payment_id');
-
-        // 2. Get our temporary cart ID from the URL
-        $paymentCart = PaymentCart::find($request->query('cartId'));
-
-        if (!$paymentCart) {
-            // Invalid session, redirect to a failure page
-            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=invalid_session';
-            return redirect($failureUrl);
-        }
-        
-        // 3. Update the temporary cart's status
-        $paymentCart->status = 'pending_authorization'; // Mark as returned
-        $paymentCart->save();
-
-        // 4. Re-load the original order data
-        $orderRequest = new Request($paymentCart->cart_data);
-
-        // 5. Check the payment status with Tabby
-        $SECRET_KEY = env('TABBY_SECRET_KEY');
-        $BASE_URL = env('TABBY_BASE_URL');
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $BASE_URL . 'payments/' . $payment_id);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['authorization: Bearer ' . $SECRET_KEY]);
-        $response = json_decode(curl_exec($ch), true);
-        curl_close($ch);
-
-        $paymentDetails = [];
-        $finalStatus = 'failure';
-        if (isset($response['status']) && ($response['status'] == 'AUTHORIZED' || $response['status'] == 'authorized')) {
-            // 6. Payment is authorized, so we must CAPTURE it
-            $c = curl_init();
-            curl_setopt_array($c, array(
-                CURLOPT_URL => $BASE_URL . 'payments/' . $response["id"] . '/captures',
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
-                CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => json_encode(["amount" => $response["amount"]]),
-                // CURLOPT_POSTFIELDS => json_encode(["amount" => $response["amount"], true]),
-                CURLOPT_HTTPHEADER => [
-                    'authorization: Bearer ' . $SECRET_KEY,
-                    'Content-Type:application/json'
-                ],
-            ));
-            $captureResponse = json_decode(curl_exec($c), true);
-            curl_close($c);
-
-            if (isset($captureResponse['status']) && ($captureResponse['status'] == 'CLOSED' || $captureResponse['status'] == 'closed')) {
-                // SUCCESS! Payment is captured.
-                $paymentDetails = [
-                    'method'          => 'tabby',
-                    'status'          => 'A', // 'A' for Accepted/Approved, to match our helper logic
-                    'transaction_ref' => $captureResponse['id'],
-                    'message'         => $captureResponse['status'],
-                ];
-                $finalStatus = 'complete';
-                $paymentCart->status = 'A'; // Update temp cart status
-            } else {
-                // Capture failed
-                $paymentDetails = [
-                    'method'          => 'tabby',
-                    'status'          => 'F', // 'F' for Failed
-                    'transaction_ref' => $payment_id,
-                    'message'         => $captureResponse['status'] ?? 'Capture Failed',
-                ];
-                $paymentCart->status = 'failed_capture';
-            }
-        } else {
-            // Authorization failed
-            $paymentDetails = [
-                'method'          => 'tabby',
-                'status'          => 'F', // 'F' for Failed
-                'transaction_ref' => $payment_id,
-                'message'         => $response['status'] ?? 'Authorization Failed',
-            ];
-            $paymentCart->status = $response['status'] ?? 'failed_auth';
-        }
-
-        $paymentCart->save(); // Save the final status to the temp cart
-
-        // 7. Call the one, central _createFinalOrder helper
-        $orderResult = $this->_createFinalOrder(
-            $orderRequest,
-            $paymentCart->customer_id,
-            $paymentDetails,
-            $paymentCart->id
-        );
-
-        if (!$orderResult) {
-            // Order creation failed! Redirect to failure page.
-            // The PaymentCart is NOT deleted, so admin can see the error.
-            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=processing_error&cartId=' . $paymentCart->id;
-            return redirect($failureUrl);
-        }
-        
-        // 8. Order created successfully! Clean up and redirect.
-        // $order = $orderResult['order'];
-        $paymentCart->delete(); // Delete the temporary cart
-        Log::info('Tabby Payment and Order Creation Successful', ['order' => $orderResult]);
-
-        // Redirect user to the frontend success/failure page
-        $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-order-payment-complete?q=' . base64_encode($orderResult->code);
-        
-
-        return redirect($redirectUrl);
-    }
 
     private function _createFinalOrder(Request $orderRequest, int $customer_id, array $paymentDetails, ?string $paymentCartId = null): ?Order {
         DB::beginTransaction();
@@ -2887,11 +2533,9 @@ class OrderController extends Controller
                         $query->where('product_id', $product['product_id']);
                     })
                     ->with(['discountRules' => function ($query) {
-                        $query->where('apply_to', 'individual')
-                            ->select('id', 'promotion_id', 'apply_to');
+                        $query->where('apply_to', 'individual')->select('id', 'promotion_id', 'apply_to');
                     }, 'discountRules.individualRules' => function ($query) use ($product) {
-                        $query->where('product_id', $product['product_id'])
-                            ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                        $query->where('product_id', $product['product_id'])->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
                     }])
                     ->first();
 
@@ -2976,27 +2620,27 @@ class OrderController extends Controller
                     $exisProduct->coupon = $couponData;
                     
                     $customerCoupons = Promotion::select('coupon_code AS code', 'percentage', 'amount', 'start_date', 'end_date', 'apply_to AS target', 'coupon_type')
-                        ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
-                        ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
-                        ->where('type', 'coupon')
-                        ->where('apply_to', 'customer')
-                        ->where('customer_id', $customer_id)
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
-                        ->get()
-                        ->mapWithKeys(function ($coupon) {
-                            return [
-                                strtolower($coupon->code) => [
-                                    'code' => strtolower($coupon->code),
-                                    'value' => !is_null($coupon->percentage) && $coupon->coupon_type == 'percent' ? intval($coupon->percentage) : intval($coupon->amount),
-                                    'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-                                    'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-                                    'type' => $coupon->target,
-                                    'coupon_type' => $coupon->coupon_type
-                                ],
-                            ];
-                        })
-                        ->toArray();
+                    ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
+                    ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
+                    ->where('type', 'coupon')
+                    ->where('apply_to', 'customer')
+                    ->where('customer_id', $customer_id)
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->get()
+                    ->mapWithKeys(function ($coupon) {
+                        return [
+                            strtolower($coupon->code) => [
+                                'code' => strtolower($coupon->code),
+                                'value' => !is_null($coupon->percentage) && $coupon->coupon_type == 'percent' ? intval($coupon->percentage) : intval($coupon->amount),
+                                'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+                                'type' => $coupon->target,
+                                'coupon_type' => $coupon->coupon_type
+                            ],
+                        ];
+                    })
+                    ->toArray();
 
                     $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
                     $exisProduct->qty = $quantity;
@@ -3295,11 +2939,7 @@ class OrderController extends Controller
                     OrderProduct::query()->create($orderProduct);
 
                     if ($paymentSuccessful) {
-                        Product::query()
-                            ->where('id', $product['product_id'])
-                            ->where('with_storehouse_management', 1)
-                            ->where('quantity', '>=', $quantity)
-                            ->decrement('quantity', $quantity);
+                        Product::query()->where('id', $product['product_id'])->where('with_storehouse_management', 1)->where('quantity', '>=', $quantity)->decrement('quantity', $quantity);
                     }
 
                     if($cashback) {
@@ -4110,6 +3750,8 @@ class OrderController extends Controller
         $addressPrefix = $useShippingAddress ? 'shippingAddress' : 'billingAddress';
         $shippingData = [
             "name"    => $request->input("$addressPrefix.first_name") . ' ' . $request->input("$addressPrefix.last_name"),
+            "first_name"    => $request->input("$addressPrefix.first_name"),
+            "last_name"    => $request->input("$addressPrefix.last_name"),
             "email"   => $request->input("$addressPrefix.email"),
             "phone"   => $request->input("$addressPrefix.mobile"),
             "street1" => $request->input("$addressPrefix.area") . ' ' . $request->input("$addressPrefix.building"),
@@ -4251,10 +3893,153 @@ class OrderController extends Controller
             }
 
             return response()->json(['error' => 'Failed to connect to payment gateway.'], 500);
-        } 
+        } elseif ($paymentMethod === 'tamara') {
+            // 1. Create a temporary payment cart
+            $paymentCart = PaymentCart::create([
+                'customer_id' => $customer_id,
+                'cart_data'   => $request->all(),
+                'status'      => 'pending', // Initial status
+            ]);
+
+            if (!$paymentCart) {
+                return response()->json(['error' => 'Could not initiate payment session.'], 500);
+            }
+
+            // 2. Build the $prods array (as your old code did)
+            $prod = [];
+            foreach ($request->input('products') as $product) {
+                $exisProduct = Product::where('id', $product['product_id'])->first();
+                $exisProduct->qty = $product['quantity'];
+                array_push($prod, $exisProduct);
+            }
+
+            $resp = $this->tamaraPayment($request, $shippingData, $paymentCart, $prod);
+
+            // return response()->json($resp);
+            
+            // 4. Check Tamara's response
+            if(isset($resp['checkout_url']) && isset($resp['order_id'])) {
+                // Save the Tamara order_id to our temporary cart for the webhook
+                $paymentCart->status = $resp['order_id']; // Using 'status' field to store the temp ID
+                $paymentCart->save();
+
+                return response()->json([
+                    'message'      => 'Redirecting to Tamara...',
+                    'redirect_url' => $resp['checkout_url'],
+                ]);
+            } else {
+                // Tamara rejected the payment before redirecting
+                $paymentCart->status = 'failed_initiation';
+                $paymentCart->save();
+                return response()->json([
+                    'message' => 'Sorry, Tamara is unable to approve this purchase. Please use an alternative payment method.',
+                    'error'   => $resp['message'] ?? 'Tamara approval failed.'
+                ], 422);
+            }
+        }
 
         // Handle any other invalid payment methods.
         return response()->json(['error' => 'Invalid payment method provided.'], 400);  
+    }
+    
+    public function payTabsPayment(Request $request, $shippingData, \App\Models\PaymentCart $paymentCart) {
+        $paymentStr = '';
+        foreach ($request->input('products') as $product) {
+            $quantity = $product['quantity'] ? $product['quantity'] : 1;
+            $exisProduct = Product::select('name')->where('ec_products.id', $product['product_id'])->first();
+            $paymentStr .= $exisProduct->name. ' ('.$quantity.'), ';
+        }
+
+        $data = [
+            "tran_type"=> "sale",
+            "tran_class"=> "ecom",
+            "cart_id"           => $paymentCart->id,
+            "cart_currency"=> "AED",
+            "cart_amount"=> $request->input('finalPrice'),
+            "cart_description"=> $paymentStr,
+            "paypage_lang"=> "en",
+            "customer_details"=> [
+                "name"=> $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+                "email"=> $request->input('billingAddress.email'),
+                "phone"=> $request->input('billingAddress.mobile'),
+                "street1"=> $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+                "city"=> $request->input('billingAddress.emirates'),
+                "state"=> $request->input('billingAddress.emirates'),
+                "country"=> "AE",
+                // "zip"=> "12345"
+            ],
+            "shipping_details"=> [
+                "name"=> $shippingData['name'],
+                "email"=> $shippingData['email'],
+                "phone"=> $shippingData['phone'],
+                "street1"=> $shippingData['street1'],
+                "city"=> $shippingData['city'],
+                "state"=> $shippingData['state'],
+                "country"=> "AE",
+                // "zip"=> "54321"
+            ],
+            // // The URL for the secure server-to-server confirmation
+           // The BACKEND URL. PayTabs sends a secure POST request here with ALL data.
+            // "callback"  => url('/api/finalize-payment'), 
+    
+            // The FRONTEND URL. The user's browser goes here.
+            // "return"    => env('FRONTEND_URL', 'http://localhost:3000') . '/order/processing?cartId=' . $paymentCart->id
+            // Set the return URL to point to the API with the cart_id
+            // "return"    => url('/api/finalize-payment')
+            "return"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/finalize-payment?cartId=" . $paymentCart->id
+        ];
+
+        $PROFILE_ID = env('PAYTABS_PROFILE_ID');
+        $SERVER_KEY = env('PAYTABS_SERVER_KEY');
+
+        $BASE_URL = env('PAYTABS_BASE_URL');
+
+        $data['profile_id'] = $PROFILE_ID;
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $BASE_URL,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($data, true),
+            CURLOPT_HTTPHEADER => array(
+                'authorization:' . $SERVER_KEY,
+                'Content-Type:application/json'
+            ),
+            // CURLOPT_SSL_VERIFYPEER => false,  // 👈 Add this
+            // CURLOPT_SSL_VERIFYHOST => false,  // 👈 And this
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_CAINFO => base_path('certs/cacert.pem'),
+        ));
+
+        $response = json_decode(curl_exec($curl), true);
+        curl_close($curl);
+        // print_r($response);die;
+        return $response;
+
+        // $responseRaw = curl_exec($curl);
+        // curl_close($curl);
+
+        // echo "Raw response:\n";
+        // var_dump($responseRaw); // Check if there is anything returned at all
+        // $response = json_decode($responseRaw, true);
+        // print_r($response); // Still might be null if response is not valid JSON
+        // die;
+
+        // $responseRaw = curl_exec($curl);
+
+        // if (curl_errno($curl)) {
+        //     echo 'Curl error: ' . curl_error($curl) . "\n";
+        // }
+
+        // $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        // echo "HTTP Status Code: $httpCode\n";
+
+        // curl_close($curl);
+
+        // die;
     }
 
     public function finalizePayment(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
@@ -4315,5 +4100,565 @@ class OrderController extends Controller
         $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-order-payment-complete' . '?q=' . base64_encode($order->code);
 
         return redirect($redirectUrl);
+    }
+
+    private function tabbyPayment(Request $request, array $shippingData, PaymentCart $paymentCart) { 
+
+        $phoneNumber = ltrim($request->input('billingAddress.mobile'), '0');
+        // Ensure the correct country code is used (e.g., +966 for KSA, +971 for UAE)
+        $buyerPhone = '+971' . $phoneNumber;
+
+        $requestParams = [
+            "payment" => [
+                "amount" => number_format((float)$request->input('finalPrice'), 2, '.', ''),
+                "currency" => "AED", // Make sure this is correct for your config
+                "buyer" => [
+                    "phone" => $buyerPhone,
+                    "email" => $request->input('billingAddress.email'),
+                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+                ],
+                // CHECK WITH YAZIL BHAIII
+                "shipping_address" => [
+                    "city" => $shippingData['city'],
+                    "address" => $shippingData['street1'],
+                    "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
+                ],
+                "order" => [
+                    "tax_amount" => "0.00", // Simplified, as Tabby recalculates
+                    "shipping_amount" => number_format((float)$request->input('shippingPrice'), 2, '.', ''),
+                    "discount_amount" => number_format((float)$request->input('discount_amount'), 2, '.', ''),
+                    "reference_id" => $paymentCart->id, // CRITICAL: Use the PaymentCart ID
+                    "items" => []
+                ],
+                "buyer_history" => [
+                    "registered_since" => $shippingData['buyer_history']['registered_since'],
+                    "loyalty_level" => $shippingData['buyer_history']['loyalty_level'],
+                ],
+                "order_history" => [],
+            ],
+            "lang" => $request->input('locale', 'en'),
+            "merchant_code" => env('TABBY_MERCHANT_CODE'), // This should be from your config
+            "merchant_urls" => [
+                // CRITICAL: Point all URLs to our new callback and include the cartId
+                "success" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
+                "cancel"  => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
+                "failure" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
+            ]
+        ];
+
+        // Loop through request products to populate 'items'
+        foreach ($request->input('products') as $item) {
+            $requestParams['payment']['order']['items'][] = [
+                "title" => $item['product_name'],
+                "quantity" => $item['quantity'],
+                "unit_price" => number_format((float)$item['price'], 2, '.', ''),
+                "reference_id" => (string)$item['product_id'],
+                "category" => $item['category_name'] ?? 'Default'
+            ];
+        }
+
+        // Loop through buyer's order history
+        if (!empty($shippingData['buyer_history']['order_history'])) {
+            foreach ($shippingData['buyer_history']['order_history'] as $it) {
+                $requestParams['payment']['order_history'][] = [
+                    "purchased_at" => Carbon::parse($it->created_at)->utc()->toIso8601String(),
+                    "amount" => number_format((float)$it['amount'], 2, '.', ''),
+                    "status" => (string)$it->status,
+                    "buyer" => [
+                        "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
+                        "email" => $request->input('billingAddress.email'),
+                        "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+                    ],
+                    "shipping_address" => [
+                        "city" => $shippingData['city'],
+                        "address" => $shippingData['street1'],
+                        "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
+                    ],
+                ];
+            }
+        } else {
+            $requestParams['payment']['order_history'][] = [
+                "purchased_at" => Carbon::now()->utc()->toIso8601String(),
+                "amount" => $request->input('finalPrice'),
+                "status" => "N/A",
+                "buyer" => [
+                    "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
+                    "email" => $request->input('billingAddress.email'),
+                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+                ],
+                "shipping_address" => [
+                    "city" => $shippingData['city'],
+                    "address" => $shippingData['street1'],
+                    "zip" => "00000" // Tabby requires a zip, use a placeholder if not available    
+                ],
+            ];
+        }
+
+        // Make the cURL request to Tabby
+        $PROFILE_ID = env('TABBY_PROFILE_ID');
+        $PUBLIC_KEY = env('TABBY_PUBLIC_KEY');
+        $BASE_URL = env('TABBY_BASE_URL');
+
+        $data['profile_id'] = $PROFILE_ID;
+
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $BASE_URL.'checkout',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($requestParams),
+            CURLOPT_HTTPHEADER => array(
+                'authorization: Bearer ' . $PUBLIC_KEY,
+                'Content-Type:application/json'
+            ),
+        ));
+
+        // $response = curl_exec($curl);
+        // if (curl_errno($curl)) {
+        //     echo 'Curl error: ' . curl_error($curl) . "\n";
+        // }
+        // curl_close($curl);
+
+        $responseString = curl_exec($curl);
+        if (curl_errno($curl)) {
+            $curlError = curl_error($curl);
+            curl_close($curl);
+            // Log the actual cURL error
+            Log::error('Tabby cURL Error:', ['error' => $curlError]);
+            // Return an error structure so the 'else' block in initiatePayment works
+            return ['status' => 'curl_error', 'message' => $curlError];
+        }
+        curl_close($curl);
+        $responseArray = json_decode($responseString, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error('Tabby JSON Decode Error:', ['response_string' => $responseString]);
+            return ['status' => 'json_error', 'message' => 'Failed to decode JSON response from Tabby.'];
+        }
+        Log::info('Tabby Checkout Response:', $responseArray);
+        
+        // return $response;
+        return $responseArray;
+    }
+
+    public function finalizeTabbyPayment(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        // 1. Get the payment_id from Tabby's redirect
+        // $payment_id = $request->query('payment_id');
+        $payment_id = $request->input('payment_id') ? $request->input('payment_id') : $request->query('payment_id');
+
+        // 2. Get our temporary cart ID from the URL
+        $paymentCart = PaymentCart::find($request->query('cartId'));
+
+        if (!$paymentCart) {
+            // Invalid session, redirect to a failure page
+            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=invalid_session';
+            return redirect($failureUrl);
+        }
+        
+        // 3. Update the temporary cart's status
+        $paymentCart->status = 'pending_authorization'; // Mark as returned
+        $paymentCart->save();
+
+        // 4. Re-load the original order data
+        $orderRequest = new Request($paymentCart->cart_data);
+
+        // 5. Check the payment status with Tabby
+        $SECRET_KEY = env('TABBY_SECRET_KEY');
+        $BASE_URL = env('TABBY_BASE_URL');
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $BASE_URL . 'payments/' . $payment_id);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['authorization: Bearer ' . $SECRET_KEY]);
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        $paymentDetails = [];
+        $finalStatus = 'failure';
+        if (isset($response['status']) && ($response['status'] == 'AUTHORIZED' || $response['status'] == 'authorized')) {
+            // 6. Payment is authorized, so we must CAPTURE it
+            $c = curl_init();
+            curl_setopt_array($c, array(
+                CURLOPT_URL => $BASE_URL . 'payments/' . $response["id"] . '/captures',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => json_encode(["amount" => $response["amount"]]),
+                // CURLOPT_POSTFIELDS => json_encode(["amount" => $response["amount"], true]),
+                CURLOPT_HTTPHEADER => [
+                    'authorization: Bearer ' . $SECRET_KEY,
+                    'Content-Type:application/json'
+                ],
+            ));
+            $captureResponse = json_decode(curl_exec($c), true);
+            curl_close($c);
+
+            if (isset($captureResponse['status']) && ($captureResponse['status'] == 'CLOSED' || $captureResponse['status'] == 'closed')) {
+                // SUCCESS! Payment is captured.
+                $paymentDetails = [
+                    'method'          => 'tabby',
+                    'status'          => 'A', // 'A' for Accepted/Approved, to match our helper logic
+                    'transaction_ref' => $captureResponse['id'],
+                    'message'         => $captureResponse['status'],
+                ];
+                $finalStatus = 'complete';
+                $paymentCart->status = 'A'; // Update temp cart status
+            } else {
+                // Capture failed
+                $paymentDetails = [
+                    'method'          => 'tabby',
+                    'status'          => 'F', // 'F' for Failed
+                    'transaction_ref' => $payment_id,
+                    'message'         => $captureResponse['status'] ?? 'Capture Failed',
+                ];
+                $paymentCart->status = 'failed_capture';
+            }
+        } else {
+            // Authorization failed
+            $paymentDetails = [
+                'method'          => 'tabby',
+                'status'          => 'F', // 'F' for Failed
+                'transaction_ref' => $payment_id,
+                'message'         => $response['status'] ?? 'Authorization Failed',
+            ];
+            $paymentCart->status = $response['status'] ?? 'failed_auth';
+        }
+
+        $paymentCart->save(); // Save the final status to the temp cart
+
+        // 7. Call the one, central _createFinalOrder helper
+        $orderResult = $this->_createFinalOrder($orderRequest, $paymentCart->customer_id, $paymentDetails, $paymentCart->id);
+
+        if (!$orderResult) {
+            // Order creation failed! Redirect to failure page.
+            // The PaymentCart is NOT deleted, so admin can see the error.
+            $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=processing_error&cartId=' . $paymentCart->id;
+            return redirect($failureUrl);
+        }
+        
+        // 8. Order created successfully! Clean up and redirect.
+        // $order = $orderResult['order'];
+        $paymentCart->delete(); // Delete the temporary cart
+        Log::info('Tabby Payment and Order Creation Successful', ['order' => $orderResult]);
+
+        // Redirect user to the frontend success/failure page
+        $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-order-payment-complete?q=' . base64_encode($orderResult->code);
+        
+
+        return redirect($redirectUrl);
+    }
+
+    public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        // echo "<pre>";print_r($request->all());die;
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->orderId);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Authorization: Bearer ' . env('TAMARA_TOKEN')
+        ];
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+        // Execute the request
+        $response = curl_exec($ch);
+
+        // Check for errors
+        if (curl_errno($ch)) {
+            // echo 'order_approved Curl error: ' . curl_error($ch);
+            \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit;
+        }
+
+        // Close cURL session
+        curl_close($ch);
+
+        $resp = json_decode($response, true);
+
+        // echo "<pre>";print_r($resp);exit;
+        \Log::info('Order Get Response:', ['response' => $resp]);
+
+        if(!$resp['order_number'] && !isset($resp['order_number']) && empty($resp['order_number'])) {
+            return response()->json(['message' => 'Transaction not found']);
+        }
+
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'ec_orders.cod_charge', 'ec_order_addresses.name')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $resp['order_number'])->first();
+
+        if(!$order) {
+            return response()->json(['message' => 'Order not found']);
+        }
+
+        $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        return response()->json([
+            'message'          => 'Details Fetched successfully',
+            'order_id'         => $order->code,
+            // 'payment_method'   => $order->payment_channel,
+            'total'            => $order->amount,
+            'sub_total'        => $order->sub_total,
+            'shipping_amount'  => $order->shipping_amount,
+            'status'           => $order->status,
+            'created_at'       => $order->created_at,
+            'service_amount'   => $order->service_amount,
+            'vat_amount'       => $order->vat,
+            'tax_amount'       => $order->tax_amount,
+            // 'payment_status'   => $order->payment_status,
+            'id'                =>   $order->id,
+            'customer_name'=> $order->name,
+            'products'         => $prod,
+            'cod_charge'   => $order->cod_charge
+        ]);
+
+        // header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+    }
+
+    private function tamaraPayment(Request $request, $shippingData, PaymentCart $paymentCart, $prods) {
+        // Prepare the payload for Tamara
+        $payload = [
+            "total_amount" => [
+                "amount"   => (float) $request->input('finalPrice'),
+                "currency" => "AED" // Make sure this is correct for your config
+            ],
+            "shipping_amount" => [
+                "amount"   => (float) $request->input('shippingPrice'),
+                "currency" => "AED"
+            ],
+            "tax_amount" => [
+                // Use the tax from the request data, which is already calculated
+                "amount"   => (float) $request->input('tax_amount'),
+                "currency" => "AED"
+            ],
+            "order_reference_id" => $paymentCart->id, // CRITICAL: Use the PaymentCart ID
+            "order_number"       => $paymentCart->id, // We can use the same ID here
+            "items"              => [],
+            "consumer" => [
+                "email"      => $request->input("billingAddress.email"),
+                "first_name" => $request->input("billingAddress.first_name"),
+                "last_name"  => $request->input("billingAddress.last_name"),
+                "phone_number" => $request->input('billingAddress.mobile')
+            ],
+            "country_code"  => "AE", // Or from $request->input("billingAddress.country")
+            "description"   => "AMG Order", // Or any description you prefer
+            // "merchant_url" => [
+            //     // CRITICAL: Point these to your FRONTEND success/failure/cancel pages
+            //     // The webhook (which we'll add next) handles the real confirmation.
+            //     "cancel"  => env('FRONTEND_URL', 'http://localhost:3000') . '/order/failure',
+            //     "failure" => env('FRONTEND_URL', 'http://localhost:3000') . '/order/failure',
+            //     "success" => env('FRONTEND_URL', 'http://localhost:3000') . '/order/success' // A generic "processing" or "success" page
+            // ],
+            "merchant_url" => [
+                "cancel" => env('FRONTEND_URL')."tamara-payment-redirect/#/cancel",
+                "failure" => env('FRONTEND_URL')."tamara-payment-redirect/#/failure",
+                "success" => env('FRONTEND_URL')."tamara-payment-redirect/#/success"
+            ],
+            "payment_type"  => "PAY_BY_INSTALMENTS",
+            "instalments"   => 3,
+            "billing_address" => [
+                "city"         => $request->input("billingAddress.emirates"),
+                "country_code" => "AE",
+                "first_name"   => $request->input("billingAddress.first_name"),
+                "last_name"    => $request->input("billingAddress.last_name"),
+                "line1"        => $request->input("billingAddress.area") . " " . $request->input("billingAddress.building"),
+                "phone_number" => $request->input('billingAddress.mobile')
+            ],
+            "shipping_address" => [
+                "city"         => $shippingData["city"],
+                "country_code" => "AE",
+                "first_name"   => $shippingData["first_name"],
+                "last_name"    => $shippingData["last_name"],
+                "line1"        => $shippingData["street1"],
+                "phone_number" => $shippingData["phone"]
+            ],
+            "locale" => "en_US"
+        ];
+
+        // Loop through products to populate 'items'
+        foreach ($prods as $item) {
+            $vatPercent  = $request->input('vatTax');
+            $totalAmount = (float) $item['price']; // This is the price from your request
+            
+            // Calculate unit price (excluding VAT)
+            $unitPrice = $totalAmount / (1 + ($vatPercent / 100));
+            // Calculate tax amount for this item
+            $taxAmount = $totalAmount - $unitPrice;
+
+            $payload['items'][] = [
+                "name"         => $item['name'],
+                "type"         => "Physical",
+                "reference_id" => (string)$item['id'],
+                "quantity"     => $item['qty'],
+                "sku"          => $item['sku'],
+                "unit_price"   => ["amount" => round($unitPrice, 2), "currency" => "AED"],
+                "total_amount" => ["amount" => round($totalAmount, 2), "currency" => "AED"],
+                "tax_amount"   => ["amount" => round($taxAmount, 2), "currency" => "AED"],
+            ];
+        }
+
+        // Make the cURL request to Tamara
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL            => env('TAMARA_API_URL') . 'checkout',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => '',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ],
+        ]);
+
+        $response = curl_exec($curl);
+
+        // Add cURL error logging
+        if (curl_errno($curl)) {
+            Log::error('Tamara Checkout cURL Error:', ['error' => curl_error($curl)]);
+            curl_close($curl);
+            return ['error' => 'cURL Error: ' . curl_error($curl)];
+        }
+
+        curl_close($curl);
+        
+        $resp = json_decode($response, true);
+        
+        // Log the response from Tamara
+        Log::info('Tamara Checkout Response:', ['response' => $resp]);
+        
+        return $resp;
+    }
+
+    public function tamaraPaymentWebhook(Request $request) {
+        Log::info('Tamara Webhook Received:', $request->all());
+
+        $tamaraApiToken = env('TAMARA_TOKEN');
+        $tamaraApiUrl = env('TAMARA_API_URL');
+        
+        // We only care about the event that means payment is authorized and ready to capture
+        if ($request->event_type == 'order_authorised') {
+            
+            // 1. Get Tamara's Order ID from the webhook
+            $tamaraOrderId = $request->order_id;
+
+            // 2. Call Tamara API to get order details
+            $ch_get = curl_init();
+            curl_setopt($ch_get, CURLOPT_URL, $tamaraApiUrl . "orders/" . $tamaraOrderId);
+            curl_setopt($ch_get, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch_get, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . $tamaraApiToken
+            ]);
+            $response = curl_exec($ch_get);
+            if (curl_errno($ch_get)) {
+                Log::error('Tamara Webhook Get Order cURL Error:', ['error' => curl_error($ch_get)]);
+                curl_close($ch_get);
+                return response()->json(['error' => 'Failed to get order details'], 500);
+            }
+            curl_close($ch_get);
+            
+            $tamaraOrderDetails = json_decode($response, true);
+            Log::info('Tamara Webhook Get Order Response:', ['response' => $tamaraOrderDetails]);
+
+            // 3. Find our PaymentCart ID (which we stored in order_reference_id)
+            $paymentCartId = $tamaraOrderDetails['order_reference_id'] ?? null;
+            if (!$paymentCartId) {
+                Log::error('Tamara Webhook Error: No order_reference_id found.', $tamaraOrderDetails);
+                return response()->json(['error' => 'No order_reference_id'], 404);
+            }
+
+            // 4. Find the PaymentCart
+            $paymentCart = PaymentCart::find($paymentCartId);
+            if (!$paymentCart) {
+                Log::error('Tamara Webhook Error: PaymentCart not found.', ['cart_id' => $paymentCartId]);
+                return response()->json(['error' => 'PaymentCart not found'], 404);
+            }
+
+            // 5. Re-load the original order request
+            $orderRequest = new Request($paymentCart->cart_data);
+
+            // 6. --- CAPTURE the payment ---
+            $ch_capture = curl_init();
+            $capturePayload = json_encode([
+                "order_id"       => $tamaraOrderId,
+                "total_amount"   => $tamaraOrderDetails['total_amount'],
+                "items"          => $tamaraOrderDetails['items'],
+                "shipping_amount"=> $tamaraOrderDetails['shipping_amount'],
+                "tax_amount"     => $tamaraOrderDetails['tax_amount'],
+                "shipping_info"  => [
+                    "shipped_at"       => now()->toIso8601String(),
+                    "shipping_company" => "Default" // Or get from order data
+                ]
+            ]);
+
+            curl_setopt_array($ch_capture, [
+                CURLOPT_URL => $tamaraApiUrl . "payments/capture",
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $capturePayload,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                    'Authorization: Bearer ' . $tamaraApiToken
+                ],
+            ]);
+            
+            $capture_response_str = curl_exec($ch_capture);
+            if (curl_errno($ch_capture)) {
+                Log::error('Tamara Capture cURL Error:', ['error' => curl_error($ch_capture)]);
+                curl_close($ch_capture);
+                return response()->json(['error' => 'Failed to capture payment'], 500);
+            }
+            curl_close($ch_capture);
+
+            $capture_resp = json_decode($capture_response_str, true);
+            Log::info('Tamara Capture Response:', ['response' => $capture_resp]);
+
+            // 7. Check capture status and prepare payment details
+            $paymentDetails = [];
+            if (isset($capture_resp['status']) && $capture_resp['status'] == 'fully_captured') {
+                $paymentDetails = [
+                    'method'          => 'tamara',
+                    'status'          => 'A', // 'A' for Accepted/Approved
+                    'transaction_ref' => $capture_resp['order_id'], // Tamara's order ID
+                    'message'         => 'fully_captured',
+                ];
+                $paymentCart->status = 'A'; // Mark as successfully processed
+            } else {
+                // Capture Failed
+                $paymentDetails = [
+                    'method'          => 'tamara',
+                    'status'          => 'F', // 'F' for Failed
+                    'transaction_ref' => $tamaraOrderId,
+                    'message'         => $capture_resp['message'] ?? 'capture_failed'
+                ];
+                $paymentCart->status = 'failed_capture';
+            }
+            $paymentCart->save(); // Save final status to temp cart
+
+            // 8. Call our central _createFinalOrder helper
+            $orderResult = $this->_createFinalOrder(
+                $orderRequest,
+                $paymentCart->customer_id,
+                $paymentDetails,
+                $paymentCart->id
+            );
+
+            // 9. Clean up
+            if ($orderResult && $paymentDetails['status'] === 'A') {
+                $paymentCart->delete(); // Delete temp cart only on full success
+            }
+        }
+        
+        // 10. Return a 200 OK to the webhook to confirm we received it.
+        return response()->json(['status' => 'received']);
     }
 }

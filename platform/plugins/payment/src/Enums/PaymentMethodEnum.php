@@ -15,6 +15,7 @@ class PaymentMethodEnum extends Enum
     public const PAYTABS = 'paytabs';
     public const ONLINE = 'online';
     public const TABBY = 'tabby';
+    public const TAMARA = 'tamara';
 
     public static $langPath = 'plugins/payment::payment.methods';
 

@@ -102,6 +102,11 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     // This is the new callback URL for when Tabby redirects the user back to your site.
     Route::withoutMiddleware('restrict.domains')->get('finalize-tabby-payment', [ 'as' => 'api.public.payment.tabby-finalize', 'uses' => '\App\Http\Controllers\Api\OrderController@finalizeTabbyPayment',]);
+    // Route::withoutMiddleware('restrict.domains')->any('tamaraPaymentWebhook', ['as' => 'api.public.payment.tamara-webhook', 'uses' => '\App\Http\Controllers\Api\OrderController@tamaraPaymentWebhook',]);
+
+    // Route::withoutMiddleware('restrict.domains')->post('/tamaraPaymentResponse', [OrderController::class, 'tamaraPaymentResponse']);
+    Route::withoutMiddleware('restrict.domains')->post('/tamaraPaymentResponse', [OrderController::class, 'tamaraPaymentResponse']);
+    Route::withoutMiddleware('restrict.domains')->any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
 });
 
 // Route::get('/order-status/{cartId}', [OrderController::class, 'getOrderStatus']);
