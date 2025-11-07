@@ -31,6 +31,7 @@ use App\Models\Promotion;
 use App\Models\CouponRule;
 use App\Models\CashbackProduct;
 use Botble\Payment\Models\Payment;
+use App\Models\ActiveCoupon;
 
 class OrderController extends Controller
 {
@@ -278,6 +279,7 @@ class OrderController extends Controller
         // }
 
         $coupon_code = $request->input('couponCode');
+        $decode = null;
 
         if (isset($coupon_code) && !empty($coupon_code)) {
 
@@ -1749,6 +1751,27 @@ class OrderController extends Controller
                 InvoiceItem::query()->create($orderProduct);
             }
 
+            if (!empty($decode) && !empty($decode->data) && is_array($decode->data)) {
+                
+                // Get the first coupon object from the 'data' array
+                $couponObject = $decode->data[0];
+
+                // Convert the coupon object to an associative array
+                $couponData = (array) $couponObject;
+
+                // Add the order's ID to the data
+                $couponData['order_id'] = $order->id;
+
+                // **IMPORTANT**: Your schema for 'column1' is NOT NULL
+                // but the JSON does not provide it. We must set a default.
+                if (!isset($couponData['column1'])) {
+                    $couponData['column1'] = ''; // Use an empty string as default
+                }
+
+                // Create the new record in the 'active_coupon' table
+                ActiveCoupon::create($couponData);
+            }
+
             if($request->input('payment_method') == 'paytabs') {
                 $resp = $this->payTabsPayment($request, $data, $order);
                 if($resp['redirect_url']) {
@@ -1788,9 +1811,6 @@ class OrderController extends Controller
                 $request->input('payment_method'),
                 'completed',
                 $customer_id,
-                null,
-                null,
-                isset($decode)
             );
 
             return response()->json([
@@ -1844,7 +1864,7 @@ class OrderController extends Controller
                 // "zip"=> "54321"
             ],
             // "callback"=> "https://admin.ahmedalmaghribi.com/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
-            "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
+            "return"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
         ];
 
         $PROFILE_ID = config('paytabs.profile_id');
@@ -2601,7 +2621,7 @@ class OrderController extends Controller
         // echo "<pre>";print_r($order);
         $createPaymentForOrderService->execute(
             $order,
-            'paytabs',
+            'tamara',
             $request['respStatus'],
             // $customer->id,
             $order->user_id,
