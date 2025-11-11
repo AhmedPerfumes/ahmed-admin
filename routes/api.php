@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewController;
 use App\Http\Controllers\Api\FaqApiController;
 use App\Http\Controllers\Api\CartController;
+use Botble\Ecommerce\Http\Controllers\PrebookingApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -92,13 +93,11 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
 
-    //FAQ API
-   
-
-Route::prefix('faqs')->group(function () {
-    Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
-    Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
-});
+    //FAQ API Routes
+    Route::prefix('faqs')->group(function () {
+        Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
+        Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
+    });
 
     Route::post('/getCart', [CartController::class, 'getCart']);
     Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
@@ -106,4 +105,6 @@ Route::prefix('faqs')->group(function () {
 
     Route::withoutMiddleware('restrict.domains')->post('/tamaraPaymentResponse', [OrderController::class, 'tamaraPaymentResponse']);
     Route::withoutMiddleware('restrict.domains')->any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
+
+    Route::post('prebooking/submit', [PrebookingApiController::class, 'submit'])->name('api.prebooking.submit');
 });
