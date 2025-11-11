@@ -4351,72 +4351,6 @@ class OrderController extends Controller
         return redirect($redirectUrl);
     }
 
-    public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-        // echo "<pre>";print_r($request->all());die;
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->orderId);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
-
-        $headers = [
-            'Content-Type: application/json',
-            'Accept: application/json',
-            'Authorization: Bearer ' . env('TAMARA_TOKEN')
-        ];
-
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-        // Execute the request
-        $response = curl_exec($ch);
-
-        // Check for errors
-        if (curl_errno($ch)) {
-            // echo 'order_approved Curl error: ' . curl_error($ch);
-            \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit;
-        }
-
-        // Close cURL session
-        curl_close($ch);
-
-        $resp = json_decode($response, true);
-
-        // echo "<pre>";print_r($resp);exit;
-        \Log::info('Order Get Response:', ['response' => $resp]);
-
-        if(!$resp['order_number'] && !isset($resp['order_number']) && empty($resp['order_number'])) {
-            return response()->json(['message' => 'Transaction not found']);
-        }
-
-        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'ec_orders.cod_charge', 'ec_order_addresses.name')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $resp['order_number'])->first();
-
-        if(!$order) {
-            return response()->json(['message' => 'Order not found']);
-        }
-
-        $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
-
-        return response()->json([
-            'message'          => 'Details Fetched successfully',
-            'order_id'         => $order->code,
-            // 'payment_method'   => $order->payment_channel,
-            'total'            => $order->amount,
-            'sub_total'        => $order->sub_total,
-            'shipping_amount'  => $order->shipping_amount,
-            'status'           => $order->status,
-            'created_at'       => $order->created_at,
-            'service_amount'   => $order->service_amount,
-            'vat_amount'       => $order->vat,
-            'tax_amount'       => $order->tax_amount,
-            // 'payment_status'   => $order->payment_status,
-            'id'                =>   $order->id,
-            'customer_name'=> $order->name,
-            'products'         => $prod,
-            'cod_charge'   => $order->cod_charge
-        ]);
-
-        // header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
-    }
-
     private function tamaraPayment(Request $request, $shippingData, PaymentCart $paymentCart, $prods) {
         // Prepare the payload for Tamara
         $payload = [
@@ -4534,6 +4468,73 @@ class OrderController extends Controller
         Log::info('Tamara Checkout Response:', ['response' => $resp]);
         
         return $resp;
+    }
+
+    public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        // echo "<pre>";print_r($request->all());die;
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->orderId);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Authorization: Bearer ' . env('TAMARA_TOKEN')
+        ];
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+        // Execute the request
+        $response = curl_exec($ch);
+
+        // Check for errors
+        if (curl_errno($ch)) {
+            // echo 'order_approved Curl error: ' . curl_error($ch);
+            \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit;
+        }
+
+        // Close cURL session
+        curl_close($ch);
+
+        $resp = json_decode($response, true);
+
+        // echo "<pre>";print_r($resp);exit;
+        \Log::info('Order Get Response:', ['response' => $resp]);
+
+        if(!$resp['order_number'] && !isset($resp['order_number']) && empty($resp['order_number'])) {
+            return response()->json(['message' => 'Transaction not found']);
+        }
+
+        // Change this to show a pending page while webhook processes - give message that the customer will be notified once order is confirmed.
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'ec_orders.cod_charge', 'ec_order_addresses.name')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $resp['order_number'])->first();
+
+        if(!$order) {
+            return response()->json(['message' => 'Order not found']);
+        }
+
+        $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        return response()->json([
+            'message'          => 'Details Fetched successfully',
+            'order_id'         => $order->code,
+            // 'payment_method'   => $order->payment_channel,
+            'total'            => $order->amount,
+            'sub_total'        => $order->sub_total,
+            'shipping_amount'  => $order->shipping_amount,
+            'status'           => $order->status,
+            'created_at'       => $order->created_at,
+            'service_amount'   => $order->service_amount,
+            'vat_amount'       => $order->vat,
+            'tax_amount'       => $order->tax_amount,
+            // 'payment_status'   => $order->payment_status,
+            'id'                =>   $order->id,
+            'customer_name'=> $order->name,
+            'products'         => $prod,
+            'cod_charge'   => $order->cod_charge
+        ]);
+
+        // header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
     }
 
     public function tamaraPaymentWebhook(Request $request) {
