@@ -21,7 +21,8 @@ class PrebookingApiController extends BaseController
                 'name' => 'required|string',
                 'email' => 'required|email',
                 'interestedSeries' => 'required|array|min:1',
-                'interestedSeries.*' => 'string|in:2000,2025,2050,full-set', // Validate against possible values
+                'interestedSeries.*' => 'string|in:2000,2025,2050,full-set',
+                 'phone' => 'required|string',
             ]);
 
             if ($validator->fails()) {
@@ -34,6 +35,7 @@ class PrebookingApiController extends BaseController
                 'email' => $request->input('email'),
                 // Laravel's casts='array' handles serialization of the array into JSON string
                 'interested_series' => $request->input('interestedSeries'), 
+                'phone' => $request->input('phone'),
                 'ip_address' => $request->ip(),
             ];
 

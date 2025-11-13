@@ -19,6 +19,7 @@ class PrebookingSubmission extends BaseModel
         'email',
         'interested_series',
         'ip_address',
+        'phone'
     ];
 
     /**
