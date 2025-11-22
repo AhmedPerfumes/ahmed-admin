@@ -4139,10 +4139,9 @@ class OrderController extends Controller
             "lang" => $request->input('locale', 'en'),
             "merchant_code" => env('TABBY_MERCHANT_CODE'), // This should be from your config
             "merchant_urls" => [
-                // CRITICAL: Point all URLs to our new callback and include the cartId
-                "success" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
-                "cancel"  => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
-                "failure" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id]),
+                "success" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id, 'payment_status' => 'success']),
+                "cancel"  => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id, 'payment_status' => 'cancel']),
+                "failure" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id, 'payment_status' => 'failure']),
             ]
         ];
 
@@ -4159,7 +4158,12 @@ class OrderController extends Controller
 
         // Loop through buyer's order history
         if (!empty($shippingData['buyer_history']['order_history'])) {
+            $count = 0;
             foreach ($shippingData['buyer_history']['order_history'] as $it) {
+                if ($count >= 10) {
+                    break;
+                }
+
                 $requestParams['payment']['order_history'][] = [
                     "purchased_at" => Carbon::parse($it->created_at)->utc()->toIso8601String(),
                     "amount" => number_format((float)$it['amount'], 2, '.', ''),
@@ -4175,28 +4179,14 @@ class OrderController extends Controller
                         "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
                     ],
                 ];
+                $count++;
             }
-        } else {
-            $requestParams['payment']['order_history'][] = [
-                "purchased_at" => Carbon::now()->utc()->toIso8601String(),
-                "amount" => $request->input('finalPrice'),
-                "status" => "N/A",
-                "buyer" => [
-                    "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
-                    "email" => $request->input('billingAddress.email'),
-                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
-                ],
-                "shipping_address" => [
-                    "city" => $shippingData['city'],
-                    "address" => $shippingData['street1'],
-                    "zip" => "00000" // Tabby requires a zip, use a placeholder if not available    
-                ],
-            ];
         }
 
         // Make the cURL request to Tabby
         $PROFILE_ID = env('TABBY_PROFILE_ID');
         $PUBLIC_KEY = env('TABBY_PUBLIC_KEY');
+        $SECRET_KEY = env('TABBY_SECRET_KEY');
         $BASE_URL = env('TABBY_BASE_URL');
 
         $data['profile_id'] = $PROFILE_ID;
@@ -4211,7 +4201,7 @@ class OrderController extends Controller
             CURLOPT_CUSTOMREQUEST => 'POST',
             CURLOPT_POSTFIELDS => json_encode($requestParams),
             CURLOPT_HTTPHEADER => array(
-                'authorization: Bearer ' . $PUBLIC_KEY,
+                'authorization: Bearer ' . $SECRET_KEY,
                 'Content-Type:application/json'
             ),
         ));
@@ -4238,35 +4228,49 @@ class OrderController extends Controller
             return ['status' => 'json_error', 'message' => 'Failed to decode JSON response from Tabby.'];
         }
         Log::info('Tabby Checkout Response:', $responseArray);
+        $paymentCart->status = 'tabby_redirecting';
+        $paymentCart->save();
         
         // return $response;
         return $responseArray;
     }
 
     public function finalizeTabbyPayment(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-        // 1. Get the payment_id from Tabby's redirect
-        // $payment_id = $request->query('payment_id');
         $payment_id = $request->input('payment_id') ? $request->input('payment_id') : $request->query('payment_id');
-
-        // 2. Get our temporary cart ID from the URL
         $paymentCart = PaymentCart::find($request->query('cartId'));
 
         if (!$paymentCart) {
-            // Invalid session, redirect to a failure page
             $failureUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=invalid_session';
             return redirect($failureUrl);
         }
+
+        $status = $request->query('payment_status');
+        if ($status === 'cancel') {
+            $paymentCart->status = 'cancelled_by_user';
+            $paymentCart->save();
+
+            $message = "You aborted the payment. Please retry or choose another payment method.";
+            
+            $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
+            
+            return redirect($cancelUrl);
+        }
+        if ($status === 'failure') {
+            $paymentCart->status = 'failed_at_tabby';
+            $paymentCart->save();
+            $message = "Payment failed or was declined. Please try again.";
+            $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
+            return redirect($cancelUrl);
+        }
         
-        // 3. Update the temporary cart's status
-        $paymentCart->status = 'pending_authorization'; // Mark as returned
+        $paymentCart->status = 'tabby_pending_capture'; // Mark as returned
         $paymentCart->save();
 
-        // 4. Re-load the original order data
         $orderRequest = new Request($paymentCart->cart_data);
-
-        // 5. Check the payment status with Tabby
+        
         $SECRET_KEY = env('TABBY_SECRET_KEY');
         $BASE_URL = env('TABBY_BASE_URL');
+        
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $BASE_URL . 'payments/' . $payment_id);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -4327,7 +4331,15 @@ class OrderController extends Controller
             $paymentCart->status = $response['status'] ?? 'failed_auth';
         }
 
-        $paymentCart->save(); // Save the final status to the temp cart
+        $paymentCart->save();
+
+        // If we failed at Auth/Capture, redirect to checkout with error (Don't create order)
+        if ($paymentDetails['status'] == 'F') {
+             // Do not delete cart on failure, allow retry
+             $failMessage = "Tabby Error: " . $paymentDetails['message'];
+             $failUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($failMessage);
+             return redirect($failUrl);
+        }
 
         // 7. Call the one, central _createFinalOrder helper
         $orderResult = $this->_createFinalOrder($orderRequest, $paymentCart->customer_id, $paymentDetails, $paymentCart->id);
@@ -4344,11 +4356,133 @@ class OrderController extends Controller
         $paymentCart->delete(); // Delete the temporary cart
         Log::info('Tabby Payment and Order Creation Successful', ['order' => $orderResult]);
 
-        // Redirect user to the frontend success/failure page
         $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-order-payment-complete?q=' . base64_encode($orderResult->code);
-        
-
         return redirect($redirectUrl);
+    }
+
+    public function tabbyCronJob() {
+        Log::info("Tabby Cron: Started Payment Recovery Process.");
+
+        // 1. Setup Date Range (Last 24 Hours to cover the "Nightly" run)
+        // We look back 25 hours just to be safe with timezones
+        $fromDate = Carbon::yesterday()->toDateString();
+        
+        // 2. Tabby Config
+        $SECRET_KEY = env('TABBY_SECRET_KEY'); 
+        $BASE_URL = env('TABBY_BASE_URL'); // Ensure this ends with a slash in your .env or handle below
+        
+        // Fix URL construction if needed
+        $endpoint = rtrim($BASE_URL) . 'payments?created_at__gte='.Carbon::now()->toDateString().'&created_at__lte='.Carbon::now()->toDateString().'&limit=10&offset=0';
+        Log::info("End point: $endpoint");
+
+        // 3. Fetch Authorized Payments from Tabby
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $endpoint);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['authorization: Bearer ' . $SECRET_KEY]);
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        $paymentsList = $response['payments'] ?? $response;
+
+        if (!is_array($paymentsList) || empty($paymentsList)) {
+            Log::info("Tabby Cron: No payments found.");
+            return response()->json(['message' => 'No payments found.']);
+        }
+
+        $processedCount = 0;
+        $errorCount = 0;
+
+        // 4. Iterate Payments
+        foreach ($paymentsList as $payment) {
+
+            $status = strtoupper($payment['status']);
+            if ($status !== 'AUTHORIZED') {
+                continue;
+            }
+            
+            // Extract the Cart ID (saved as reference_id)
+            $cartId = $payment['order']['reference_id'] ?? null;
+            $tabbyPaymentId = $payment['id'];
+
+            if (!$cartId) continue;
+
+            // 5. Check if PaymentCart exists locally
+            // If it exists, it means the user paid but the success callback was never reached/completed.
+            $paymentCart = PaymentCart::find($cartId);
+
+            if (!$paymentCart) {
+                // If cart doesn't exist, the order was likely successfully created already by the normal flow.
+                // We skip to avoid duplicates.
+                continue; 
+            }
+
+            Log::info("Tabby Cron: Found abandoned authorized payment for Cart ID: $cartId. Attempting recovery...");
+
+            // 6. CAPTURE the Payment
+            $c = curl_init();
+            curl_setopt_array($c, array(
+                CURLOPT_URL => rtrim($BASE_URL) . 'payments/' . $tabbyPaymentId . '/captures',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => json_encode(["amount" => $payment["amount"]]),
+                CURLOPT_HTTPHEADER => [
+                    'authorization: Bearer ' . $SECRET_KEY,
+                    'Content-Type:application/json'
+                ],
+            ));
+            $captureResponse = json_decode(curl_exec($c), true);
+            curl_close($c);
+
+            // 7. Process Order if Capture Success
+            if (isset($captureResponse['status']) && (strtolower($captureResponse['status']) == 'closed')) {
+
+                try {
+                    // Rehydrate the Request
+                    $orderRequest = new Request($paymentCart->cart_data);
+                    
+                    $paymentDetails = [
+                        'method'          => 'tabby',
+                        'status'          => 'A',
+                        'transaction_ref' => $tabbyPaymentId,
+                        'message'         => 'Recovered via Cron Job',
+                    ];
+
+                    // Create the Order
+                    $orderResult = $this->_createFinalOrder(
+                        $orderRequest, 
+                        $paymentCart->customer_id, 
+                        $paymentDetails, 
+                        $paymentCart->id
+                    );
+
+                    if ($orderResult) {
+                        $paymentCart->delete(); 
+                        $processedCount++;
+                        Log::info("Tabby Cron: Successfully recovered Order #{$orderResult->code}");
+                    } else {
+                        Log::error("Tabby Cron: Payment captured but Order Creation failed for Cart ID: $cartId");
+                        $errorCount++;
+                    }
+
+                } catch (\Exception $e) {
+                    Log::error("Tabby Cron Exception for Cart ID $cartId: " . $e->getMessage());
+                    $errorCount++;
+                }
+
+            } else {
+                // Capture failed at Tabby
+                Log::error("Tabby Cron: Capture failed for Payment ID $tabbyPaymentId. Reason: " . ($captureResponse['status'] ?? 'Unknown'));
+            }
+        }
+
+        Log::info("Tabby Cron: Finished. Processed: $processedCount. Errors: $errorCount");
+        
+        return response()->json([
+            'message' => "Cron Run Complete",
+            'processed' => $processedCount,
+            'errors' => $errorCount
+        ]);
     }
 
     private function tamaraPayment(Request $request, $shippingData, PaymentCart $paymentCart, $prods) {

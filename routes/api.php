@@ -107,6 +107,8 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     // Route::withoutMiddleware('restrict.domains')->post('/tamaraPaymentResponse', [OrderController::class, 'tamaraPaymentResponse']);
     Route::withoutMiddleware('restrict.domains')->post('/tamaraPaymentResponse', [OrderController::class, 'tamaraPaymentResponse']);
     Route::withoutMiddleware('restrict.domains')->any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
+
+    Route::withoutMiddleware('restrict.domains')->get('/tabbyCronJob', [OrderController::class, 'tabbyCronJob']);
 });
 
 // Route::get('/order-status/{cartId}', [OrderController::class, 'getOrderStatus']);
