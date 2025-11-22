@@ -45,7 +45,17 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
+        if($request->input('finalPrice') <= 0) {
+            return response()->json([
+                'priceMessage' => 'Total Amount should be greater than 0'
+            ]);
+        }
+
         $barcodes = [];
+
+        // Initialize tracking variables BEFORE the loop
+        $hasPreBook = false;
+        $hasRegular = false;
 
         foreach ($request->input('products') as $product) {
             $exisProduct = Product::where('id', $product['product_id'])->first();
@@ -59,6 +69,20 @@ class OrderController extends Controller
             if($exisProduct->quantity < $product['quantity']) {
                 return response()->json([
                     'qtyMessage'          => $product['product_name'].' is Out Of Stock.'
+                ]);
+            }
+
+            // --- Check product_collection ---
+            if (strtolower($product['collection_name']) === 'pre book') {
+                $hasPreBook = true;
+            } else {
+                $hasRegular = true;
+            }
+
+            // If both types are present → reject
+            if ($hasPreBook && $hasRegular) {
+                return response()->json([
+                    'collectionMessage' => 'You cannot mix Pre Book items with regular products in one order.'
                 ]);
             }
 
@@ -1129,6 +1153,7 @@ class OrderController extends Controller
                         'product_category' => $product['category_name'],
                         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                         'vat' => $request->input('vatTax'),
+                        'campaign' => !empty($product['collection_name']) ? 'K Series '.$product['product_name'] : '',
                     ];
                 }
 
@@ -1844,7 +1869,8 @@ class OrderController extends Controller
                 // "zip"=> "54321"
             ],
             // "callback"=> "https://admin.ahmedalmaghribi.com/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
-            "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
+            // "return"=> "http://localhost/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
+            "return"=> "https://cd451722535a.ngrok-free.app/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
         ];
 
         $PROFILE_ID = 48012;

@@ -21,9 +21,7 @@
     "devDependencies": {
         "@fullhuman/postcss-purgecss": "^6.0.0",
         "@shufo/prettier-plugin-blade": "^1.14.1",
-        "@tabler/core": "^1.4.0",
         "autoprefixer": "^10.4.20",
-        "bootstrap": "^5.3.7",
         "cross-env": "^7.0.3",
         "css-loader": "^7.1.2",
         "glob": "^11.0.0",
@@ -31,14 +29,12 @@
         "postcss": "^8.4.40",
         "prettier": "^3.3.3",
         "resolve-url-loader": "^5.0.0",
-        "sass": "^1.90.0",
-        "sass-loader": "^16.0.5",
+        "sass": "^1.77.8",
+        "sass-loader": "^16.0.0",
         "vue-loader": "^17.3.0"
     },
     "dependencies": {
-        "@tabler/core": "^1.4.0",
         "axios": "^1.7.3",
-        "bootstrap": "^5.3.7",
         "cropperjs": "^1.6.2",
         "epic-spinners": "^2.0.0",
         "jquery": "^3.7.1",
