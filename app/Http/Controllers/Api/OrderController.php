@@ -3874,22 +3874,72 @@ class OrderController extends Controller
 
             // 5. --- INITIATE PAYMENT AND GET REDIRECT URL ---
             $resp = $this->tabbyPayment($request, $shippingData, $paymentCart);
-            // Log::info('Tabby Payment Response:', $response);
+            // Log::info('Tabby Payment Response:', $resp);
             // die;
             // echo json_encode($resp);die;
+            // Get Locale for translation (default to 'en')
+            $locale = $request->input('locale', 'en');
+            
             if(isset($resp['status']) && ($resp['status'] == 'created' || $resp['status'] == 'CREATED')) {
-                return response()->json([
-                    'message'      => 'Redirecting to Tabby...',
-                    'redirect_url' => $resp['configuration']['available_products']['installments'][0]['web_url'],
-                ]);
+
+                $redirectUrl = $resp['configuration']['available_products']['installments'][0]['web_url'] ?? $resp['configuration']['available_products']['installments'][0]['url'] ?? null;
+
+                if ($redirectUrl) {
+                    return response()->json([
+                        'message'      => 'Redirecting to Tabby...',
+                        'redirect_url' => $redirectUrl,
+                    ]);
+                } else {
+                    $paymentCart->status = 'failed_tabby_url';
+                    $paymentCart->save();
+                    return response()->json([
+                        'message' => ($locale == 'ar') 
+                            ? 'نأسف، تابي غير قادرة على الموافقة على هذه العملية. الرجاء استخدام طريقة دفع أخرى.' 
+                            : 'Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.',
+                        'error'   => 'Redirect URL missing'
+                    ], 422);
+                }
             } else {
                 $paymentCart->status = 'failed_tabby';
                 $paymentCart->save();
-                // Tabby rejected the payment before redirecting
+
+                $rejectionReason = $resp['configuration']['products']['installments']['rejection_reason'] ?? $resp['rejection_reason_code'] ?? 'not_available';
+                $errorMessage = "";
+
+                switch ($rejectionReason) {
+                    case 'order_amount_too_high':
+                    case 'not_enough_limit': // Sometimes Tabby sends this code for the same issue
+                        if ($locale == 'ar') {
+                            $errorMessage = "قيمة الطلب تفوق الحد الأقصى المسموح به حاليًا مع تابي. يُرجى تخفيض قيمة السلة أو استخدام وسيلة دفع أخرى.";
+                        } else {
+                            $errorMessage = "This purchase is above your current spending limit with Tabby, try a smaller cart or use another payment method.";
+                        }
+                        break;
+
+                    case 'order_amount_too_low':
+                        if ($locale == 'ar') {
+                            $errorMessage = "قيمة الطلب أقل من الحد الأدنى المطلوب لاستخدام خدمة تابي. يُرجى زيادة قيمة الطلب أو استخدام وسيلة دفع أخرى.";
+                        } else {
+                            $errorMessage = "The purchase amount is below the minimum amount required to use Tabby, try adding more items or use another payment method.";
+                        }
+                        break;
+
+                    case 'not_available':
+                    default:
+                        // General Rejection
+                        if ($locale == 'ar') {
+                            $errorMessage = "نأسف، تابي غير قادرة على الموافقة على هذه العملية. الرجاء استخدام طريقة دفع أخرى.";
+                        } else {
+                            $errorMessage = "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.";
+                        }
+                        break;
+                }
+
+                // Return the specific error message to the frontend
                 return response()->json([
-                    'message' => 'Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.',
-                    'error'   => $resp['message'] ?? 'Tabby approval failed.'
-                ], 422); // Use 422 for a processable entity error
+                    'message' => $errorMessage,
+                    'error'   => $resp['message'] ?? $errorMessage
+                ], 422);
             }
 
             return response()->json(['error' => 'Failed to connect to payment gateway.'], 500);
@@ -4105,29 +4155,27 @@ class OrderController extends Controller
     private function tabbyPayment(Request $request, array $shippingData, PaymentCart $paymentCart) { 
 
         $phoneNumber = ltrim($request->input('billingAddress.mobile'), '0');
-        // Ensure the correct country code is used (e.g., +966 for KSA, +971 for UAE)
         $buyerPhone = '+971' . $phoneNumber;
 
         $requestParams = [
             "payment" => [
                 "amount" => number_format((float)$request->input('finalPrice'), 2, '.', ''),
-                "currency" => "AED", // Make sure this is correct for your config
+                "currency" => "AED",
                 "buyer" => [
                     "phone" => $buyerPhone,
                     "email" => $request->input('billingAddress.email'),
                     "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
                 ],
-                // CHECK WITH YAZIL BHAIII
                 "shipping_address" => [
                     "city" => $shippingData['city'],
                     "address" => $shippingData['street1'],
                     "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
                 ],
                 "order" => [
-                    "tax_amount" => "0.00", // Simplified, as Tabby recalculates
+                    "tax_amount" => "0.00",
                     "shipping_amount" => number_format((float)$request->input('shippingPrice'), 2, '.', ''),
                     "discount_amount" => number_format((float)$request->input('discount_amount'), 2, '.', ''),
-                    "reference_id" => $paymentCart->id, // CRITICAL: Use the PaymentCart ID
+                    "reference_id" => $paymentCart->id,
                     "items" => []
                 ],
                 "buyer_history" => [
@@ -4137,7 +4185,7 @@ class OrderController extends Controller
                 "order_history" => [],
             ],
             "lang" => $request->input('locale', 'en'),
-            "merchant_code" => env('TABBY_MERCHANT_CODE'), // This should be from your config
+            "merchant_code" => env('TABBY_MERCHANT_CODE'),
             "merchant_urls" => [
                 "success" => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id, 'payment_status' => 'success']),
                 "cancel"  => route('api.public.payment.tabby-finalize', ['cartId' => $paymentCart->id, 'payment_status' => 'cancel']),
@@ -4158,16 +4206,54 @@ class OrderController extends Controller
 
         // Loop through buyer's order history
         if (!empty($shippingData['buyer_history']['order_history'])) {
+            
             $count = 0;
             foreach ($shippingData['buyer_history']['order_history'] as $it) {
                 if ($count >= 10) {
                     break;
                 }
+                
+                $tabbyStatus = 'unknown';
+                switch(strtolower($it->status)) {
+                    case 'pending': 
+                    case 'draft':
+                        $tabbyStatus = 'new'; 
+                        break;
 
+                    case 'processing': 
+                    case 'on_hold': 
+                    case 'called':
+                    case 'confimed':
+                    case 'confirmed': 
+                        $tabbyStatus = 'processing'; 
+                        break;
+
+                    case 'shipped': 
+                    case 'completed': 
+                    case 'delivered': 
+                        $tabbyStatus = 'complete'; 
+                        break;
+
+                    case 'cancelled':
+                    case 'canceled': 
+                    case 'trash': 
+                        $tabbyStatus = 'canceled'; 
+                        break;
+
+                    // Map to 'refunded'
+                    case 'returned': 
+                    case 'partial returned': 
+                    case 'refunded': 
+                        $tabbyStatus = 'refunded'; 
+                        break;
+
+                    default: 
+                        $tabbyStatus = 'unknown';
+                }
                 $requestParams['payment']['order_history'][] = [
                     "purchased_at" => Carbon::parse($it->created_at)->utc()->toIso8601String(),
                     "amount" => number_format((float)$it['amount'], 2, '.', ''),
-                    "status" => (string)$it->status,
+                    "status" => $tabbyStatus,
                     "buyer" => [
                         "phone" => '+971' . $request->input('billingAddress.mobile'), // Make sure phone format is correct
                         "email" => $request->input('billingAddress.email'),
@@ -4176,12 +4262,14 @@ class OrderController extends Controller
                     "shipping_address" => [
                         "city" => $shippingData['city'],
                         "address" => $shippingData['street1'],
-                        "zip" => "00000" // Tabby requires a zip, use a placeholder if not available
+                        "zip" => "00000"
                     ],
                 ];
                 $count++;
             }
         }
+
+        Log::info('Tabby Payload: ', $requestParams);
 
         // Make the cURL request to Tabby
         $PROFILE_ID = env('TABBY_PROFILE_ID');
@@ -4244,12 +4332,20 @@ class OrderController extends Controller
             return redirect($failureUrl);
         }
 
+        $cartData = is_string($paymentCart->cart_data) ? json_decode($paymentCart->cart_data, true) : $paymentCart->cart_data;
+        $locale = $cartData['locale'] ?? 'en';
+
         $status = $request->query('payment_status');
+
         if ($status === 'cancel') {
             $paymentCart->status = 'cancelled_by_user';
             $paymentCart->save();
 
-            $message = "You aborted the payment. Please retry or choose another payment method.";
+            if ($locale == 'ar') {
+                $message = "لقد ألغيت الدفعة. فضلاً حاول مجددًا أو اختر طريقة دفع أخرى.";
+            } else {
+                $message = "You aborted the payment. Please retry or choose another payment method.";
+            }
             
             $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
             
@@ -4258,7 +4354,12 @@ class OrderController extends Controller
         if ($status === 'failure') {
             $paymentCart->status = 'failed_at_tabby';
             $paymentCart->save();
-            $message = "Payment failed or was declined. Please try again.";
+
+            if ($locale == 'ar') {
+                $message = "نأسف، تابي غير قادرة على الموافقة على هذه العملية. الرجاء استخدام طريقة دفع أخرى.";
+            } else {
+                $message = "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.";
+            }
             $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
             return redirect($cancelUrl);
         }
