@@ -28,6 +28,7 @@ class ProductReview extends BaseModel
         'customer_id',
         'customer_name',
         'customer_email',
+        'customer_phone',
         'product_id',
         'star',
         'comment',
