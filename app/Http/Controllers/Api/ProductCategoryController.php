@@ -83,12 +83,13 @@ class ProductCategoryController extends Controller
         $home_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'desktop')->orderBy('order', 'asc')->get();
         $home_mobile_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'mobile')->orderBy('order', 'asc')->get();
         // $dynamic_sections= DB::table('dynamic_sections')->select('heading', 'description','link','image','video1','video2')->get();
-        $pop_up = Page::select('name','content','description','image','mobile_image','link')->get();
+        $pop_up = Page::select('name','content','description','image','mobile_image','link')->where('template', 'full-width')->where('status', 'published')->get();
         $top_header=ProductAttribute::select('title','color')->get();
+        $sale_section = Page::select('name','content','description','image','mobile_image','link')->where('template', 'homepage')->where('status', 'published')->get();
         
 
-        $response = response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders, 'top_header' => $top_header, 'pop_up' => $pop_up])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
-        ->setEtag(md5(json_encode(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders,  'top_header' => $top_header, 'pop_up' => $pop_up])));
+        $response = response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders, 'top_header' => $top_header, 'pop_up' => $pop_up, 'sale_section' => $sale_section])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
+        ->setEtag(md5(json_encode(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders,  'top_header' => $top_header, 'pop_up' => $pop_up, 'sale_section' => $sale_section])));
 
         if ($response->isNotModified(request())) {
             return $response;
