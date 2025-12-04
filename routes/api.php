@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewControll
 use App\Http\Controllers\Api\FaqApiController;
 use App\Http\Controllers\Api\CartController;
 use Botble\Ecommerce\Http\Controllers\PrebookingApiController;
+use App\Http\Controllers\Api\TabbyCronController;
 
 /*
 |--------------------------------------------------------------------------
@@ -52,6 +53,8 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     // Order Routes
     Route::post('/storeOrder', [OrderController::class, 'storeOrder']);
+    Route::withoutMiddleware('restrict.domains')->get('/tabbyPaymentRedirect', [OrderController::class, 'tabbyPaymentRedirect'])->name('payment.tabby.redirect');
+    Route::get('/tabbyAllPayments', [TabbyCronController::class, 'tabbyAllPayments']);
     Route::withoutMiddleware('restrict.domains')->post('/payTabsPaymentRedirect', [OrderController::class, 'payTabsPaymentRedirect']);
     Route::post('/trackOrder', [OrderController::class, 'trackOrder']);
     Route::post('/orderDetails', [OrderController::class, 'orderDetails']);

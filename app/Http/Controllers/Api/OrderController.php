@@ -32,6 +32,7 @@ use App\Models\CouponRule;
 use App\Models\CashbackProduct;
 use Botble\Payment\Models\Payment;
 use App\Models\ActiveCoupon;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -558,7 +559,6 @@ class OrderController extends Controller
                     //     'redirect_url'     => $resp['redirect_url']
                     // ]);
                 }
-
             } else {
                 OrderAddress::query()->create([
                     'name' => $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
@@ -592,6 +592,7 @@ class OrderController extends Controller
                     // ]);
                 }
             }
+
             // die();
             OrderHistory::query()->create([
                 'action' => OrderHistoryActionEnum::CREATE_ORDER_FROM_WEBSITE,
@@ -1804,6 +1805,76 @@ class OrderController extends Controller
                     ]);
                 }
             }
+            if ($request->input('payment_method') == 'tabby') {
+                $useShippingAddress = $request->input('shippingAddress.first_name');
+                $addressPrefix = $useShippingAddress ? 'shippingAddress' : 'billingAddress';
+                $shippingData = [
+                    "city"    => $request->input("$addressPrefix.emirates"),
+                    "address" => $request->input("$addressPrefix.area") . ' ' . $request->input("$addressPrefix.building"),
+                    "zip"     => "00000"
+                ];
+                $customer = Customer::find($customer_id);
+                if ($customer) {
+                    $orderHistory = Order::where('user_id', $customer_id)->latest()->take(10)->get();
+                    $shippingData['buyer_history'] = [
+                        'registered_since' => Carbon::parse($customer->created_at)->utc()->toIso8601String(),
+                        'loyalty_level'    => $orderHistory->count(),
+                        'order_history'    => $orderHistory,
+                    ];
+                } else {
+                    $shippingData['buyer_history'] = [
+                        'registered_since' => Carbon::now()->utc()->toIso8601String(),
+                        'loyalty_level'    => 0,
+                        'order_history'    => [],
+                    ];
+                }
+                $resp = $this->tabbyPayment($request, $shippingData, $order);
+                if (isset($resp['status']) && ($resp['status'] == 'created' || $resp['status'] == 'CREATED')) {
+                    $redirectUrl = $resp['configuration']['available_products']['installments'][0]['web_url'] 
+                                ?? $resp['configuration']['available_products']['installments'][0]['url'] 
+                                ?? null;
+
+                    if ($redirectUrl) {
+                        return response()->json([
+                            'message'          => 'Redirecting to Tabby...',
+                            'order_id'         => $order->code,
+                            'payment_method'   => 'tabby',
+                            'total'            => $order->amount,
+                            'redirect_url'     => $redirectUrl,
+                        ]);
+                    }
+                }
+                // $order->status = OrderStatusEnum::CANCELED; //ask yazil bhai if changing status to canceled will clear up the stock too?
+                // $order->save();
+                $locale = $request->input('locale', 'en');
+                $rejectionReason = $resp['configuration']['products']['installments']['rejection_reason'] 
+                                ?? $resp['rejection_reason_code'] 
+                                ?? 'not_available';
+                $errorMessage = "";
+                switch ($rejectionReason) {
+                    case 'order_amount_too_high':
+                    case 'not_enough_limit':
+                        $errorMessage = ($locale == 'ar') 
+                            ? "قيمة الطلب تفوق الحد الأقصى المسموح به حاليًا مع تابي. يُرجى تخفيض قيمة السلة أو استخدام وسيلة دفع أخرى."
+                            : "This purchase is above your current spending limit with Tabby, try a smaller cart or use another payment method.";
+                        break;
+                    case 'order_amount_too_low':
+                        $errorMessage = ($locale == 'ar') 
+                            ? "قيمة الطلب أقل من الحد الأدنى المطلوب لاستخدام خدمة تابي. يُرجى زيادة قيمة الطلب أو استخدام وسيلة دفع أخرى."
+                            : "The purchase amount is below the minimum amount required to use Tabby, try adding more items or use another payment method.";
+                        break;
+                    default:
+                        $errorMessage = ($locale == 'ar') 
+                            ? "نأسف، تابي غير قادرة على الموافقة على هذه العملية. الرجاء استخدام طريقة دفع أخرى."
+                            : "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.";
+                        break;
+                }
+                return response()->json([
+                    'message' => $errorMessage,
+                    'error'   => $resp['message'] ?? $errorMessage
+                ], 422);
+
+            }
 
             // $request['payment_status'] = 'completed';
             $createPaymentForOrderService->execute(
@@ -1825,6 +1896,236 @@ class OrderController extends Controller
                 'products'         => $prod
             ]);
         }
+    }
+
+    public function tabbyPayment(Request $request, array $shippingData, Order $order) {
+        $phoneNumber = ltrim($request->input('billingAddress.mobile'), '0');
+        $buyerPhone = '+971' . $phoneNumber;
+        $referenceId = $order->code;
+        // $buyerInfo = [
+        //     "phone" => $buyerPhone,
+        //     "email" => $request->input('billingAddress.email'),
+        //     "name"  => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+        // ];
+
+        // $shippingAddress = [
+        //     "city"    => $shippingData['city'],
+        //     "address" => $shippingData['street1'],
+        //     "zip"     => "00000"
+        // ];
+        $requestParams = [
+            "payment" => [
+                "amount" => number_format((float)$order->amount, 2, '.', ''),
+                "currency" => "AED",
+                "buyer" => [
+                    "phone" => $buyerPhone,
+                    "email" => $request->input('billingAddress.email'),
+                    "name" => $request->input('billingAddress.first_name') . ' ' . $request->input('billingAddress.last_name')
+                ],
+                "shipping_address" => [
+                    "city" => $shippingData['city'],
+                    "address" => $shippingData['address'],
+                    "zip" => "00000"
+                ],
+                "order" => [
+                    "tax_amount" => "0.00",
+                    "shipping_amount" => number_format((float)$order->shipping_amount, 2, '.', ''),
+                    "discount_amount" => number_format((float)$order->discount_amount, 2, '.', ''),
+                    "reference_id" => (string)$referenceId, 
+                    "items" => []
+                ],
+                "buyer_history" => [
+                    "registered_since" => $shippingData['buyer_history']['registered_since'],
+                    "loyalty_level" => $shippingData['buyer_history']['loyalty_level'],
+                ],
+                "order_history" => [],
+            ],
+            "lang" => $request->input('locale', 'en'),
+            "merchant_code" => env('TABBY_MERCHANT_CODE'),
+            "merchant_urls" => [
+                "success" => route('payment.tabby.redirect', ['order_number' => base64_encode($order->code), 'payment_status' => 'success']),
+                "cancel"  => route('payment.tabby.redirect', ['order_number' => base64_encode($order->code), 'payment_status' => 'cancel']),
+                "failure" => route('payment.tabby.redirect', ['order_number' => base64_encode($order->code), 'payment_status' => 'failure']),
+            ]
+        ];
+        foreach ($request->input('products') as $item) {
+            $requestParams['payment']['order']['items'][] = [
+                "title" => $item['product_name'],
+                "quantity" => $item['quantity'],
+                "unit_price" => number_format((float)$item['price'], 2, '.', ''),
+                "reference_id" => (string)$item['product_id'],
+                "category" => $item['category_name'] ?? 'Default'
+            ];
+        }
+        if (!empty($shippingData['buyer_history']['order_history'])) {
+            foreach ($shippingData['buyer_history']['order_history'] as $histOrder) {
+                $tabbyStatus = match(strtolower($histOrder->status)) {
+                    'pending', 'draft' => 'new',
+                    'processing', 'on_hold', 'confirmed' => 'processing',
+                    'shipped', 'completed', 'delivered' => 'complete',
+                    'cancelled', 'canceled' => 'canceled',
+                    'returned', 'refunded' => 'refunded',
+                    default => 'unknown',
+                };
+
+                $requestParams['payment']['order_history'][] = [
+                    "purchased_at" => Carbon::parse($histOrder->created_at)->utc()->toIso8601String(),
+                    "amount" => number_format((float)$histOrder->amount, 2, '.', ''),
+                    "status" => $tabbyStatus,
+                    "buyer" => $requestParams['payment']['buyer'], // Assuming same buyer
+                    "shipping_address" => $requestParams['payment']['shipping_address'],
+                ];
+            }
+        }
+        Log::info('Tabby Payload: ', $requestParams);
+        $PROFILE_ID = env('TABBY_PROFILE_ID');
+        $PUBLIC_KEY = env('TABBY_PUBLIC_KEY');
+        $SECRET_KEY = env('TABBY_SECRET_KEY');
+        $BASE_URL = env('TABBY_BASE_URL');
+
+        $data['profile_id'] = $PROFILE_ID;
+
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $BASE_URL.'checkout',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($requestParams),
+            CURLOPT_HTTPHEADER => array(
+                'authorization: Bearer ' . $SECRET_KEY,
+                'Content-Type:application/json'
+            ),
+        ));
+        $responseString = curl_exec($curl);
+        if (curl_errno($curl)) {
+            $curlError = curl_error($curl);
+            curl_close($curl);
+            // Log the actual cURL error
+            Log::error('Tabby cURL Error:', ['error' => $curlError]);
+            // Return an error structure so the 'else' block in initiatePayment works
+            return ['status' => 'curl_error', 'message' => $curlError];
+        }
+        curl_close($curl);
+        $responseArray = json_decode($responseString, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::error('Tabby JSON Decode Error:', ['response_string' => $responseString]);
+            return ['status' => 'json_error', 'message' => 'Failed to decode JSON response from Tabby.'];
+        }
+        Log::info('Tabby Checkout Response:', $responseArray);
+        
+        return $responseArray;
+    }
+
+    public function tabbyPaymentRedirect(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        $payment_id = $request->input('payment_id');
+        $order_id = $request->query('order_number');
+        $status = $request->query('payment_status');
+        $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
+
+        if (!$order) {
+            $failUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=order_not_found';
+            return redirect($failUrl);
+        }
+
+        $locale = $order->lang ?? 'en';
+
+        if ($status === 'cancel') {
+            // $order->status = OrderStatusEnum::CANCELED;
+            // $order->save();
+            // You might need to increment stock back here since storeOrder decremented it
+
+            $message = ($locale == 'ar') 
+                ? "لقد ألغيت الدفعة. فضلاً حاول مجددًا أو اختر طريقة دفع أخرى." 
+                : "You aborted the payment. Please retry or choose another payment method.";
+            
+            $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
+            return redirect($cancelUrl);
+        }
+        if ($status === 'failure') {
+            // $order->status = OrderStatusEnum::CANCELED;
+            // $order->save();
+
+            $message = ($locale == 'ar') 
+                ? "نأسف، تابي غير قادرة على الموافقة على هذه العملية. الرجاء استخدام طريقة دفع أخرى." 
+                : "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.";
+            
+            $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
+            return redirect($cancelUrl);
+        }
+
+        $SECRET_KEY = env('TABBY_SECRET_KEY');
+        $BASE_URL = env('TABBY_BASE_URL');
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $BASE_URL . 'payments/' . $payment_id);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        // curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Disable SSL verification (useful for testing)
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['authorization: Bearer ' . $SECRET_KEY]);
+
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        if (isset($response['status']) && ($response['status'] == 'AUTHORIZED' || $response['status'] == 'authorized')) {
+
+            $c = curl_init();
+            curl_setopt_array($c, array(
+                CURLOPT_URL => $BASE_URL . 'payments/' . $response["id"] . '/captures',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => json_encode(["amount" => $response["amount"]]),
+                CURLOPT_HTTPHEADER => [
+                    'authorization: Bearer ' . $SECRET_KEY,
+                    'Content-Type:application/json'
+                ],
+            ));
+    
+            $captureResponse = json_decode(curl_exec($c), true);
+            curl_close($c);
+            // echo "<pre>";print_r($resp);die;
+            Log::info('Tabby Capture Response:', $captureResponse);
+            
+            if (isset($captureResponse['status']) && ($captureResponse['status'] == 'CLOSED' || $captureResponse['status'] == 'closed')) {
+                // Payment Successful
+                $createPaymentForOrderService->execute(
+                    $order,
+                    'tabby',
+                    $response['status'],
+                    $order->user_id,
+                    $captureResponse['id'],
+                    (isset($response['description']) && !empty($response['description'])) ? $response['description'] : $response['status'],
+                );
+
+                // Redirect to Success
+                $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/'.$order->lang.'/shop-order-payment-complete?q=' . base64_encode($order->code);
+                return redirect($redirectUrl);
+
+            } else {
+                // Capture Failed
+                // $order->status = OrderStatusEnum::CANCELED;
+                // $order->save();
+                Log::error('Tabby Capture Failed', ['response' => $captureResponse]);
+                
+                $failUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=capture_failed';
+                return redirect($failUrl);
+            }
+        } else {
+            $createPaymentForOrderService->execute(
+                $order,
+                'tabby',
+                $response['status'],
+                $order->user_id,
+                $request->input('payment_id'),
+                (isset($response['description']) && !empty($response['description'])) ? $response['description'] : $response['status'],
+            );
+        }
+
+        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
     }
 
     public function payTabsPayment(Request $request, $shippingData, $order) {

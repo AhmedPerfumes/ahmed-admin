@@ -49,9 +49,8 @@ class CreatePaymentForOrderService
         if($paymentMethod == 'cod') {
             $paymentStat = $paymentStatus ? $paymentStatus : 'completed';
         } else {
-            $paymentStat = $paymentStatus == 'A' ? 'completed' : 'failed';
+            $paymentStat = (($paymentStatus == 'fully_captured') || ($paymentStatus == 'A') || ($paymentStatus == 'AUTHORIZED' || $paymentStatus == 'CREATED' || $paymentStatus == 'CLOSED')) ? 'completed' : 'failed';
         }
-
         $data = [
             'amount' => $order->amount,
             'currency' => cms_currency()->getDefaultCurrency()->title,
