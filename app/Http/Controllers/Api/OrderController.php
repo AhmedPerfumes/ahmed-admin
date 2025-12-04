@@ -1869,6 +1869,16 @@ class OrderController extends Controller
                             : "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.";
                         break;
                 }
+
+                $createPaymentForOrderService->execute(
+                    $order,
+                    'tabby',
+                    'failed',
+                    $order->user_id,
+                    null,
+                    "Tabby payment failed: " . $rejectionReason,
+                );
+                
                 return response()->json([
                     'message' => $errorMessage,
                     'error'   => $resp['message'] ?? $errorMessage
@@ -2042,6 +2052,14 @@ class OrderController extends Controller
                 : "You aborted the payment. Please retry or choose another payment method.";
             
             $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
+            $createPaymentForOrderService->execute(
+                $order,
+                'tabby',
+                $status,
+                $order->user_id,
+                $request->input('payment_id'),
+                "User canceled the payment process.",
+            );
             return redirect($cancelUrl);
         }
         if ($status === 'failure') {
@@ -2053,6 +2071,14 @@ class OrderController extends Controller
                 : "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.";
             
             $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
+            $createPaymentForOrderService->execute(
+                $order,
+                'tabby',
+                $status,
+                $order->user_id,
+                $request->input('payment_id'),
+                "Tabby payment failed.",
+            );
             return redirect($cancelUrl);
         }
 
