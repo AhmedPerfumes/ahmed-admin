@@ -533,7 +533,7 @@ class OrderController extends Controller
             'description' => $request->input('note'),
             'is_confirmed' => 1,
             'is_finished' => 1,
-            'status' => OrderStatusEnum::PROCESSING,
+            'status' => ($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') ? OrderStatusEnum::CANCELED : OrderStatusEnum::PROCESSING,
             'lang' => $request->input('locale'),
             'cod_charge' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)),
             'cod_charge_vat' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),

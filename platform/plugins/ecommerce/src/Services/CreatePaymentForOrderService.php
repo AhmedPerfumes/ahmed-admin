@@ -16,6 +16,7 @@ use Botble\Ecommerce\Models\OrderAddress;
 use Botble\Ecommerce\Models\Address;
 use Botble\Ecommerce\Models\OrderProduct;
 use PHPMailer\PHPMailer\PHPMailer;
+use Botble\Ecommerce\Enums\OrderStatusEnum;
 
 class CreatePaymentForOrderService
 {
@@ -74,6 +75,9 @@ class CreatePaymentForOrderService
         $payment = Payment::query()->create($data);
 
         $order->payment_id = $payment->getKey();
+        if($paymentStat == 'completed') {
+            $order->status = OrderStatusEnum::PROCESSING;
+        }
         $order->save();
 
         $shipping_data = OrderAddress::where('order_id', $order->getKey())->first();
