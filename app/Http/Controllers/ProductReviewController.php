@@ -8,6 +8,7 @@ use Botble\Base\Http\Responses\BaseHttpResponse;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 class ProductReviewController extends Controller
 {
@@ -23,58 +24,56 @@ class ProductReviewController extends Controller
     }
 
     // v-- ADD THIS NEW FUNCTION TO HANDLE THE APPROVAL --v
-    public function approve(ProductReview $productReview)
+    public function approve(ProductReview $productReview, Request $request)
     {
         // Set the status to the system's "PUBLISHED" value
         $productReview->status = 'published';
         $productReview->save();
 
         $couponSuccess = false;
-        if ($productReview->customer_phone) {
+        $selectedCouponId = $request->input('couponId');
+
+        if ($productReview->customer_phone && $selectedCouponId) {
             try {
                 $apiUrl = env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Register';
-                $couponId = env('REVIEW_COUPON_ID');
 
-                if ($couponId) {
-                    $postData = [
-                        'couponId'     => $couponId,
-                        'customerName' => $productReview->customer_name,
-                        'mobileNo'     => $productReview->customer_phone,
-                        'email'     => $productReview->customer_email,
-                    ];
-
-                    $ch = curl_init($apiUrl);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_POST, true);
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                        'Content-Type: application/json',
-                    ]);
-
-                    $apiResponse = curl_exec($ch);
-                    Log::info("Api Response". $apiResponse);
-                    
-                    if (!curl_errno($ch)) {
-                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                        if ($httpCode >= 200 && $httpCode < 300) {
-                            $couponSuccess = true;
-                            Log::info("Coupon registered for review ID {$productReview->id}");
-                        }
-                    } else {
-                        Log::error("Coupon API Error: " . curl_error($ch));
+                $postData = [
+                    'couponId'     => $selectedCouponId,
+                    'customerName' => $productReview->customer_name,
+                    'mobileNo'     => $productReview->customer_phone,
+                    'email'     => $productReview->customer_email,
+                ];
+                $ch = curl_init($apiUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                ]);
+                $apiResponse = curl_exec($ch);
+                Log::info("Api Response". $apiResponse);
+                
+                if (!curl_errno($ch)) {
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    if ($httpCode >= 200 && $httpCode < 300) {
+                        $couponSuccess = true;
+                        Log::info("Coupon registered for review ID {$productReview->id}");
                     }
-                    curl_close($ch);
+                } else {
+                    Log::error("Coupon API Error: " . curl_error($ch));
                 }
+                curl_close($ch);
+                
             } catch (\Exception $e) {
                 Log::error("Coupon Integration Failed: " . $e->getMessage());
             }
         }
 
-        $this->sendApprovalEmail($productReview, $couponSuccess);
+        $this->sendApprovalEmail($productReview, $couponSuccess, $selectedCouponId);
         return back()->with('success_message', 'Review published. ' . ($couponSuccess ? 'Coupon assigned.' : 'Coupon assignment failed (check logs).'));
     }
 
-    private function sendApprovalEmail($productReview, $couponAssigned)
+    private function sendApprovalEmail($productReview, $couponAssigned, $couponId = null)
     {
         $mail = new PHPMailer(true);
         try {
@@ -84,6 +83,10 @@ class ProductReviewController extends Controller
             $customerName = htmlspecialchars($productReview->customer_name);
             $safeProductName = htmlspecialchars($productName);
             $safeComment = nl2br(htmlspecialchars($productReview->comment));
+            $voucherCodeText = 'SURVEY10'; 
+            if ($couponId == env('REVIEW_COUPON_ID_15')) {
+                $voucherCodeText = 'SURVEY15';
+            }
 
             // Determine Coupon Content
             $couponHtml = '';
@@ -127,7 +130,9 @@ class ProductReviewController extends Controller
                                     <tr>
                                         <td align="center" style="padding: 20px 0;">
                                             <p class="font-sans" style="color: #888888; font-family: Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;">VOUCHER CODE</p>
-                                            <h2 class="font-sans" style="color: #ffffff; font-family: Helvetica, Arial, sans-serif; font-size: 28px; letter-spacing: 4px; font-weight: 700; margin: 0; text-shadow: 0 2px 10px rgba(199, 148, 75, 0.3);">REVIEW10</h2>
+                                            
+                                            <h2 class="font-sans" style="color: #ffffff; font-family: Helvetica, Arial, sans-serif; font-size: 28px; letter-spacing: 4px; font-weight: 700; margin: 0; text-shadow: 0 2px 10px rgba(199, 148, 75, 0.3);">' . $voucherCodeText . '</h2>
+                                            
                                         </td>
                                     </tr>
 
@@ -168,7 +173,7 @@ class ProductReviewController extends Controller
                                 <li style="margin-bottom: 5px;">Visit <a href="https://www.ahmedalmaghribi.com" style="color: #C7944B; text-decoration: none; border-bottom: 1px solid #C7944B;">ahmedalmaghribi.com</a></li>
                                 <li style="margin-bottom: 5px;">Select your desired fragrances.</li>
                                 <li style="margin-bottom: 5px;">Use the mobile number registered with this review.</li>
-                                <li>Apply code <strong>REVIEW10</strong> at checkout.</li>
+                                <li>Apply code <strong>' . $voucherCodeText . '</strong> at checkout.</li>
                             </ol>
                         </td>
                     </tr>
