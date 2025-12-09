@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProductReviewController as ApiProductReviewController;
 use App\Http\Controllers\Api\FaqApiController;
 use App\Http\Controllers\Api\CartController;
+use Botble\Ecommerce\Http\Controllers\PrebookingApiController;
+use App\Http\Controllers\Api\TabbyCronController;
 
 /*
 |--------------------------------------------------------------------------
@@ -51,6 +53,8 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     // Order Routes
     Route::post('/storeOrder', [OrderController::class, 'storeOrder']);
+    Route::withoutMiddleware('restrict.domains')->get('/tabbyPaymentRedirect', [OrderController::class, 'tabbyPaymentRedirect'])->name('payment.tabby.redirect');
+    Route::get('/tabbyAllPayments', [TabbyCronController::class, 'tabbyAllPayments']);
     Route::withoutMiddleware('restrict.domains')->post('/payTabsPaymentRedirect', [OrderController::class, 'payTabsPaymentRedirect']);
     Route::post('/trackOrder', [OrderController::class, 'trackOrder']);
     Route::post('/orderDetails', [OrderController::class, 'orderDetails']);
@@ -60,6 +64,9 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
     Route::withoutMiddleware('customLogs')->post('/blogs', [BlogController::class, 'getBlogs']);
     Route::withoutMiddleware('customLogs')->post('/getBlogDetails', [BlogController::class, 'getBlogDetails']);
     Route::withoutMiddleware('customLogs')->post('/blogSEO', [BlogController::class, 'getBlogSEO']);
+
+    //News Article Routes
+    Route::withoutMiddleware('customLogs')->post('/news-articles', [BlogController::class, 'getNewsArticles']);
 
     // Contact Route
     Route::post('/contact', [ContactController::class, 'contact']);
@@ -89,15 +96,18 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     Route::get('/getCoupons', [OrderController::class, 'getCoupons']);
 
-    //FAQ API
-   
-
-Route::prefix('faqs')->group(function () {
-    Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
-    Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
-});
+    //FAQ API Routes
+    Route::prefix('faqs')->group(function () {
+        Route::get('/', [FaqApiController::class, 'faqs']); // all faqs
+        Route::get('/categories', [FaqApiController::class, 'categories']); // faqs grouped by category
+    });
 
     Route::post('/getCart', [CartController::class, 'getCart']);
     Route::post('/addUpdateCart', [CartController::class, 'addUpdateCart']);
     Route::post('/removeFromCart', [CartController::class, 'removeFromCart']);
+
+    Route::withoutMiddleware('restrict.domains')->post('/tamaraPaymentResponse', [OrderController::class, 'tamaraPaymentResponse']);
+    Route::withoutMiddleware('restrict.domains')->any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
+
+    Route::post('prebooking/submit', [PrebookingApiController::class, 'submit'])->name('api.prebooking.submit');
 });

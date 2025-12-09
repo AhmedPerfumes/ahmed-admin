@@ -108,6 +108,16 @@
                     <p>This review is currently pending approval.</p>
                     <form action="{{ route('product-reviews.approve', $review->id) }}" method="POST">
                         @csrf
+
+                        {{-- Dropdown for selecting coupon --}}
+                        <div class="mb-3">
+                            <label for="couponId" class="form-label"><strong>Select Coupon:</strong></label>
+                            <select name="couponId" id="couponId" class="form-select">
+                                <option value="{{ env('REVIEW_COUPON_ID_10') }}" selected>10% Coupon</option>
+                                <option value="{{ env('REVIEW_COUPON_ID_15') }}">15% Coupon</option>
+                            </select>
+                        </div>
+                        
                         <button type="submit" class="btn btn-success">
                             <i class="ti ti-check"></i> Approve Review
                         </button>

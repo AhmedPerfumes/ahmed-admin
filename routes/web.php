@@ -84,32 +84,30 @@ if (is_in_admin(true)) {
         'permissions' => ['product-reviews.index'],
     ]);
 
-    // V V V PASTE THE NEW CODE STARTING HERE V V V
-
-    // --- START: Fragrance Profiles ---
-    Route::group([
-        'prefix' => 'admin/product-fragrance-notes',
-        'as' => 'product-fragrance-notes.',
-        'middleware' => ['web', 'auth'],
-    ], function () {
-        Route::resource('', ProductFragranceNoteController::class)->parameters(['' => 'id']);
-        Route::delete('items/destroy', [
-            'as' => 'deletes',
-            'uses' => '\Botble\Ecommerce\Http\Controllers\ProductFragranceNoteController@destroy',
-            'permission' => 'products.destroy', // Reuse existing permission
-        ]);
-    });
-
-    dashboard_menu()->registerItem([
-        'id' => 'cms-plugins-product-fragrance-notes',
-        'priority' => 6,
-        'parent_id' => 'cms-plugins-ecommerce',
-        'name' => 'Fragrance Profiles',
-        'icon' => 'fa fa-vial',
-        'url' => route('product-fragrance-notes.index'),
-        'permissions' => ['products.index'], // Reuse existing permission
-    ]);
-    // --- END: Fragrance Profiles ---
-
-
 }
+// V V V PASTE THE NEW CODE STARTING HERE V V V
+
+// --- START: Fragrance Profiles ---
+Route::group([
+    'prefix' => 'admin/product-fragrance-notes',
+    'as' => 'product-fragrance-notes.',
+    'middleware' => ['web', 'auth'],
+], function () {
+    Route::resource('', ProductFragranceNoteController::class)->parameters(['' => 'id']);
+    Route::delete('items/destroy', [
+        'as' => 'deletes',
+        'uses' => '\Botble\Ecommerce\Http\Controllers\ProductFragranceNoteController@destroy',
+        'permission' => 'products.destroy', // Reuse existing permission
+    ]);
+});
+
+dashboard_menu()->registerItem([
+    'id' => 'cms-plugins-product-fragrance-notes',
+    'priority' => 6,
+    'parent_id' => 'cms-plugins-ecommerce',
+    'name' => 'Fragrance Profiles',
+    'icon' => 'fa fa-vial',
+    'url' => route('product-fragrance-notes.index'),
+    'permissions' => ['product-fragrance-notes.index'],
+]);
+// --- END: Fragrance Profiles ---

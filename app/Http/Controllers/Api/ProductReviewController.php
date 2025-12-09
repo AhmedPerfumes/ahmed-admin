@@ -17,7 +17,6 @@ class ProductReviewController extends Controller
     public function index(Product $product)
     {
         $reviews = ProductReview::where('product_id', $product->id)
-            // **THIS IS THE CHANGE**: Only get reviews with a 'published' status
             ->where('status', BaseStatusEnum::PUBLISHED)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -34,13 +33,14 @@ class ProductReviewController extends Controller
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:ec_products,id',
             'star' => 'required|integer|min:1|max:5',
-            'comment' => 'required|string|min:10',
+            'comment' => 'required|string',
             'customer_name' => 'required|string|max:100',
             'customer_email' => 'required|email|max:100',
+            'customer_phone' => 'required|string|max:50',
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
         // Get the validated data from the validator.

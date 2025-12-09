@@ -1486,12 +1486,12 @@ class OrderController extends Controller
             // "card_discounts" => $card_discounts
         ];
 
-        $PROFILE_ID = 48012;
+        $PROFILE_ID = config('paytabs.profile_id');
         // $PROFILE_ID = 48353;
-        $SERVER_KEY = 'SBJNLMDM92-HZKWN6WW6D-NTDHZ9RBMJ';
+        $SERVER_KEY = config('paytabs.server_key');
         // $SERVER_KEY = 'S6JNLMDMDL-HZM2DZDHLN-GW2NZ6DKK2';
 
-        $BASE_URL = 'https://secure.paytabs.com/payment/request';
+        $BASE_URL = config('paytabs.base_url');
 
         $data['profile_id'] = $PROFILE_ID;
         $curl = curl_init();

@@ -32,6 +32,7 @@ class Page extends BaseModel
         'description',
         'status',
         'user_id',
+        'link'
     ];
 
     protected $casts = [

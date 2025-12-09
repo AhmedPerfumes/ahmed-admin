@@ -526,7 +526,16 @@
                     updatePriceAndDiscount('discount', values);
                 }
             });
-            const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { maxItems: 10 });
+const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { 
+    maxItems: 10,
+    plugins: ['remove_button'], // optional but recommended for UX
+    closeAfterSelect: false,    // keeps dropdown open for multi-select
+    onItemAdd: function() {
+        this.setTextboxValue('');    // clears the typed text
+        this.refreshOptions(false);  // ensures dropdown stays ready
+    }
+});
+
             const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 10 });
             const coupon_product_group_ids = new TomSelect('#coupon_product_group_ids', { maxItems: 10 });
             const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 10 });
