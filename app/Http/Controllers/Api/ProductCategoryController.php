@@ -86,10 +86,10 @@ class ProductCategoryController extends Controller
         $pop_up = Page::select('name','content','description','image','mobile_image','link')->where('template', 'full-width')->where('status', 'published')->get();
         $top_header=ProductAttribute::select('title','color')->get();
         $sale_section = Page::select('name','content','description','image','mobile_image','link')->where('template', 'homepage')->where('status', 'published')->get();
+        $shop_pop_up = Page::select('name','content','description','image','mobile_image','link')->where('template', 'coming-soon')->where('status', 'published')->get();
         
-
-        $response = response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders, 'top_header' => $top_header, 'pop_up' => $pop_up, 'sale_section' => $sale_section])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
-        ->setEtag(md5(json_encode(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders,  'top_header' => $top_header, 'pop_up' => $pop_up, 'sale_section' => $sale_section])));
+        $response = response()->json(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders, 'top_header' => $top_header, 'pop_up' => $pop_up, 'sale_section' => $sale_section, 'shop_pop_up' => $shop_pop_up])->header('Cache-Control', 'public, max-age=86400, s-maxage=172800') // Cache 1 Day in the browser, 2 Days at Cloudflare
+        ->setEtag(md5(json_encode(['productCategories' => $productCategories, 'tax' => $tax, 'shipping_service_charges' => $shipping_service_charges, 'currency' => $currency, 'home_sliders' => $home_sliders, 'home_mobile_sliders' => $home_mobile_sliders,  'top_header' => $top_header, 'pop_up' => $pop_up, 'sale_section' => $sale_section, 'shop_pop_up' => $shop_pop_up])));
 
         if ($response->isNotModified(request())) {
             return $response;
