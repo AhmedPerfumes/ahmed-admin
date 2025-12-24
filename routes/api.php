@@ -48,6 +48,7 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     // All Product Routes
     Route::withoutMiddleware('customLogs')->post('/allProducts', [ProductController::class, 'getAllProducts']);
+    Route::withoutMiddleware('customLogs')->get('/getBestSelling', [ProductController::class, 'getBestSellingStructured']);
     Route::withoutMiddleware('customLogs')->post('/exportProducts', [ProductController::class, 'getExportProducts']);
     Route::withoutMiddleware('customLogs')->post('/productSEO', [ProductController::class, 'getProductSEO']);
 

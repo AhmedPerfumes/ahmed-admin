@@ -1604,7 +1604,6 @@ class ProductController extends Controller
         }
     }
 
-
     public function getAllProducts(Request $request)
     {
         $limit = (int)$request['limit'];
@@ -2365,5 +2364,196 @@ class ProductController extends Controller
         }
 
         return 'least_expensive';
+    }
+
+    public function getBestSellingStructured(Request $request)
+    {
+        // 1. Fetch all published parent categories
+        $categories = DB::table('ec_product_categories')
+            ->where('parent_id', 0)
+            ->where('status', 'published')
+            ->select('id', 'name')
+            ->get();
+
+        $responseStructure = [
+            'all' => [],
+        ];
+
+        // 2. Loop through each category to build the data
+        foreach ($categories as $category) {
+            // Fetch Top 10 Best Selling for this Category
+            $products = $this->queryBestSellingByCategory($category->id, 10);
+
+            // Hydrate data (add tags, labels, discounts, correct sales count)
+            foreach ($products as $val) {
+                $this->hydrateProductDetails($val);
+            }
+
+            // Add to Category specific key
+            $responseStructure[$category->name] = $products->toArray();
+
+            // Add Top 2 to 'all' key
+            // We take the first 2 items from the already fetched top 10
+            $topTwo = $products->slice(0, 2)->toArray();
+            $responseStructure['all'] = array_merge($responseStructure['all'], $topTwo);
+        }
+
+        return response()->json($responseStructure)
+            ->header('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    }
+
+    private function queryBestSellingByCategory($categoryId, $limit)
+    {
+        return DB::table('ec_product_category_product')
+            ->select(
+                DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'),
+                'ec_product_categories.id as category_id',
+                'ec_product_category_product.product_id',
+                'ec_products.name as product_name',
+                'ec_product_categories.name as category_name',
+                'ec_products.image',
+                'ec_products.images',
+                'ec_products.description',
+                'ec_products.quantity as product_qty',
+                'ec_products.sale_price',
+                DB::raw('COALESCE(sales_agg.total_sales, 0) as sales') // Use the joined sales data
+            )
+            ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id')
+            ->join('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id')
+            // Join to exclude collections
+            ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
+            ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
+            // SUBQUERY JOIN for Performance: Calculate sales in SQL to allow Sorting
+            ->leftJoin(DB::raw('(SELECT product_id, SUM(qty) as total_sales FROM ec_order_product JOIN ec_orders ON ec_order_product.order_id = ec_orders.id GROUP BY product_id) as sales_agg'), 'sales_agg.product_id', '=', 'ec_products.id')
+            ->where('ec_product_category_product.category_id', $categoryId)
+            ->where('ec_product_categories.status', 'published')
+            ->whereNull('ec_product_collections.name') // Ensure not part of a collection
+            ->orderBy('sales', 'desc') // Sort by the calculated sales
+            ->limit($limit)
+            ->get();
+    }
+
+    private function hydrateProductDetails($val)
+    {
+        // 1. Labels
+        $val->labels = DB::table('ec_product_label_products')
+            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+            ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
+            ->where('product_id', $val->product_id)
+            ->get();
+
+        // 2. Tags
+        $val->tags = DB::table('ec_product_tag_product')
+            ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id')
+            ->where('product_id', $val->product_id)
+            ->pluck('ec_product_tags.name')
+            ->toArray();
+
+        // 3. Subcategory
+        $val->subcategory = DB::table('ec_product_categories')
+            ->select('name as subcategory_name')
+            ->join('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id')
+            ->where('product_id', $val->product_id)
+            ->where('ec_product_categories.parent_id', '!=', 0)
+            ->first();
+
+        $total_sales = OrderProduct::select(DB::raw('SUM(qty) as total_sales'))
+            ->join('ec_orders', 'ec_order_product.order_id', '=', 'ec_orders.id')
+            // ->where('ec_orders.status', 'completed') // Optional: filter by order status
+            ->where('product_id', $val->product_id)
+            ->groupBy('product_id')
+            // ->orderBy('total_sales', 'desc')
+            // ->limit(10) // Optional: limit to top 10
+            ->first();
+
+        $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
+
+        // 4. Discounts (Logic preserved from your snippet)
+        $val->discount = null;
+
+        $individualDiscount = Promotion::where('type', 'discount')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            ->whereHas('discountRules', function ($query) {
+                $query->where('apply_to', 'individual');
+            })
+            ->whereHas('discountRules.individualRules', function ($query) use ($val) {
+                $query->where('product_id', $val->product_id);
+            })
+            ->with(['discountRules.individualRules' => function ($query) use ($val) {
+                $query->where('product_id', $val->product_id);
+            }])
+            ->first();
+
+        if ($individualDiscount) {
+            $discountRule = $individualDiscount->discountRules->first();
+            $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+            if ($individualRule) {
+                $val->discount = (object) [
+                    'value' => intval($individualRule->value),
+                    'apply_to' => $discountRule->apply_to,
+                    'discount_type' => $individualRule->discount_type,
+                    'final_price' => $individualRule->final_price,
+                    'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                    'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                ];
+            }
+        } else {
+            // Group Discount Logic
+            $groupDiscount = Promotion::where('type', 'discount')
+                ->whereDate('start_date', '<=', now())
+                ->whereDate('end_date', '>=', now())
+                ->whereHas('discountRules', function ($query) {
+                    $query->where('apply_to', '!=', 'individual');
+                })
+                ->whereHas('discountRules.products', function ($query) use ($val) {
+                    $query->where('product_id', $val->product_id);
+                })
+                ->first();
+
+            if ($groupDiscount) {
+                $discountRule = $groupDiscount->discountRules->first();
+                if ($discountRule) {
+                    $val->discount = (object) [
+                        'value' => intval($discountRule->percentage),
+                        'apply_to' => $discountRule->apply_to,
+                        'discount_type' => 'percent',
+                        'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                        'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                    ];
+                }
+            }
+        }
+        
+        // 5. Coupons (Logic preserved)
+        $coupons = Promotion::where('type', 'coupon')
+        ->whereDate('start_date', '<=', now())
+        ->whereDate('end_date', '>=', now())
+        ->whereHas('couponRules.products', function ($query) use ($val) {
+            $query->where('product_id', $val->product_id);
+        })
+        ->with(['couponRules' => function ($query) use ($val) {
+            $query->whereNotNull('coupon_code')
+                ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                ->with(['products' => function ($subQuery) use ($val) {
+                    $subQuery->where('product_id', $val->product_id)
+                            ->select('id', 'coupon_rule_id', 'product_id');
+                }]);
+        }])
+        ->get();
+
+        $val->coupon = []; 
+        foreach ($coupons as $promotion) {
+            foreach ($promotion->couponRules as $couponRule) {
+                if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                    $val->coupon[strtolower($couponRule->coupon_code)] = [
+                        'code' => strtolower($couponRule->coupon_code),
+                        'value' => intval($couponRule->percentage),
+                        'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                        'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+                    ];
+                }
+            }
+        }
     }
 }
