@@ -194,9 +194,9 @@ class CreatePaymentForOrderService
             $passw = "11F2";
             $pass = "$";
             $p = "E89_6C3";
-            $password = env("INBOXMEDIA_PASSWORD");
+            $password = $passw.$pass.$p;
 
-            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Please wait for confirmation call! Your Total Bill = '. floatval($order->amount) .'AED"')."&msgtype=16");
+            curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.ae/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($shipping_data->phone, $shipping_data->phone[0])."&sender=Ahmedper&msg=".urlencode('"Dear '. $shipping_data->name .', Thank you for your order '. $order->code .'. Your order is being processed. Please wait for confirmation call! Your Total Bill = '. floatval($order->amount) .'AED"')."&msgtype=16");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 

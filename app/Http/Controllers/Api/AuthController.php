@@ -57,12 +57,12 @@ class AuthController extends Controller
 
         $ch = curl_init();
 
-        // $passw = "11F2";
-        // $pass = "$";
-        // $p = "E89_6C3";
-        $password = env("INBOXMEDIA_PASSWORD");
+        $passw = "11F2";
+        $pass = "$";
+        $p = "E89_6C3";
+        $password = $passw.$pass.$p;
 
-        curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($request->mobile, $request->mobile[0])."&sender=Ahmedper&msg=".$otp."".urlencode(' is your OTP for Registration')."&msgtype=16");
+        curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.ae/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($request->mobile, $request->mobile[0])."&sender=Ahmedper&msg=".$otp."".urlencode(' is your OTP for Registration')."&msgtype=16");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 
@@ -375,56 +375,79 @@ class AuthController extends Controller
             return response()->json($validator->errors());
         }        
 
-        $otp = rand(1111, 9999);
+        $raw_mobile = (string) $request->mobile;
+        $clean_mobile = $raw_mobile;
+        
+        if (substr($raw_mobile, 0, 1) === '0') {
+            $clean_mobile = substr($raw_mobile, 1);
+        }
+        
+        $final_mobile = "971" . $clean_mobile;
 
+        $otp = rand(1111, 9999);
         $ch = curl_init();
 
         $passw = "11F2";
         $pass = "$";
         $p = "E89_6C3";
-        $password = env("INBOXMEDIA_PASSWORD");
+        $password = $passw.$pass.$p;
 
-        curl_setopt($ch, CURLOPT_URL, "https://myinboxmedia.in/api/mim/SendSMS?userid=MIM2300278&pwd=".$password."&mobile=971".ltrim($request->mobile, $request->mobile[0])."&sender=Ahmedper&msg=".$otp."".urlencode(' is your OTP for Registration')."&msgtype=16");
+        $sms_params = [
+            'userid' => 'MIM2300278',
+            'pwd'    => $password,
+            'mobile' => $final_mobile,
+            'sender' => 'Ahmedper',
+            'msg'    => $otp . ' is your OTP for Registration',
+            'msgtype'=> '16'
+        ];
+        $sms_url = "https://myinboxmedia.ae/api/mim/SendSMS?" . http_build_query($sms_params);
+
+        curl_setopt($ch, CURLOPT_URL, $sms_url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 
         $result = curl_exec($ch);
+
         if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);die;
+            // echo 'Error:' . curl_error($ch);die;
+            \Log::error("Signup SMS API Connection Error: " . curl_error($ch));
         }
+        \Log::info("Signup SMS API Raw Response: " . $result);
         curl_close ($ch);
 
         $curl = curl_init();
 
-        curl_setopt_array($curl, array(
-        CURLOPT_URL => 'https://waba.myinboxmedia.in/api/sendwaba',
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_POSTFIELDS =>'{
-            "ProfileId": "MIM2400074",
-            "APIKey": "#JpXt4fbMCFj",
-            "MobileNumber": 971'.ltrim($request->mobile, $request->mobile[0]).',
-            "templateName": "websiteauthentication",
-            "Parameters": [
-                '.$otp.'      
+        $wa_payload = [
+            "ProfileId" => "MIM2400074",
+            "APIKey" => "#JpXt4fbMCFj",
+            "MobileNumber" => (string)$final_mobile, // Send as string to be safe, or int if API strictly requires it
+            "templateName" => "websiteauthentication",
+            "Parameters" => [
+                (string)$otp 
             ],
-            "HeaderType": "Text",
-            "Text": "",
-            "MediaUrl": "",
-            "Latitude": 0,
-            "Longitude": 0,
-            "isTemplate": "true",
-            "ButtonOrListJSON": "",
-            "SubClientCode": "",
-            "HeaderParameter": "",
-            "CTAButtonURLParameter":"",
-            "CTAButtonURLParameter2" : ""
-        }',
+            "HeaderType" => "Text",
+            "Text" => "",
+            "MediaUrl" => "",
+            "Latitude" => 0,
+            "Longitude" => 0,
+            "isTemplate" => "true",
+            "ButtonOrListJSON" => "",
+            "SubClientCode" => "",
+            "HeaderParameter" => "",
+            "CTAButtonURLParameter" => "",
+            "CTAButtonURLParameter2" => ""
+        ];
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://waba.myinboxmedia.in/api/sendwaba',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($wa_payload),
             CURLOPT_HTTPHEADER => array(
                 'Content-Type: application/json'
             ),
@@ -432,8 +455,14 @@ class AuthController extends Controller
 
         $response = curl_exec($curl);
 
+        $http_status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        if (curl_errno($curl)) {
+            \Log::error("Signup WA API Connection Error: " . curl_error($curl));
+        }
+
         curl_close($curl);
         // echo $response;
+        \Log::info("Signup WA API Status: $http_status | Raw Response: " . $response);
 
         if($request->flag == 'fpassword') {
             $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->first();
