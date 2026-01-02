@@ -9,12 +9,14 @@ use Botble\Ecommerce\Models\Product;
 use Botble\Ecommerce\Models\ProductCategory;
 use Botble\Blog\Models\Post;
 use App\Models\Promotion;
+use Botble\Ecommerce\Models\Order;
 
 // Observers
 use App\Observers\ProductObserver;
 use App\Observers\ProductCategoryObserver;
 use App\Observers\PostObserver;
 use App\Observers\PromotionObserver;
+use App\Observers\OrderObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -43,6 +45,10 @@ class AppServiceProvider extends ServiceProvider
         // Register Promotion Observer
         if (class_exists(Promotion::class)) {
             Promotion::observe(PromotionObserver::class);
+        }
+        
+        if (class_exists(Order::class)) {
+            Order::observe(OrderObserver::class);
         }
     }
 }
