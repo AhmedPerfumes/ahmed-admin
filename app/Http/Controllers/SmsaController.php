@@ -142,7 +142,8 @@ class SmsaController extends Controller
         if (isset($resp1->sawb)) {
             OrderAddress::where('order_id', $request['order_id'])->update(['awb' => $resp1->sawb, 'name' => $request['name'], 'address' => $request['address'], 'customs_declared_value' => $request['declared_value'], 'total_cash_on_delivery' => $request['amount'], 'weight_kg' => $request['weight'], 'vat_payment' => $request['vat_paid'], 'duty_payment' => $request['duty_paid'], 'products' => $request['products']]);
             Order::where('id', $request['order_id'])->update(['status' => 'shipped']);
-               
+            $this->sendWhatsapp($request['phone'], $request['order_number'], $resp1->sawb);
+            // $this->sendSMS($request['phone'], $request['order_number'], $resp1->sawb);
 
            return redirect('/admin/ecommerce/smsa');
             
@@ -238,6 +239,8 @@ class SmsaController extends Controller
             if (isset($resp1->sawb)) {
                 OrderAddress::where('order_id', $request['order_id'][$i])->update(['awb' => $resp1->sawb, 'name' => $request['name'][$i], 'address' => $request['address'][$i], 'customs_declared_value' => $request['declared_value'][$i], 'total_cash_on_delivery' => $request['amount'][$i], 'weight_kg' => $request['weight'][$i], 'vat_payment' => $request['vat_paid'][$i], 'duty_payment' => $request['duty_paid'][$i], 'products' => $request['products'][$i]]);
                 Order::where('id', $request['order_id'][$i])->update(['status' => 'shipped']);
+                $this->sendWhatsapp($request['phone'][$i], $request['order_number'][$i], $resp1->sawb);
+                // $this->sendSMS($request['phone'][$i], $request['order_number'][$i], $resp1->sawb);
                 
 
                 echo "<div class='alert alert-success'>";
@@ -342,4 +345,98 @@ class SmsaController extends Controller
         }
         return view('smsa_track', compact('track'));
     }
+
+    // Helper function to send WhatsApp
+    private function sendWhatsapp($phone, $orderCode, $awb) {
+        $link = "https://www.smsaexpress.com/ae/trackingdetails?tracknumbers%5B0%5D=" . $awb;
+        $curl = curl_init();
+
+        $wa_payload = [
+            "ProfileId" => "MIM2400074",
+            "APIKey" => "#JpXt4fbMCFj",
+            "MobileNumber" => (string)$phone,
+            "templateName" => "smsatracking",
+            "Parameters" => [
+                (string)$orderCode,
+                (string)$link
+            ],
+            "HeaderType" => "Text",
+            "Text" => "",
+            "MediaUrl" => "",
+            "Latitude" => 0,
+            "Longitude" => 0,
+            "isTemplate" => "true",
+            "ButtonOrListJSON" => "",
+            "SubClientCode" => "",
+            "HeaderParameter" => "",
+            "CTAButtonURLParameter" => "",
+            "CTAButtonURLParameter2" => ""
+        ];
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://waba.myinboxmedia.in/api/sendwaba',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($wa_payload),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json'
+            ),
+        ));
+
+        $response = curl_exec($curl);
+        
+        if (curl_errno($curl)) {
+            \Log::error("WhatsApp Error for Order $orderCode: " . curl_error($curl));
+        } else {
+            \Log::info("WhatsApp Sent for Order $orderCode. Response: " . $response);
+        }
+        
+        curl_close($curl);
+    }
+
+    // private function sendSMS($raw_mobile, $orderCode, $awb) {
+    //     $link = "https://www.smsaexpress.com/ae/trackingdetails?tracknumbers%5B0%5D=" . $awb;
+    //     $clean_mobile = $raw_mobile;
+        
+    //     if (substr($raw_mobile, 0 , 1 === '0')) {
+    //         $clean_mobile = substr($raw_mobile, 1);
+    //     }
+    //     $phone = "971" . $clean_mobile;
+    //     if(!$phone) {
+    //         return;
+    //     }
+
+    //     $passw = "11F2";
+    //     $pass = "$";
+    //     $p = "E89_6C3";
+    //     $password = $passw.$pass.$p;
+
+    //     $ch = curl_init();
+    //     $sms_params = [
+    //         'userid' => 'MIM2300278',
+    //         'pwd'    => $password,
+    //         'mobile' => $phone,
+    //         'sender' => 'Ahmedper',
+    //         'msg'    => 'Dear Customer, Your order ' . $orderCode . ' has been shipped and is headed to you. Track your delivery here: ' . $link . ' Thank you.',
+    //         'msgtype'=> '16'
+    //     ];
+    //     $sms_url = "https://myinboxmedia.ae/api/mim/SendSMS?" . http_build_query($sms_params);
+    //     curl_setopt($ch, CURLOPT_URL, $sms_url);
+    //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    //     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+    //     $result = curl_exec($ch);
+
+    //     if (curl_errno($ch)) {
+    //         \Log::error("SMS API Error for Order $orderCode: " . curl_error($ch));
+    //     } else {
+    //         $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    //         \Log::info("SMS Sent for Order $orderCode | AWB: $awb | Status: $http_status | Response: " . $result);
+    //     }
+    //     curl_close ($ch);
+    // }
 }
