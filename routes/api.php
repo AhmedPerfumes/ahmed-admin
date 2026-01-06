@@ -38,6 +38,8 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     Route::post('/submitReview', [AuthController::class, 'submitReview']);
 
+
+
     // Product Category Routes
     Route::withoutMiddleware('customLogs')->post('/productCategories', [ProductCategoryController::class, 'getProductCategories']);
     Route::withoutMiddleware('customLogs')->post('/productCategoriesTemp', [ProductCategoryController::class, 'getProductCategoriesTemp']);
@@ -45,6 +47,9 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     // Product Routes
     Route::withoutMiddleware('customLogs')->post('/products', [ProductController::class, 'getProducts']);
+
+// Inside the middleware group in routes/api.php
+Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestions']);
 
     // All Product Routes
     Route::withoutMiddleware('customLogs')->post('/allProducts', [ProductController::class, 'getAllProducts']);

@@ -2340,6 +2340,75 @@ class ProductController extends Controller
         }
     }
 
+    public function getSearchSuggestions(Request $request)
+{
+    // 1. Prepare the request for the internal call
+    $request->merge([
+        'limit' => 6, 
+        'page' => 1,
+        'search' => $request->input('keyword') 
+    ]);
+
+    // 2. Call the internal method
+    $response = $this->getAllProducts($request);
+    
+    // 3. Get the underlying data from the JsonResponse
+    $originalData = $response->getData();
+    
+    // Laravel's paginate() puts results in a 'data' property
+    $items = isset($originalData->data) ? $originalData->data : [];
+
+    // 4. Format for the frontend
+   $formatted = collect($items)->map(function($item) {
+    // 1. Helper to clean strings exactly like your frontend 'removeSpecialCharactersAndAmp'
+    $cleaner = function($str) {
+        $str = str_replace('&amp;', '', $str);
+        $str = preg_replace('/[^\w\s-]/', '', $str);
+        $str = preg_replace('/\s+/', ' ', $str);
+        return trim($str);
+    };
+
+    // 2. Process Category
+    $categoryName = $item->category_name ?? 'shop';
+    $categorySlug = strtolower(str_replace(' ', '-', $cleaner($categoryName)));
+
+    // 3. Process Subcategory (The logic you were missing)
+    $subcatSlug = "";
+    
+    // Check if the item has a subcategory from the DB join
+    if (!empty($item->subcategory->subcategory_name)) {
+        $subcatSlug = strtolower(str_replace(' ', '-', $cleaner($item->subcategory->subcategory_name)));
+    } else {
+        // Fallback logic matching your Style2.js
+        if ($categorySlug == "gift-sets") {
+            $subcatSlug = "gift-sets";
+        } elseif ($categorySlug == "hair-mist") {
+            $subcatSlug = "hair-mist";
+        } elseif ($categorySlug == "extrait-de-parfum") {
+            $subcatSlug = "extrait-de-parfum";
+        } else {
+            $subcatSlug = "online-exclusive";
+        }
+    }
+
+    // 4. Process Product Name
+    $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
+
+    return [
+        'name' => $item->product_name,
+        'image' => $item->image,
+        'price' => $item->price,
+        // This builds the full internal path
+        'url_path' => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
+    ];
+});
+
+    return response()->json([
+        'success' => true,
+        'data'    => $formatted
+    ]);
+}
+
     /**
      * Determine the selection rule based on buy and get quantities and free products availability.
      *
