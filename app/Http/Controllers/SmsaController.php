@@ -346,7 +346,6 @@ class SmsaController extends Controller
         return view('smsa_track', compact('track'));
     }
 
-    // Helper function to send WhatsApp
     private function sendWhatsapp($phone, $orderCode, $awb) {
         $link = "https://www.smsaexpress.com/ae/trackingdetails?tracknumbers%5B0%5D=" . $awb;
         $curl = curl_init();
@@ -439,4 +438,104 @@ class SmsaController extends Controller
     //     }
     //     curl_close ($ch);
     // }
+
+    public function checkDeliveryStatus(Request $request)
+    {
+        // 1. Setup Parameters
+        $limit = $request->input('limit', 50); // Default to 50 orders per batch
+        $lastId = $request->input('last_id', 0); // Cursor for pagination
+        $updatedCount = 0;
+        $processedCount = 0;
+        
+        \Log::info("SMSA Batch: Starting process for orders with ID > $lastId (Limit: $limit)");
+
+        // 2. Fetch Orders (ID Cursor Strategy)
+        $orders = Order::select('ec_orders.id', 'ec_orders.code', 'ec_order_addresses.awb')
+            ->leftJoin('ec_order_addresses', 'ec_orders.id', '=', 'ec_order_addresses.order_id')
+            ->where('ec_orders.status', 'shipped')
+            ->whereNotNull('ec_order_addresses.awb')
+            ->where('ec_order_addresses.awb', '!=', '') // Ensure AWB is not empty string
+            ->where('ec_orders.id', '>', $lastId)
+            ->orderBy('ec_orders.id', 'ASC') // Critical for cursor to work
+            ->limit($limit)
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return response()->json([
+                'message' => 'No more orders found to process.',
+                'last_processed_id' => $lastId,
+                'completed' => true
+            ]);
+        }
+
+        // 3. Iterate and Check
+        foreach ($orders as $order) {
+            $processedCount++;
+            $currentId = $order->id; // Track current ID for response
+
+            try {
+                // Initialize CURL for SMSA Tracking
+                $curl = curl_init();
+                curl_setopt_array($curl, array(
+                    CURLOPT_URL => 'https://ecomapis.smsaexpress.com/api/track/single/' . trim($order->awb),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_ENCODING => '',
+                    CURLOPT_MAXREDIRS => 10,
+                    CURLOPT_TIMEOUT => 10, // Short timeout to prevent hanging
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                    CURLOPT_CUSTOMREQUEST => 'GET',
+                    CURLOPT_HTTPHEADER => array(
+                        'apikey: 3af56f2bd2304769814715a9ed9645fd',
+                        'Content-Type: application/json'
+                    ),
+                ));
+
+                $response = curl_exec($curl);
+                $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                curl_close($curl);
+
+                // API Throttle: Sleep 0.2 seconds to be polite to SMSA servers
+                usleep(200000); 
+
+                if ($httpCode === 200) {
+                    $trackData = json_decode($response);
+
+                    // 4. Validate "isDelivered" Flag
+                    // We check if the property exists and is strictly true
+                    if (isset($trackData->isDelivered) && $trackData->isDelivered === true) {
+                        
+                        // Update Database
+                        Order::where('id', $order->id)->update([
+                            'status' => 'completed',
+                            'completed_at' => \Carbon\Carbon::now(),
+                        ]);
+
+                        $updatedCount++;
+                        \Log::info("SMSA Batch: Order #{$order->code} (ID: {$order->id}) marked as COMPLETED.");
+                    } else {
+                        // Optional: Log that it is still in transit
+                        \Log::info("SMSA Batch: Order #{$order->code} still in transit.");
+                    }
+                } else {
+                    \Log::error("SMSA Batch: API Error for Order #{$order->code}. HTTP Code: $httpCode");
+                }
+
+            } catch (\Exception $e) {
+                \Log::error("SMSA Batch: Exception for Order #{$order->code}: " . $e->getMessage());
+            }
+
+            // Update the last processed ID
+            $lastId = $order->id;
+        }
+
+        // 5. Return Response
+        return response()->json([
+            'status' => 'success',
+            'message' => "Processed $processedCount orders. Updated $updatedCount orders.",
+            'last_processed_id' => $lastId, // INPUT THIS into the next request
+            'updates_made' => $updatedCount,
+            'next_url_suggestion' => route('smsa.check_status') . "?limit=$limit&last_id=$lastId"
+        ]);
+    }
 }

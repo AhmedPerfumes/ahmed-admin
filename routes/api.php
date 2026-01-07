@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\FaqApiController;
 use App\Http\Controllers\Api\CartController;
 use Botble\Ecommerce\Http\Controllers\PrebookingApiController;
 use App\Http\Controllers\Api\TabbyCronController;
+use App\Http\Controllers\SmsaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -116,4 +117,6 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
     Route::withoutMiddleware('restrict.domains')->any('/tamaraPaymentWebhook', [OrderController::class, 'tamaraPaymentWebhook']);
 
     Route::post('prebooking/submit', [PrebookingApiController::class, 'submit'])->name('api.prebooking.submit');
+
+    Route::withoutMiddleware('restrict.domains')->get('smsa/check-status', [SmsaController::class, 'checkDeliveryStatus'])->name('smsa.check_status');
 });
