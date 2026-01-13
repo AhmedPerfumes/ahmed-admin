@@ -2627,4 +2627,87 @@ class ProductController extends Controller
             }
         }
     }
+
+    public function getProductsLiveStatus(Request $request) {
+        $productIds = $request->input('product_ids');
+
+        if (empty($productIds)) {
+            $content = $request->getContent(); // Get the raw string body
+            $json = json_decode($content, true); // Turn JSON string into Array
+            $productIds = $json['product_ids'] ?? null;
+        }
+
+        if (empty($productIds) || !is_array($productIds)) {
+            return response()->json([], 200);
+        }
+
+        $products = DB::table('ec_products')
+        ->select('id as product_id', 'quantity as product_qty', DB::raw('CAST(price AS DECIMAL(8,2)) as price'), 'sale_price', 'maximum_order_quantity')
+        ->whereIn('id', $productIds)
+        ->where('status', 'published')
+        ->get();
+
+        foreach ($products as $val) {
+            $val->discount = null;
+
+            // A. Check Individual Discount
+            $individualDiscount = Promotion::where('type', 'discount')
+                ->whereDate('start_date', '<=', now())
+                ->whereDate('end_date', '>=', now())
+                ->whereHas('discountRules', function ($query) {
+                    $query->where('apply_to', 'individual');
+                })
+                ->whereHas('discountRules.individualRules', function ($query) use ($val) {
+                    $query->where('product_id', $val->product_id);
+                })
+                ->with(['discountRules.individualRules' => function ($query) use ($val) {
+                    $query->where('product_id', $val->product_id)
+                        ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'final_price', 'product_price');
+                }])
+                ->first();
+
+            if ($individualDiscount) {
+                $rule = $individualDiscount->discountRules->first()->individualRules->first();
+                if ($rule) {
+                    $val->discount = (object) [
+                        'value' => intval($rule->value),
+                        'discount_type' => $rule->discount_type,
+                        'final_price' => $rule->final_price,
+                        // 'product_price' => $rule->product_price, // Optional if needed by frontend
+                        'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                        'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                    ];
+                }
+            }
+            else {
+                $groupDiscount = Promotion::where('type', 'discount')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now())
+                    ->whereHas('discountRules', function ($query) {
+                        $query->where('apply_to', '!=', 'individual');
+                    })
+                    ->whereHas('discountRules.products', function ($query) use ($val) {
+                        $query->where('product_id', $val->product_id);
+                    })
+                    ->with(['discountRules' => function ($query) {
+                        $query->select('id', 'promotion_id', 'percentage', 'apply_to');
+                    }])
+                    ->first();
+
+                if ($groupDiscount) {
+                    $rule = $groupDiscount->discountRules->first();
+                    if ($rule) {
+                        $val->discount = (object) [
+                            'value' => intval($rule->percentage),
+                            'discount_type' => 'percent',
+                            'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                            'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return response()->json($products);
+    }
 }
