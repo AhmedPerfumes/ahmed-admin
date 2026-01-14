@@ -1033,11 +1033,8 @@ class ProductController extends Controller
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                 ->join('ec_product_categories', 'ec_product_categories.id', '=', 'ec_product_category_product.category_id', 'left')
-
-                // START: JOINS FOR FRAGRANCE NOTES
-                ->leftJoin('product_fragrance_map', 'ec_products.id', '=', 'product_fragrance_map.product_id')
-                ->leftJoin('product_fragrance_notes', 'product_fragrance_map.fragrance_note_id', '=', 'product_fragrance_notes.id')
-                // END: JOINS
+                ->join('product_fragrance_map', 'ec_products.id', '=', 'product_fragrance_map.product_id', 'left')
+                ->join('product_fragrance_notes', 'product_fragrance_map.fragrance_note_id', '=', 'product_fragrance_notes.id', 'left')
 
                 ->select(
                     // Product columns
@@ -1059,165 +1056,191 @@ class ProductController extends Controller
                 ->first();
                 
 
+                // if ($prod && $prod->is_collection) {
+                //     // Step 1, 2, and 3 remain the same...
+                //     $collectionItems = DB::table('ec_collection_items')
+                //         ->where('collection_product_id', $prod->product_id)
+                //         ->orderBy('sort_order', 'asc')
+                //         ->get();
+                    
+                //     $childProductIds = $collectionItems->pluck('child_product_id')->filter()->unique()->all();
+
+                //     $childProductsData = [];
+                //     if (!empty($childProductIds)) {
+                //         $childProductsData = DB::table('ec_products')
+                //             ->whereIn('ec_products.id', $childProductIds)
+                //             ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                //             ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                //                 $join->on('pivot_main.category_id', '=', 'main_cat.id')->where('main_cat.parent_id', 0);
+                //             })
+                //             ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                //             ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                //                 $join->on('pivot_sub.category_id', '=', 'sub_cat.id')->where('sub_cat.parent_id', '!=', 0);
+                //             })
+                //             ->select(
+                //                 'ec_products.id',
+                //                 DB::raw('MAX(ec_products.name) as name'),
+                //                 DB::raw('MAX(ec_products.name_ar) as name_ar'),
+                //                 DB::raw('MAX(ec_products.price) as price'),
+                //                 DB::raw('MAX(ec_products.image) as image'),
+                //                 DB::raw('MAX(ec_products.images) as images'),
+                //                 DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category'),
+                //                 DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory')
+                //             )
+                //             ->groupBy('ec_products.id')
+                //             ->get()
+                //             ->keyBy('id');
+                //     }
+
+                //     // Step 4: Combine and Format the data.
+                //     $prod->collection_items = $collectionItems->map(function ($item) use ($childProductsData) {
+                //         if ($item->child_product_id && isset($childProductsData[$item->child_product_id])) {
+                //             $fullProductData = $childProductsData[$item->child_product_id];
+                //             $mergedData = (object) array_merge((array)$item, (array)$fullProductData);
+
+                //             if (empty($mergedData->subcategory)) {
+                //                 $mergedData->subcategory = $mergedData->category;
+                //             }
+
+                //             // --- ADDED: Formatting for category and subcategory ---
+                //             if ($mergedData->category) {
+                //                 $mergedData->category = strtolower(str_replace(' ', '-', $mergedData->category));
+                //             }
+                //             if ($mergedData->subcategory) {
+                //                 $mergedData->subcategory = strtolower(str_replace(' ', '-', $mergedData->subcategory));
+                //             }
+
+                //             // Fetch active discount for the product
+                //             $mergedData->discount = null;
+
+                //             $individualDiscount = Promotion::where('type', 'discount')
+                //                 ->whereDate('start_date', '<=', now())
+                //                 ->whereDate('end_date', '>=', now())
+                //                 ->whereHas('discountRules', function ($query) {
+                //                     $query->where('apply_to', 'individual');
+                //                 })
+                //                 ->whereHas('discountRules.individualRules', function ($query) use ($item) {
+                //                     $query->where('product_id', $item->child_product_id);
+                //                 })
+                //                 ->with(['discountRules' => function ($query) {
+                //                     $query->where('apply_to', 'individual')
+                //                         ->select('id', 'promotion_id', 'apply_to');
+                //                 }, 'discountRules.individualRules' => function ($query) use ($item) {
+                //                     $query->where('product_id', $item->child_product_id)
+                //                         ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                //                 }])
+                //                 ->first();
+
+                //             if ($individualDiscount) {
+                //                 $discountRule = $individualDiscount->discountRules->first();
+                //                 $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+                //                 if ($individualRule) {
+                //                     $mergedData->discount = (object) [
+                //                         'value' => intval($individualRule->value),
+                //                         'apply_to' => $discountRule->apply_to,
+                //                         'discount_type' => $individualRule->discount_type,
+                //                         'product_price' => $individualRule->product_price,
+                //                         'discount_amount' => $individualRule->discount_amount,
+                //                         'final_price' => $individualRule->final_price,
+                //                         'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                //                         'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                //                     ];
+                //                 }
+                //             } else {
+                //                 // If no individual discount, try to fetch discount for group/all products
+                //                 $groupDiscount = Promotion::where('type', 'discount')
+                //                     ->whereDate('start_date', '<=', now())
+                //                     ->whereDate('end_date', '>=', now())
+                //                     ->whereHas('discountRules', function ($query) {
+                //                         $query->where('apply_to', '!=', 'individual');
+                //                     })
+                //                     ->whereHas('discountRules.products', function ($query) use ($item) {
+                //                         $query->where('product_id', $item->child_product_id);
+                //                     })
+                //                     ->with(['discountRules' => function ($query) {
+                //                         $query->where('apply_to', '!=', 'individual')
+                //                             ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                //                     }])
+                //                     ->first();
+
+                //                 if ($groupDiscount) {
+                //                     $discountRule = $groupDiscount->discountRules->first();
+                //                     if ($discountRule) {
+                //                         $mergedData->discount = (object) [
+                //                             'value' => intval($discountRule->percentage),
+                //                             'apply_to' => $discountRule->apply_to,
+                //                             'discount_type' => 'percent',
+                //                             'product_price' => null,
+                //                             'discount_amount' => null,
+                //                             'final_price' => null,
+                //                             'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                //                             'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                //                         ];
+                //                     }
+                //                 }
+                //             }
+
+                //             // Fetch active coupons for the product
+                //             $coupons = Promotion::where('type', 'coupon')
+                //                 ->whereDate('start_date', '<=', now())
+                //                 ->whereDate('end_date', '>=', now())
+                //                 ->whereHas('couponRules.products', function ($query) use ($item) {
+                //                     $query->where('product_id', $item->child_product_id);
+                //                 })
+                //                 ->with(['couponRules' => function ($query) use ($item) {
+                //                     $query->whereNotNull('coupon_code')
+                //                         ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                //                         ->with(['products' => function ($subQuery) use ($item) {
+                //                             $subQuery->where('product_id', $item->child_product_id)
+                //                                     ->select('id', 'coupon_rule_id', 'product_id');
+                //                         }]);
+                //                 }])
+                //                 ->get();
+
+                //             $mergedData->coupon = [];
+                //             foreach ($coupons as $promotion) {
+                //                 foreach ($promotion->couponRules as $couponRule) {
+                //                     if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                //                         $mergedData->coupon[strtolower($couponRule->coupon_code)] = [
+                //                             'code' => strtolower($couponRule->coupon_code),
+                //                             'value' => intval($couponRule->percentage),
+                //                             'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                //                             'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+                //                         ];
+                //                     }
+                //                 }
+                //             }
+
+                //             return $mergedData;
+                //         } else {
+                //             return $item;
+                //         }
+                //     });
+
+                // } elseif ($prod) {
+                //     $prod->collection_items = [];
+                // }
+
                 if ($prod && $prod->is_collection) {
-                    // Step 1, 2, and 3 remain the same...
-                    $collectionItems = DB::table('ec_collection_items')
-                        ->where('collection_product_id', $prod->product_id)
-                        ->orderBy('sort_order', 'asc')
-                        ->get();
+                    $collectionItems = DB::table('ec_collection_items')->where('collection_product_id', $prod->product_id)->orderBy('sort_order', 'asc')->get();
                     
                     $childProductIds = $collectionItems->pluck('child_product_id')->filter()->unique()->all();
 
                     $childProductsData = [];
                     if (!empty($childProductIds)) {
-                        $childProductsData = DB::table('ec_products')
-                            ->whereIn('ec_products.id', $childProductIds)
-                            ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
-                            ->leftJoin('ec_product_categories as main_cat', function ($join) {
-                                $join->on('pivot_main.category_id', '=', 'main_cat.id')->where('main_cat.parent_id', 0);
-                            })
-                            ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
-                            ->leftJoin('ec_product_categories as sub_cat', function ($join) {
-                                $join->on('pivot_sub.category_id', '=', 'sub_cat.id')->where('sub_cat.parent_id', '!=', 0);
-                            })
-                            ->select(
-                                'ec_products.id',
-                                DB::raw('MAX(ec_products.name) as name'),
-                                DB::raw('MAX(ec_products.name_ar) as name_ar'),
-                                DB::raw('MAX(ec_products.price) as price'),
-                                DB::raw('MAX(ec_products.image) as image'),
-                                DB::raw('MAX(ec_products.images) as images'),
-                                DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category'),
-                                DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory')
-                            )
-                            ->groupBy('ec_products.id')
-                            ->get()
-                            ->keyBy('id');
+                        $childProductsData = DB::table('ec_products')->whereIn('id', $childProductIds)->select('id', 'name', 'name_ar', 'price', 'image', 'images' )->get()->keyBy('id');
                     }
 
                     // Step 4: Combine and Format the data.
                     $prod->collection_items = $collectionItems->map(function ($item) use ($childProductsData) {
                         if ($item->child_product_id && isset($childProductsData[$item->child_product_id])) {
                             $fullProductData = $childProductsData[$item->child_product_id];
-                            $mergedData = (object) array_merge((array)$item, (array)$fullProductData);
-
-                            if (empty($mergedData->subcategory)) {
-                                $mergedData->subcategory = $mergedData->category;
-                            }
-
-                            // --- ADDED: Formatting for category and subcategory ---
-                            if ($mergedData->category) {
-                                $mergedData->category = strtolower(str_replace(' ', '-', $mergedData->category));
-                            }
-                            if ($mergedData->subcategory) {
-                                $mergedData->subcategory = strtolower(str_replace(' ', '-', $mergedData->subcategory));
-                            }
-
-                            // Fetch active discount for the product
-                            $mergedData->discount = null;
-
-                            $individualDiscount = Promotion::where('type', 'discount')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
-                                ->whereHas('discountRules', function ($query) {
-                                    $query->where('apply_to', 'individual');
-                                })
-                                ->whereHas('discountRules.individualRules', function ($query) use ($item) {
-                                    $query->where('product_id', $item->child_product_id);
-                                })
-                                ->with(['discountRules' => function ($query) {
-                                    $query->where('apply_to', 'individual')
-                                        ->select('id', 'promotion_id', 'apply_to');
-                                }, 'discountRules.individualRules' => function ($query) use ($item) {
-                                    $query->where('product_id', $item->child_product_id)
-                                        ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
-                                }])
-                                ->first();
-
-                            if ($individualDiscount) {
-                                $discountRule = $individualDiscount->discountRules->first();
-                                $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
-                                if ($individualRule) {
-                                    $mergedData->discount = (object) [
-                                        'value' => intval($individualRule->value),
-                                        'apply_to' => $discountRule->apply_to,
-                                        'discount_type' => $individualRule->discount_type,
-                                        'product_price' => $individualRule->product_price,
-                                        'discount_amount' => $individualRule->discount_amount,
-                                        'final_price' => $individualRule->final_price,
-                                        'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
-                                        'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
-                                    ];
-                                }
-                            } else {
-                                // If no individual discount, try to fetch discount for group/all products
-                                $groupDiscount = Promotion::where('type', 'discount')
-                                    ->whereDate('start_date', '<=', now())
-                                    ->whereDate('end_date', '>=', now())
-                                    ->whereHas('discountRules', function ($query) {
-                                        $query->where('apply_to', '!=', 'individual');
-                                    })
-                                    ->whereHas('discountRules.products', function ($query) use ($item) {
-                                        $query->where('product_id', $item->child_product_id);
-                                    })
-                                    ->with(['discountRules' => function ($query) {
-                                        $query->where('apply_to', '!=', 'individual')
-                                            ->select('id', 'promotion_id', 'percentage', 'apply_to');
-                                    }])
-                                    ->first();
-
-                                if ($groupDiscount) {
-                                    $discountRule = $groupDiscount->discountRules->first();
-                                    if ($discountRule) {
-                                        $mergedData->discount = (object) [
-                                            'value' => intval($discountRule->percentage),
-                                            'apply_to' => $discountRule->apply_to,
-                                            'discount_type' => 'percent',
-                                            'product_price' => null,
-                                            'discount_amount' => null,
-                                            'final_price' => null,
-                                            'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
-                                            'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
-                                        ];
-                                    }
-                                }
-                            }
-
-                            // Fetch active coupons for the product
-                            $coupons = Promotion::where('type', 'coupon')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
-                                ->whereHas('couponRules.products', function ($query) use ($item) {
-                                    $query->where('product_id', $item->child_product_id);
-                                })
-                                ->with(['couponRules' => function ($query) use ($item) {
-                                    $query->whereNotNull('coupon_code')
-                                        ->select('id', 'promotion_id', 'coupon_code', 'percentage')
-                                        ->with(['products' => function ($subQuery) use ($item) {
-                                            $subQuery->where('product_id', $item->child_product_id)
-                                                    ->select('id', 'coupon_rule_id', 'product_id');
-                                        }]);
-                                }])
-                                ->get();
-
-                            $mergedData->coupon = [];
-                            foreach ($coupons as $promotion) {
-                                foreach ($promotion->couponRules as $couponRule) {
-                                    if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
-                                        $mergedData->coupon[strtolower($couponRule->coupon_code)] = [
-                                            'code' => strtolower($couponRule->coupon_code),
-                                            'value' => intval($couponRule->percentage),
-                                            'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
-                                            'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
-                                        ];
-                                    }
-                                }
-                            }
-
-                            return $mergedData;
-                        } else {
-                            return $item;
+                            
+                            // Merge the collection pivot data (sort_order, etc) with the actual product data
+                            return (object) array_merge((array)$item, (array)$fullProductData);
                         }
+                        
+                        return $item;
                     });
 
                 } elseif ($prod) {
@@ -2341,75 +2364,75 @@ class ProductController extends Controller
     }
 
     public function getSearchSuggestions(Request $request)
-{
-    // 1. Prepare the request for the internal call
-    $request->merge([
-        'limit' => 6, 
-        'page' => 1,
-        'search' => $request->input('keyword') 
-    ]);
+    {
+        // 1. Prepare the request for the internal call
+        $request->merge([
+            'limit' => 6, 
+            'page' => 1,
+            'search' => $request->input('keyword') 
+        ]);
 
-    // 2. Call the internal method
-    $response = $this->getAllProducts($request);
-    
-    // 3. Get the underlying data from the JsonResponse
-    $originalData = $response->getData();
-    
-    // Laravel's paginate() puts results in a 'data' property
-    $items = isset($originalData->data) ? $originalData->data : [];
+        // 2. Call the internal method
+        $response = $this->getAllProducts($request);
+        
+        // 3. Get the underlying data from the JsonResponse
+        $originalData = $response->getData();
+        
+        // Laravel's paginate() puts results in a 'data' property
+        $items = isset($originalData->data) ? $originalData->data : [];
 
-    // 4. Format for the frontend
-   $formatted = collect($items)->map(function($item) {
-    // 1. Cleaner helper
-    $cleaner = function($str) {
-        $str = str_replace('&amp;', '&', $str); // Convert &amp; to & for URL cleaning
-        $str = preg_replace('/[^\w\s-]/', '', $str);
-        $str = preg_replace('/\s+/', ' ', $str);
-        return trim($str);
-    };
+        // 4. Format for the frontend
+        $formatted = collect($items)->map(function($item) {
+            // 1. Cleaner helper
+            $cleaner = function($str) {
+                $str = str_replace('&amp;', '&', $str); // Convert &amp; to & for URL cleaning
+                $str = preg_replace('/[^\w\s-]/', '', $str);
+                $str = preg_replace('/\s+/', ' ', $str);
+                return trim($str);
+            };
 
-    // 2. IMAGE FALLBACK LOGIC
-    $displayImage = $item->image;
-    if (empty($displayImage) && !empty($item->images)) {
-        // If 'image' is null, check the JSON 'images' gallery
-        $gallery = is_string($item->images) ? json_decode($item->images, true) : $item->images;
-        if (is_array($gallery) && count($gallery) > 0) {
-            $displayImage = $gallery[0]; 
-        }
+            // 2. IMAGE FALLBACK LOGIC
+            $displayImage = $item->image;
+            if (empty($displayImage) && !empty($item->images)) {
+                // If 'image' is null, check the JSON 'images' gallery
+                $gallery = is_string($item->images) ? json_decode($item->images, true) : $item->images;
+                if (is_array($gallery) && count($gallery) > 0) {
+                    $displayImage = $gallery[0]; 
+                }
+            }
+
+            // 3. CATEGORY & SUBCAT LOGIC
+            $categorySlug = strtolower(str_replace(' ', '-', $cleaner($item->category_name ?? 'shop')));
+            
+            // Safely check for subcategory
+            $subcatName = null;
+            if (isset($item->subcategory) && is_object($item->subcategory)) {
+                $subcatName = $item->subcategory->subcategory_name ?? null;
+            }
+
+            if (!empty($subcatName)) {
+                $subcatSlug = strtolower(str_replace(' ', '-', $cleaner($subcatName)));
+            } else {
+                // Your specific fallback logic
+                $fallbacks = ['gift-sets', 'hair-mist', 'extrait-de-parfum'];
+                $subcatSlug = in_array($categorySlug, $fallbacks) ? $categorySlug : "online-exclusive";
+            }
+
+            $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
+
+            return [
+                'name'     => html_entity_decode($item->product_name), // Fixes &amp; for the UI
+                'image'    => $displayImage, 
+                'price'    => $item->price,
+                'url_path' => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
+            ];
+        });
+
+            return response()->json([
+                'success' => true,
+                'data'    => $formatted
+            ]);
     }
-
-    // 3. CATEGORY & SUBCAT LOGIC
-    $categorySlug = strtolower(str_replace(' ', '-', $cleaner($item->category_name ?? 'shop')));
-    
-    // Safely check for subcategory
-    $subcatName = null;
-    if (isset($item->subcategory) && is_object($item->subcategory)) {
-        $subcatName = $item->subcategory->subcategory_name ?? null;
-    }
-
-    if (!empty($subcatName)) {
-        $subcatSlug = strtolower(str_replace(' ', '-', $cleaner($subcatName)));
-    } else {
-        // Your specific fallback logic
-        $fallbacks = ['gift-sets', 'hair-mist', 'extrait-de-parfum'];
-        $subcatSlug = in_array($categorySlug, $fallbacks) ? $categorySlug : "online-exclusive";
-    }
-
-    $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
-
-    return [
-        'name'     => html_entity_decode($item->product_name), // Fixes &amp; for the UI
-        'image'    => $displayImage, 
-        'price'    => $item->price,
-        'url_path' => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
-    ];
-});
-
-    return response()->json([
-        'success' => true,
-        'data'    => $formatted
-    ]);
-}
 
     /**
      * Determine the selection rule based on buy and get quantities and free products availability.
