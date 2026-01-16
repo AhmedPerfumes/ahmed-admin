@@ -2396,13 +2396,26 @@ class ProductController extends Controller
     }
 
     $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
+    $originalPrice = (float) $item->price;
+    $finalPrice = $originalPrice;
 
-    return [
-        'name'     => html_entity_decode($item->product_name), // Fixes &amp; for the UI
-        'image'    => $displayImage, 
-        'price'    => $item->price,
-        'url_path' => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
-    ];
+    // Check if a discount exists (Calculated in your getAllProducts loop)
+    if (isset($item->discount) && !empty($item->discount)) {
+        if ($item->discount->discount_type == 'percent') {
+            $finalPrice = $originalPrice - ($originalPrice * ($item->discount->value / 100));
+        } elseif ($item->discount->discount_type == 'amount') {
+            $finalPrice = $originalPrice - $item->discount->value;
+        }
+    }
+
+   return [
+    'name'          => html_entity_decode($item->product_name, ENT_QUOTES, 'UTF-8'),
+    'image'         => $displayImage,
+    'price'         => $item->price, // Original price
+    'sale_price'    => $item->sale_price,
+    'discount'      => $item->discount, // ✅ Pass the whole object (value, start_date, end_date)
+    'url_path'      => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
+];
 });
 
     return response()->json([
