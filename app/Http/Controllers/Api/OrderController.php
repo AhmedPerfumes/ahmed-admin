@@ -2335,13 +2335,34 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.deliveryStatus', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id')->join('payments', 'payments.order_id', 'ec_orders.id')->where('ec_orders.code', $request->input('order_number'))->where('ec_order_addresses.email', $request->input('billing_email'))->first();
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.deliveryStatus', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge', 'ec_order_addresses.awb')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id')->join('payments', 'payments.order_id', 'ec_orders.id')->where('ec_orders.code', $request->input('order_number'))->where('ec_order_addresses.email', $request->input('billing_email'))->first();
 
         if(!$order) {
             return response()->json(['message' => 'Order not found']);
         }
 
         $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        $smsaTrackingDetails = null;
+        if (!empty($order->awb)) {
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => 'https://ecomapis.smsaexpress.com/api/track/single/' . $order->awb,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => array(
+                    'apikey: 3af56f2bd2304769814715a9ed9645fd',
+                    'Content-Type: application/json'
+                ),
+            ));
+
+            $response = curl_exec($curl);
+            
+            if (!curl_errno($curl)) {
+                $smsaTrackingDetails = json_decode($response);
+            }
+            
+            curl_close($curl);
+        }
 
         return response()->json([
             'message'          => 'Tracking Details Fetched successfully',
@@ -2359,6 +2380,8 @@ class OrderController extends Controller
             'payment_status'   => $order->payment_status,
             'products'         => $prod,
             'cod_charge'   => $order->cod_charge,
+            'awb'              => $order->awb,
+            'shipping_details' => $smsaTrackingDetails
         ]);
     }
 

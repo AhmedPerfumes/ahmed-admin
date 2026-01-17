@@ -119,7 +119,7 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
 
     Route::post('prebooking/submit', [PrebookingApiController::class, 'submit'])->name('api.prebooking.submit');
 
-    Route::post('/products/live-status', [ProductController::class, 'getProductsLiveStatus']);
+    Route::withoutMiddleware('customLogs')->post('/products/live-status', [ProductController::class, 'getProductsLiveStatus']);
 
     Route::withoutMiddleware('restrict.domains')->get('smsa/check-status', [SmsaController::class, 'checkDeliveryStatus'])->name('smsa.check_status');
 });
