@@ -2162,6 +2162,14 @@ class OrderController extends Controller
             $paymentStr .= $exisProduct->name. ' ('.$quantity.'), ';
         }
 
+        $encodedOrderNumber = base64_encode($order->code);
+    
+        $returnUrl = "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=" . $encodedOrderNumber;
+        // $returnUrl = "https://admin.ahmedalmaghribi.com/public/api/payTabsPaymentRedirect?order_number=" . $encodedOrderNumber;
+        
+        $callbackUrl = "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/payTabsCallback?order_number=" . $encodedOrderNumber;
+        // $callbackUrl = "https://admin.ahmedalmaghribi.com/public/api/payTabsCallback?order_number=" . $encodedOrderNumber;
+
         $data = [
             "tran_type"=> "sale",
             "tran_class"=> "ecom",
@@ -2190,8 +2198,20 @@ class OrderController extends Controller
                 "country"=> "AE",
                 // "zip"=> "54321"
             ],
+            // "card_discounts" => [
+            //     [
+            //         "discount_cards" => "41111,520000",
+            //         "discount_amount" => "30.00",
+            //         "discount_title" => "30.00 AED discount on cards starts with 41111, 520000",
+            //     ]
+            // ],
+
+            "return" => $returnUrl,   
+            "callback" => $callbackUrl
+
             // "callback"=> "https://admin.ahmedalmaghribi.com/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code),
-            "return"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
+            // "return"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
+            // "callback"=> "https://howard-nonvisualized-unimpartially.ngrok-free.dev/ahmed-admin/public/api/payTabsPaymentRedirect?order_number=".base64_encode($order->code)
         ];
 
         $PROFILE_ID = config('paytabs.profile_id');
@@ -2223,6 +2243,7 @@ class OrderController extends Controller
 
         $response = json_decode(curl_exec($curl), true);
         curl_close($curl);
+        \Log::info("Paytabs Response: ". json_encode($response));
         // print_r($response);die;
         return $response;
 
@@ -2249,23 +2270,58 @@ class OrderController extends Controller
         // die;
     }
 
-    public function payTabsPaymentRedirect(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-        // echo "<pre>";print_r($request->all());die;
-        // $customer = Customer::where('email', $request->input('customerEmail'))->first();
-        // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
-        $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
-        // echo "<pre>";print_r($order);
-        $createPaymentForOrderService->execute(
-            $order,
-            'paytabs',
-            $request['respStatus'],
-            // $customer->id,
-            $order->user_id,
-            $request->input('tranRef'),
-            $request['respMessage'],
-        );
+    public function payTabsCallback(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        \Log::info('Paytabs Callback Hit (The Truth):', ['payload' => $request->all()]);
 
-        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+        // 1. Identify the Order
+        $orderCodeRaw = $request->query('order_number') ?? $request->input('order_number');
+        $orderCode = base64_decode($orderCodeRaw);
+
+        $order = Order::where('code', $orderCode)->orderBy('id', 'desc')->first();
+
+        if (!$order) {
+            \Log::error('Paytabs Callback: Order not found', ['code' => $orderCode]);
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        // 2. Extract Data from Nested JSON Structure (Specific to Callback)
+        $tranRef = $request->input('tran_ref'); // Top level
+        $respStatus = $request->input('payment_result.response_status'); // Nested
+        $respMessage = $request->input('payment_result.response_message'); // Nested
+
+        // 3. Execute the Heavy Service (Emails, SMS, Coupon)
+        // Since this is the only place calling it, we don't need complex double-checks.
+        try {
+            $createPaymentForOrderService->execute(
+                $order,
+                'paytabs',
+                $respStatus,
+                $order->user_id,
+                $tranRef,
+                $respMessage
+            );
+            \Log::info("Paytabs Callback Success: Order {$order->code} processed.");
+        } catch (\Exception $e) {
+            \Log::error("Paytabs Callback Error: " . $e->getMessage());
+            return response()->json(['message' => 'Error updating order'], 500);
+        }
+
+        // 4. Return 200 OK to PayTabs
+        return response()->json(['message' => 'Callback received successfully']);
+    }
+
+    public function payTabsPaymentRedirect(Request $request) {
+        \Log::info('Paytabs Return URL Hit (Redirect Only)');
+
+        // We only need the order code to build the URL
+        $orderCode = base64_decode($request->query('order_number'));
+        
+        // Note: The order status might still be "Pending" here if the Callback hasn't arrived yet.
+        // The frontend page you are building later should handle checking the status via API.
+        
+        // Simple Redirect
+        header('Location: http://localhost:3000/en/shop-order-payment-complete?q='.base64_encode($orderCode));
+        exit();
     }
 
     public function trackOrder(Request $request)
@@ -2279,13 +2335,34 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.deliveryStatus', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id')->join('payments', 'payments.order_id', 'ec_orders.id')->where('ec_orders.code', $request->input('order_number'))->where('ec_order_addresses.email', $request->input('billing_email'))->first();
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.deliveryStatus', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge', 'ec_order_addresses.awb')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id')->join('payments', 'payments.order_id', 'ec_orders.id')->where('ec_orders.code', $request->input('order_number'))->where('ec_order_addresses.email', $request->input('billing_email'))->first();
 
         if(!$order) {
             return response()->json(['message' => 'Order not found']);
         }
 
         $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        $smsaTrackingDetails = null;
+        if (!empty($order->awb)) {
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => 'https://ecomapis.smsaexpress.com/api/track/single/' . $order->awb,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => array(
+                    'apikey: 3af56f2bd2304769814715a9ed9645fd',
+                    'Content-Type: application/json'
+                ),
+            ));
+
+            $response = curl_exec($curl);
+            
+            if (!curl_errno($curl)) {
+                $smsaTrackingDetails = json_decode($response);
+            }
+            
+            curl_close($curl);
+        }
 
         return response()->json([
             'message'          => 'Tracking Details Fetched successfully',
@@ -2303,6 +2380,8 @@ class OrderController extends Controller
             'payment_status'   => $order->payment_status,
             'products'         => $prod,
             'cod_charge'   => $order->cod_charge,
+            'awb'              => $order->awb,
+            'shipping_details' => $smsaTrackingDetails
         ]);
     }
 

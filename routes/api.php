@@ -63,6 +63,7 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
     Route::withoutMiddleware('restrict.domains')->get('/tabbyPaymentRedirect', [OrderController::class, 'tabbyPaymentRedirect'])->name('payment.tabby.redirect');
     Route::get('/tabbyAllPayments', [TabbyCronController::class, 'tabbyAllPayments']);
     Route::withoutMiddleware('restrict.domains')->post('/payTabsPaymentRedirect', [OrderController::class, 'payTabsPaymentRedirect']);
+    Route::withoutMiddleware('restrict.domains')->post('/payTabsCallback', [OrderController::class, 'payTabsCallback']);
     Route::post('/trackOrder', [OrderController::class, 'trackOrder']);
     Route::post('/orderDetails', [OrderController::class, 'orderDetails']);
     Route::post('/validateCoupon', [OrderController::class, 'validateCoupon']);
@@ -118,7 +119,7 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
 
     Route::post('prebooking/submit', [PrebookingApiController::class, 'submit'])->name('api.prebooking.submit');
 
-    Route::post('/products/live-status', [ProductController::class, 'getProductsLiveStatus']);
+    Route::withoutMiddleware('customLogs')->post('/products/live-status', [ProductController::class, 'getProductsLiveStatus']);
 
     Route::withoutMiddleware('restrict.domains')->get('smsa/check-status', [SmsaController::class, 'checkDeliveryStatus'])->name('smsa.check_status');
 });
