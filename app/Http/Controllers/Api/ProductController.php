@@ -49,9 +49,9 @@ class ProductController extends Controller
             }
 
             if (!isset($subCategory)) {
-                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description')->where('status', 'published')->where('parent_id', 0)->where('id', $categoryData->id)->get()->first();
+                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description,description_ar')->where('status', 'published')->where('parent_id', 0)->where('id', $categoryData->id)->get()->first();
             } else {
-                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description')->where('status', 'published')->where('parent_id', $categoryData->id)->where('id', $subCategoryData->id)->get()->first();
+                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description,description_ar')->where('status', 'published')->where('parent_id', $categoryData->id)->where('id', $subCategoryData->id)->get()->first();
             }
             
             if (!isset($subCategory)) {
