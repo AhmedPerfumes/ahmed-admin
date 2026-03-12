@@ -1513,6 +1513,7 @@ class ProductController extends Controller
                             $discountRule = $groupDiscount->discountRules->first();
                             if ($discountRule) {
                                 $val->discount = (object) [
+                                 
                                     'value' => intval($discountRule->percentage),
                                     'apply_to' => $discountRule->apply_to,
                                     'discount_type' => 'percent',
