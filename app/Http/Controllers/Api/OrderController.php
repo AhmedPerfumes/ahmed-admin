@@ -1318,439 +1318,439 @@ class OrderController extends Controller
                 $loggedInCustomer = null;
             }
 
-            $invoice = Invoice::query()->create([
-                'reference_type' => 'Botble\Ecommerce\Models\Order',
-                'reference_id' => $order->id,
-                'customer_name' => $loggedInCustomer ? $loggedInCustomer->name : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
-                'customer_email' => $loggedInCustomer ? $loggedInCustomer->email : $request->input('billingAddress.email'),
-                'customer_phone' => $loggedInCustomer ? $loggedInCustomer->phone : $request->input('billingAddress.mobile'),
-                'customer_address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
-                'sub_total' => $request->input('totalPrice') ? : 0,
-                'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
-                'shipping_amount' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)),
-                'shipping_amount_vat' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
-                'service_amount' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)),
-                'service_amount_vat' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
-                'vat' => $request->input('vatTax'),
-                'discount_amount' => $request->input('discount_amount') ? : 0,
-                'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
-                'coupon_code' => $request->input('couponCode'),
-                'discount_description' => $request->input('discount_description'),
-                'amount' => $request->input('finalPrice'),
-                'payment_id' => $order->payment_id,
-                'status' => $request->input('payment_status'),
-            ]);
+            // $invoice = Invoice::query()->create([
+            //     'reference_type' => 'Botble\Ecommerce\Models\Order',
+            //     'reference_id' => $order->id,
+            //     'customer_name' => $loggedInCustomer ? $loggedInCustomer->name : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
+            //     'customer_email' => $loggedInCustomer ? $loggedInCustomer->email : $request->input('billingAddress.email'),
+            //     'customer_phone' => $loggedInCustomer ? $loggedInCustomer->phone : $request->input('billingAddress.mobile'),
+            //     'customer_address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
+            //     'sub_total' => $request->input('totalPrice') ? : 0,
+            //     'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
+            //     'shipping_amount' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)),
+            //     'shipping_amount_vat' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+            //     'service_amount' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)),
+            //     'service_amount_vat' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+            //     'vat' => $request->input('vatTax'),
+            //     'discount_amount' => $request->input('discount_amount') ? : 0,
+            //     'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
+            //     'coupon_code' => $request->input('couponCode'),
+            //     'discount_description' => $request->input('discount_description'),
+            //     'amount' => $request->input('finalPrice'),
+            //     'payment_id' => $order->payment_id,
+            //     'status' => $request->input('payment_status'),
+            // ]);
 
-            foreach ($request->input('products') as $product) {
+            // foreach ($request->input('products') as $product) {
                 
-                $quantity = $product['quantity'] ? $product['quantity'] : 1;
+            //     $quantity = $product['quantity'] ? $product['quantity'] : 1;
 
-                $exisProduct = Product::where('id', $product['product_id'])->first();
+            //     $exisProduct = Product::where('id', $product['product_id'])->first();
 
-                // $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+            //     // $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+            //     // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
 
-                // // Store in a temporary property or a new array
-                // $couponData = [];
-                // foreach ($coupons as $coupon) {
-                //     $couponData[strtolower($coupon->code)] = [
-                //         'code' => strtolower($coupon->code),
-                //         'value' => $coupon->value,
-                //         'start_date' => $coupon->start_date,
-                //         'end_date' => $coupon->end_date,
-                //     ];
-                // }
+            //     // // Store in a temporary property or a new array
+            //     // $couponData = [];
+            //     // foreach ($coupons as $coupon) {
+            //     //     $couponData[strtolower($coupon->code)] = [
+            //     //         'code' => strtolower($coupon->code),
+            //     //         'value' => $coupon->value,
+            //     //         'start_date' => $coupon->start_date,
+            //     //         'end_date' => $coupon->end_date,
+            //     //     ];
+            //     // }
 
-                // $exisProduct->coupon = $couponData;
+            //     // $exisProduct->coupon = $couponData;
 
-                // Fetch active discount for the product
-                $exisProduct->discount = null;
+            //     // Fetch active discount for the product
+            //     $exisProduct->discount = null;
 
-                $individualDiscount = Promotion::where('type', 'discount')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
-                    ->whereHas('discountRules', function ($query) {
-                        $query->where('apply_to', 'individual');
-                    })
-                    ->whereHas('discountRules.individualRules', function ($query) use ($product) {
-                        $query->where('product_id', $product['product_id']);
-                    })
-                    ->with(['discountRules' => function ($query) {
-                        $query->where('apply_to', 'individual')
-                            ->select('id', 'promotion_id', 'apply_to');
-                    }, 'discountRules.individualRules' => function ($query) use ($product) {
-                        $query->where('product_id', $product['product_id'])
-                            ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
-                    }])
-                    ->first();
+            //     $individualDiscount = Promotion::where('type', 'discount')
+            //         ->whereDate('start_date', '<=', now())
+            //         ->whereDate('end_date', '>=', now())
+            //         ->whereHas('discountRules', function ($query) {
+            //             $query->where('apply_to', 'individual');
+            //         })
+            //         ->whereHas('discountRules.individualRules', function ($query) use ($product) {
+            //             $query->where('product_id', $product['product_id']);
+            //         })
+            //         ->with(['discountRules' => function ($query) {
+            //             $query->where('apply_to', 'individual')
+            //                 ->select('id', 'promotion_id', 'apply_to');
+            //         }, 'discountRules.individualRules' => function ($query) use ($product) {
+            //             $query->where('product_id', $product['product_id'])
+            //                 ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+            //         }])
+            //         ->first();
 
-                if ($individualDiscount) {
-                    $discountRule = $individualDiscount->discountRules->first();
-                    $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
-                    if ($individualRule) {
-                        $exisProduct->discount = (object) [
-                            'value' => intval($individualRule->value),
-                            'apply_to' => $discountRule->apply_to,
-                            'discount_type' => $individualRule->discount_type,
-                            'product_price' => $individualRule->product_price,
-                            'discount_amount' => $individualRule->discount_amount,
-                            'final_price' => $individualRule->final_price,
-                            'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
-                            'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
-                        ];
-                    }
-                } else {
-                    // If no individual discount, try to fetch discount for group/all products
-                    $groupDiscount = Promotion::where('type', 'discount')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
-                        ->whereHas('discountRules', function ($query) {
-                            $query->where('apply_to', '!=', 'individual');
-                        })
-                        ->whereHas('discountRules.products', function ($query) use ($product) {
-                            $query->where('product_id', $product['product_id']);
-                        })
-                        ->with(['discountRules' => function ($query) {
-                            $query->where('apply_to', '!=', 'individual')
-                                ->select('id', 'promotion_id', 'percentage', 'apply_to');
-                        }])
-                        ->first();
+            //     if ($individualDiscount) {
+            //         $discountRule = $individualDiscount->discountRules->first();
+            //         $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+            //         if ($individualRule) {
+            //             $exisProduct->discount = (object) [
+            //                 'value' => intval($individualRule->value),
+            //                 'apply_to' => $discountRule->apply_to,
+            //                 'discount_type' => $individualRule->discount_type,
+            //                 'product_price' => $individualRule->product_price,
+            //                 'discount_amount' => $individualRule->discount_amount,
+            //                 'final_price' => $individualRule->final_price,
+            //                 'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+            //                 'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+            //             ];
+            //         }
+            //     } else {
+            //         // If no individual discount, try to fetch discount for group/all products
+            //         $groupDiscount = Promotion::where('type', 'discount')
+            //             ->whereDate('start_date', '<=', now())
+            //             ->whereDate('end_date', '>=', now())
+            //             ->whereHas('discountRules', function ($query) {
+            //                 $query->where('apply_to', '!=', 'individual');
+            //             })
+            //             ->whereHas('discountRules.products', function ($query) use ($product) {
+            //                 $query->where('product_id', $product['product_id']);
+            //             })
+            //             ->with(['discountRules' => function ($query) {
+            //                 $query->where('apply_to', '!=', 'individual')
+            //                     ->select('id', 'promotion_id', 'percentage', 'apply_to');
+            //             }])
+            //             ->first();
 
-                    if ($groupDiscount) {
-                        $discountRule = $groupDiscount->discountRules->first();
-                        if ($discountRule) {
-                            $exisProduct->discount = (object) [
-                                'value' => intval($discountRule->percentage),
-                                'apply_to' => $discountRule->apply_to,
-                                'discount_type' => 'percent',
-                                'product_price' => null,
-                                'discount_amount' => null,
-                                'final_price' => null,
-                                'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
-                                'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
-                            ];
-                        }
-                    }
-                }
+            //         if ($groupDiscount) {
+            //             $discountRule = $groupDiscount->discountRules->first();
+            //             if ($discountRule) {
+            //                 $exisProduct->discount = (object) [
+            //                     'value' => intval($discountRule->percentage),
+            //                     'apply_to' => $discountRule->apply_to,
+            //                     'discount_type' => 'percent',
+            //                     'product_price' => null,
+            //                     'discount_amount' => null,
+            //                     'final_price' => null,
+            //                     'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+            //                     'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+            //                 ];
+            //             }
+            //         }
+            //     }
 
-                // Fetch active coupons for the product
-                // $coupons = Promotion::where('type', 'coupon')
-                //     ->whereDate('start_date', '<=', now())
-                //     ->whereDate('end_date', '>=', now())
-                //     ->whereHas('couponRules.products', function ($query) use ($product) {
-                //         $query->where('product_id', $product['product_id']);
-                //     })
-                //     ->with(['couponRules' => function ($query) use ($product) {
-                //         $query->whereNotNull('coupon_code')
-                //             ->select('id', 'promotion_id', 'coupon_code', 'percentage')
-                //             ->with(['products' => function ($subQuery) use ($product) {
-                //                 $subQuery->where('product_id', $product['product_id'])
-                //                         ->select('id', 'coupon_rule_id', 'product_id');
-                //             }]);
-                //     }])
-                //     ->get();
+            //     // Fetch active coupons for the product
+            //     // $coupons = Promotion::where('type', 'coupon')
+            //     //     ->whereDate('start_date', '<=', now())
+            //     //     ->whereDate('end_date', '>=', now())
+            //     //     ->whereHas('couponRules.products', function ($query) use ($product) {
+            //     //         $query->where('product_id', $product['product_id']);
+            //     //     })
+            //     //     ->with(['couponRules' => function ($query) use ($product) {
+            //     //         $query->whereNotNull('coupon_code')
+            //     //             ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+            //     //             ->with(['products' => function ($subQuery) use ($product) {
+            //     //                 $subQuery->where('product_id', $product['product_id'])
+            //     //                         ->select('id', 'coupon_rule_id', 'product_id');
+            //     //             }]);
+            //     //     }])
+            //     //     ->get();
 
-                // $couponData = [];
-                // foreach ($coupons as $promotion) {
-                //     foreach ($promotion->couponRules as $couponRule) {
-                //         if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
-                //             $couponData[strtolower($couponRule->coupon_code)] = [
-                //                 'code' => strtolower($couponRule->coupon_code),
-                //                 'value' => intval($couponRule->percentage),
-                //                 'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
-                //                 'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
-                //             ];
-                //         }
-                //     }
-                // }
+            //     // $couponData = [];
+            //     // foreach ($coupons as $promotion) {
+            //     //     foreach ($promotion->couponRules as $couponRule) {
+            //     //         if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+            //     //             $couponData[strtolower($couponRule->coupon_code)] = [
+            //     //                 'code' => strtolower($couponRule->coupon_code),
+            //     //                 'value' => intval($couponRule->percentage),
+            //     //                 'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+            //     //                 'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+            //     //             ];
+            //     //         }
+            //     //     }
+            //     // }
 
-                // $exisProduct->coupon = $couponData;
+            //     // $exisProduct->coupon = $couponData;
 
-                // $customerCouponData = [];
+            //     // $customerCouponData = [];
 
-                // if ($coupons->isEmpty()) {
-                // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
-                // foreach ($customer_coupons as $customer_coupon) {
-                //     $customerCouponData[strtolower($customer_coupon->code)] = [
-                //         'code' => strtolower($customer_coupon->code),
-                //         'value' => $customer_coupon->value,
-                //         'start_date' => $customer_coupon->start_date,
-                //         'end_date' => $customer_coupon->end_date,
-                //     ];
-                // }
-                // $exisProduct->customer_coupon = $customerCouponData;
+            //     // if ($coupons->isEmpty()) {
+            //     // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
+            //     // foreach ($customer_coupons as $customer_coupon) {
+            //     //     $customerCouponData[strtolower($customer_coupon->code)] = [
+            //     //         'code' => strtolower($customer_coupon->code),
+            //     //         'value' => $customer_coupon->value,
+            //     //         'start_date' => $customer_coupon->start_date,
+            //     //         'end_date' => $customer_coupon->end_date,
+            //     //     ];
+            //     // }
+            //     // $exisProduct->customer_coupon = $customerCouponData;
 
-                // $customerCoupons = Promotion::select('coupon_code AS code', 'percentage', 'amount', 'start_date', 'end_date', 'apply_to AS target', 'coupon_type')
-                //     ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
-                //     ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
-                //     ->where('type', 'coupon')
-                //     ->where('apply_to', 'customer')
-                //     ->where('customer_id', $customer_id)
-                //     ->whereDate('start_date', '<=', now())
-                //     ->whereDate('end_date', '>=', now())
-                //     ->get()
-                //     ->mapWithKeys(function ($coupon) {
-                //         return [
-                //             strtolower($coupon->code) => [
-                //                 'code' => strtolower($coupon->code),
-                //                 'value' => !is_null($coupon->percentage) && $coupon->coupon_type == 'percent' ? intval($coupon->percentage) : intval($coupon->amount),
-                //                 'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-                //                 'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-                //                 'type' => $coupon->target,
-                //                 'coupon_type' => $coupon->coupon_type
-                //             ],
-                //         ];
-                //     })
-                //     ->toArray();
+            //     // $customerCoupons = Promotion::select('coupon_code AS code', 'percentage', 'amount', 'start_date', 'end_date', 'apply_to AS target', 'coupon_type')
+            //     //     ->leftJoin('coupon_rules', 'promotions.id', 'coupon_rules.promotion_id')
+            //     //     ->leftJoin('coupon_customers', 'coupon_rules.id', 'coupon_customers.coupon_rule_id')
+            //     //     ->where('type', 'coupon')
+            //     //     ->where('apply_to', 'customer')
+            //     //     ->where('customer_id', $customer_id)
+            //     //     ->whereDate('start_date', '<=', now())
+            //     //     ->whereDate('end_date', '>=', now())
+            //     //     ->get()
+            //     //     ->mapWithKeys(function ($coupon) {
+            //     //         return [
+            //     //             strtolower($coupon->code) => [
+            //     //                 'code' => strtolower($coupon->code),
+            //     //                 'value' => !is_null($coupon->percentage) && $coupon->coupon_type == 'percent' ? intval($coupon->percentage) : intval($coupon->amount),
+            //     //                 'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
+            //     //                 'end_date' => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
+            //     //                 'type' => $coupon->target,
+            //     //                 'coupon_type' => $coupon->coupon_type
+            //     //             ],
+            //     //         ];
+            //     //     })
+            //     //     ->toArray();
 
-                // $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
-                // }
+            //     // $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
+            //     // }
 
-                if(!is_null($exisProduct->discount)) {
-                    if($exisProduct->discount->discount_type == 'percent') {
-                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        $total_amount = $price * $quantity;
-                        $discount_percent = $exisProduct->discount->value;
-                        $discount_amount = ($total_amount / 100) * $discount_percent;
-                        $net_amount = $total_amount - $discount_amount;
-                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                        $gross_amount = $net_amount + $tax_amount;
-                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     // if(!is_null($exisProduct->discount)) {
+            //     //     if($exisProduct->discount->discount_type == 'percent') {
+            //     //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //         $total_amount = $price * $quantity;
+            //     //         $discount_percent = $exisProduct->discount->value;
+            //     //         $discount_amount = ($total_amount / 100) * $discount_percent;
+            //     //         $net_amount = $total_amount - $discount_amount;
+            //     //         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+            //     //         $gross_amount = $net_amount + $tax_amount;
+            //     //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
-                        $orderProduct = [
-                            'invoice_id' => $invoice->id,
-                            'reference_type' => 'Botble\Ecommerce\Models\Product',
-                            'reference_id' => $exisProduct->id,
-                            'name' => $exisProduct->name,
-                            // 'description' => $exisProduct->description,
-                            'image' => $exisProduct->image,
-                            'qty' => $quantity,
-                            'price' => $price,
-                            'sub_total' => $total_amount,
-                            'discount_percent' => $discount_percent,
-                            'discount_amount' => $discount_amount,
-                            'net_amount' => $net_amount,
-                            'tax_amount' => $tax_amount,
-                            'gross_amount' => $gross_amount,
-                            'amount' => $gross_amount,
-                            'options' => json_encode($options),
-                        ];   
-                    } elseif($exisProduct->discount->discount_type == 'amount') {
-                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        $total_amount = $price * $quantity;
-                        $sale_price = $exisProduct->discount->final_price / (1 + ($request->input('vatTax') / 100));
-                        $discount_percent = 0;
-                        $discount_amount = $total_amount - ($sale_price * $quantity);
-                        $net_amount = $total_amount - $discount_amount;
-                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                        $gross_amount = $net_amount + $tax_amount;
-                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     //         $orderProduct = [
+            //     //             'invoice_id' => $invoice->id,
+            //     //             'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //             'reference_id' => $exisProduct->id,
+            //     //             'name' => $exisProduct->name,
+            //     //             // 'description' => $exisProduct->description,
+            //     //             'image' => $exisProduct->image,
+            //     //             'qty' => $quantity,
+            //     //             'price' => $price,
+            //     //             'sub_total' => $total_amount,
+            //     //             'discount_percent' => $discount_percent,
+            //     //             'discount_amount' => $discount_amount,
+            //     //             'net_amount' => $net_amount,
+            //     //             'tax_amount' => $tax_amount,
+            //     //             'gross_amount' => $gross_amount,
+            //     //             'amount' => $gross_amount,
+            //     //             'options' => json_encode($options),
+            //     //         ];   
+            //     //     } elseif($exisProduct->discount->discount_type == 'amount') {
+            //     //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //         $total_amount = $price * $quantity;
+            //     //         $sale_price = $exisProduct->discount->final_price / (1 + ($request->input('vatTax') / 100));
+            //     //         $discount_percent = 0;
+            //     //         $discount_amount = $total_amount - ($sale_price * $quantity);
+            //     //         $net_amount = $total_amount - $discount_amount;
+            //     //         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+            //     //         $gross_amount = $net_amount + $tax_amount;
+            //     //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
-                        $orderProduct = [
-                            'invoice_id' => $invoice->id,
-                            'reference_type' => 'Botble\Ecommerce\Models\Product',
-                            'reference_id' => $exisProduct->id,
-                            'name' => $exisProduct->name,
-                            // 'description' => $exisProduct->description,
-                            'image' => $exisProduct->image,
-                            'qty' => $quantity,
-                            'price' => $price,
-                            'sub_total' => $total_amount,
-                            'discount_percent' => $discount_percent,
-                            'discount_amount' => $discount_amount,
-                            'net_amount' => $net_amount,
-                            'tax_amount' => $tax_amount,
-                            'gross_amount' => $gross_amount,
-                            'amount' => $gross_amount,
-                            'options' => json_encode($options),
-                        ];
-                    }
-                }
-                // elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
-                //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //     $total_amount = $price * $quantity;
-                //     $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
-                //     $discount_amount = ($total_amount / 100) * $discount_percent;
-                //     $net_amount = $total_amount - $discount_amount;
-                //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                //     $gross_amount = $net_amount + $tax_amount;
-                //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     //         $orderProduct = [
+            //     //             'invoice_id' => $invoice->id,
+            //     //             'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //             'reference_id' => $exisProduct->id,
+            //     //             'name' => $exisProduct->name,
+            //     //             // 'description' => $exisProduct->description,
+            //     //             'image' => $exisProduct->image,
+            //     //             'qty' => $quantity,
+            //     //             'price' => $price,
+            //     //             'sub_total' => $total_amount,
+            //     //             'discount_percent' => $discount_percent,
+            //     //             'discount_amount' => $discount_amount,
+            //     //             'net_amount' => $net_amount,
+            //     //             'tax_amount' => $tax_amount,
+            //     //             'gross_amount' => $gross_amount,
+            //     //             'amount' => $gross_amount,
+            //     //             'options' => json_encode($options),
+            //     //         ];
+            //     //     }
+            //     // }
+            //     // elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
+            //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //     $total_amount = $price * $quantity;
+            //     //     $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
+            //     //     $discount_amount = ($total_amount / 100) * $discount_percent;
+            //     //     $net_amount = $total_amount - $discount_amount;
+            //     //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+            //     //     $gross_amount = $net_amount + $tax_amount;
+            //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                 
-                //     $orderProduct = [
-                //         'invoice_id' => $invoice->id,
-                //         'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //         'reference_id' => $exisProduct->id,
-                //         'name' => $exisProduct->name,
-                //         // 'description' => $exisProduct->description,
-                //         'image' => $exisProduct->image,
-                //         'qty' => $quantity,
-                //         'price' => $price,
-                //         'sub_total' => $total_amount,
-                //         'discount_percent' => $discount_percent,
-                //         'discount_amount' => $discount_amount,
-                //         'net_amount' => $net_amount,
-                //         'tax_amount' => $tax_amount,
-                //         'gross_amount' => $gross_amount,
-                //         'amount' => $gross_amount,
-                //         'options' => json_encode($options),
-                //     ];
-                // }
-                elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
-                        // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
-                        // echo 'Customer Coupon Percent';
-                        // echo '\n ';
-                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        $total_amount = $price * $quantity;
-                        $discount_percent = $product['value'];
-                        $discount_amount = ($total_amount / 100) * $discount_percent;
-                        $net_amount = $total_amount - $discount_amount;
-                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                        $gross_amount = $net_amount + $tax_amount;
-                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     //     $orderProduct = [
+            //     //         'invoice_id' => $invoice->id,
+            //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //         'reference_id' => $exisProduct->id,
+            //     //         'name' => $exisProduct->name,
+            //     //         // 'description' => $exisProduct->description,
+            //     //         'image' => $exisProduct->image,
+            //     //         'qty' => $quantity,
+            //     //         'price' => $price,
+            //     //         'sub_total' => $total_amount,
+            //     //         'discount_percent' => $discount_percent,
+            //     //         'discount_amount' => $discount_amount,
+            //     //         'net_amount' => $net_amount,
+            //     //         'tax_amount' => $tax_amount,
+            //     //         'gross_amount' => $gross_amount,
+            //     //         'amount' => $gross_amount,
+            //     //         'options' => json_encode($options),
+            //     //     ];
+            //     // }
+            //     // elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
+            //     //         // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
+            //     //         // echo 'Customer Coupon Percent';
+            //     //         // echo '\n ';
+            //     //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //         $total_amount = $price * $quantity;
+            //     //         $discount_percent = $product['value'];
+            //     //         $discount_amount = ($total_amount / 100) * $discount_percent;
+            //     //         $net_amount = $total_amount - $discount_amount;
+            //     //         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+            //     //         $gross_amount = $net_amount + $tax_amount;
+            //     //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
-                        $orderProduct = [
-                            'invoice_id' => $invoice->id,
-                            'reference_type' => 'Botble\Ecommerce\Models\Product',
-                            'reference_id' => $exisProduct->id,
-                            'name' => $exisProduct->name,
-                            // 'description' => $exisProduct->description,
-                            'image' => $exisProduct->image,
-                            'qty' => $quantity,
-                            'price' => $price,
-                            'sub_total' => $total_amount,
-                            'discount_percent' => $discount_percent,
-                            'discount_amount' => $discount_amount,
-                            'net_amount' => $net_amount,
-                            'tax_amount' => $tax_amount,
-                            'gross_amount' => $gross_amount,
-                            'amount' => $gross_amount,
-                            'options' => json_encode($options),
-                        ];
-                    // } elseif($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'amount') {
-                    //      // echo 'Customer Coupon Amount';
-                    //     // echo '\n ';
-                    //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    //     $total_amount = $price * $quantity;
-                    //     $sale_price = $price - ($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'] / (1 + ($request->input('vatTax') / 100)));
-                    //     $discount_percent = 0;
-                    //     $discount_amount = $total_amount - ($sale_price * $quantity);
-                    //     $net_amount = $total_amount - $discount_amount;
-                    //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    //     $gross_amount = $net_amount + $tax_amount;
-                    //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     //         $orderProduct = [
+            //     //             'invoice_id' => $invoice->id,
+            //     //             'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //             'reference_id' => $exisProduct->id,
+            //     //             'name' => $exisProduct->name,
+            //     //             // 'description' => $exisProduct->description,
+            //     //             'image' => $exisProduct->image,
+            //     //             'qty' => $quantity,
+            //     //             'price' => $price,
+            //     //             'sub_total' => $total_amount,
+            //     //             'discount_percent' => $discount_percent,
+            //     //             'discount_amount' => $discount_amount,
+            //     //             'net_amount' => $net_amount,
+            //     //             'tax_amount' => $tax_amount,
+            //     //             'gross_amount' => $gross_amount,
+            //     //             'amount' => $gross_amount,
+            //     //             'options' => json_encode($options),
+            //     //         ];
+            //     //     // } elseif($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'amount') {
+            //     //     //      // echo 'Customer Coupon Amount';
+            //     //     //     // echo '\n ';
+            //     //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //     //     $total_amount = $price * $quantity;
+            //     //     //     $sale_price = $price - ($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'] / (1 + ($request->input('vatTax') / 100)));
+            //     //     //     $discount_percent = 0;
+            //     //     //     $discount_amount = $total_amount - ($sale_price * $quantity);
+            //     //     //     $net_amount = $total_amount - $discount_amount;
+            //     //     //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+            //     //     //     $gross_amount = $net_amount + $tax_amount;
+            //     //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
-                    //     $orderProduct = [
-                    //         'invoice_id' => $invoice->id,
-                    //         'reference_type' => 'Botble\Ecommerce\Models\Product',
-                    //         'reference_id' => $exisProduct->id,
-                    //         'name' => $exisProduct->name,
-                    //         // 'description' => $exisProduct->description,
-                    //         'image' => $exisProduct->image,
-                    //         'qty' => $quantity,
-                    //         'price' => $price,
-                    //         'sub_total' => $total_amount,
-                    //         'discount_percent' => $discount_percent,
-                    //         'discount_amount' => $discount_amount,
-                    //         'net_amount' => $net_amount,
-                    //         'tax_amount' => $tax_amount,
-                    //         'gross_amount' => $gross_amount,
-                    //         'amount' => $gross_amount,
-                    //         'options' => json_encode($options),
-                    //     ];
-                    // }
-                }
-                // elseif(!is_null($exisProduct->sale_price)) {
-                //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //     $total_amount = $price * $quantity;
-                //     $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
-                //     $discount_percent = 0;
-                //     $discount_amount = $total_amount - ($sale_price * $quantity);
-                //     $net_amount = $total_amount - $discount_amount;
-                //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                //     $gross_amount = $net_amount + $tax_amount;
-                //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     //     //     $orderProduct = [
+            //     //     //         'invoice_id' => $invoice->id,
+            //     //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //     //         'reference_id' => $exisProduct->id,
+            //     //     //         'name' => $exisProduct->name,
+            //     //     //         // 'description' => $exisProduct->description,
+            //     //     //         'image' => $exisProduct->image,
+            //     //     //         'qty' => $quantity,
+            //     //     //         'price' => $price,
+            //     //     //         'sub_total' => $total_amount,
+            //     //     //         'discount_percent' => $discount_percent,
+            //     //     //         'discount_amount' => $discount_amount,
+            //     //     //         'net_amount' => $net_amount,
+            //     //     //         'tax_amount' => $tax_amount,
+            //     //     //         'gross_amount' => $gross_amount,
+            //     //     //         'amount' => $gross_amount,
+            //     //     //         'options' => json_encode($options),
+            //     //     //     ];
+            //     //     // }
+            //     // }
+            //     // elseif(!is_null($exisProduct->sale_price)) {
+            //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //     $total_amount = $price * $quantity;
+            //     //     $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
+            //     //     $discount_percent = 0;
+            //     //     $discount_amount = $total_amount - ($sale_price * $quantity);
+            //     //     $net_amount = $total_amount - $discount_amount;
+            //     //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+            //     //     $gross_amount = $net_amount + $tax_amount;
+            //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                 
-                //     $orderProduct = [
-                //         'invoice_id' => $invoice->id,
-                //         'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //         'reference_id' => $exisProduct->id,
-                //         'name' => $exisProduct->name,
-                //         'description' => $exisProduct->description,
-                //         'image' => $exisProduct->image,
-                //         'qty' => $quantity,
-                //         'price' => $price,
-                //         'sub_total' => $total_amount,
-                //         'discount_percent' => $discount_percent,
-                //         'discount_amount' => $discount_amount,
-                //         'net_amount' => $net_amount,
-                //         'tax_amount' => $tax_amount,
-                //         'gross_amount' => $gross_amount,
-                //         'amount' => $gross_amount,
-                //         'options' => json_encode($options),
-                //     ];
-                // }
-                elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = 0.00;
-                    $discount_percent = 100;
-                    $discount_amount = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $net_amount = 0.00;
-                    $tax_amount = 0.00;
-                    $gross_amount = 0.00;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     //     $orderProduct = [
+            //     //         'invoice_id' => $invoice->id,
+            //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //         'reference_id' => $exisProduct->id,
+            //     //         'name' => $exisProduct->name,
+            //     //         'description' => $exisProduct->description,
+            //     //         'image' => $exisProduct->image,
+            //     //         'qty' => $quantity,
+            //     //         'price' => $price,
+            //     //         'sub_total' => $total_amount,
+            //     //         'discount_percent' => $discount_percent,
+            //     //         'discount_amount' => $discount_amount,
+            //     //         'net_amount' => $net_amount,
+            //     //         'tax_amount' => $tax_amount,
+            //     //         'gross_amount' => $gross_amount,
+            //     //         'amount' => $gross_amount,
+            //     //         'options' => json_encode($options),
+            //     //     ];
+            //     // }
+            //     // elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
+            //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //     $total_amount = 0.00;
+            //     //     $discount_percent = 100;
+            //     //     $discount_amount = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //     $net_amount = 0.00;
+            //     //     $tax_amount = 0.00;
+            //     //     $gross_amount = 0.00;
+            //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                 
-                    $orderProduct = [
-                        'invoice_id' => $invoice->id,
-                        'reference_type' => 'Botble\Ecommerce\Models\Product',
-                        'reference_id' => $exisProduct->id,
-                        'name' => $exisProduct->name,
-                        // 'description' => $exisProduct->description,
-                        'image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'price' => $price,
-                        'sub_total' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'amount' => $gross_amount,
-                        'options' => json_encode($options)
-                    ];
-                }
-                else {
-                    $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    $total_amount = $price * $quantity;
-                    $discount_percent = 0;
-                    $discount_amount = 0.00;
-                    $net_amount = $total_amount - $discount_amount;
-                    $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    $gross_amount = $net_amount + $tax_amount;
-                    $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+            //     //     $orderProduct = [
+            //     //         'invoice_id' => $invoice->id,
+            //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //         'reference_id' => $exisProduct->id,
+            //     //         'name' => $exisProduct->name,
+            //     //         // 'description' => $exisProduct->description,
+            //     //         'image' => $exisProduct->image,
+            //     //         'qty' => $quantity,
+            //     //         'price' => $price,
+            //     //         'sub_total' => $total_amount,
+            //     //         'discount_percent' => $discount_percent,
+            //     //         'discount_amount' => $discount_amount,
+            //     //         'net_amount' => $net_amount,
+            //     //         'tax_amount' => $tax_amount,
+            //     //         'gross_amount' => $gross_amount,
+            //     //         'amount' => $gross_amount,
+            //     //         'options' => json_encode($options)
+            //     //     ];
+            //     // }
+            //     // else {
+            //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+            //     //     $total_amount = $price * $quantity;
+            //     //     $discount_percent = 0;
+            //     //     $discount_amount = 0.00;
+            //     //     $net_amount = $total_amount - $discount_amount;
+            //     //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+            //     //     $gross_amount = $net_amount + $tax_amount;
+            //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                 
-                    $orderProduct = [
-                        'invoice_id' => $invoice->id,
-                        'reference_type' => 'Botble\Ecommerce\Models\Product',
-                        'reference_id' => $exisProduct->id,
-                        'name' => $exisProduct->name,
-                        // 'description' => $exisProduct->description,
-                        'image' => $exisProduct->image,
-                        'qty' => $quantity,
-                        'price' => $price,
-                        'sub_total' => $total_amount,
-                        'discount_percent' => $discount_percent,
-                        'discount_amount' => $discount_amount,
-                        'net_amount' => $net_amount,
-                        'tax_amount' => $tax_amount,
-                        'gross_amount' => $gross_amount,
-                        'amount' => $gross_amount,
-                        'options' => json_encode($options),
-                    ];
-                }
+            //     //     $orderProduct = [
+            //     //         'invoice_id' => $invoice->id,
+            //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+            //     //         'reference_id' => $exisProduct->id,
+            //     //         'name' => $exisProduct->name,
+            //     //         // 'description' => $exisProduct->description,
+            //     //         'image' => $exisProduct->image,
+            //     //         'qty' => $quantity,
+            //     //         'price' => $price,
+            //     //         'sub_total' => $total_amount,
+            //     //         'discount_percent' => $discount_percent,
+            //     //         'discount_amount' => $discount_amount,
+            //     //         'net_amount' => $net_amount,
+            //     //         'tax_amount' => $tax_amount,
+            //     //         'gross_amount' => $gross_amount,
+            //     //         'amount' => $gross_amount,
+            //     //         'options' => json_encode($options),
+            //     //     ];
+            //     // }
 
-                InvoiceItem::query()->create($orderProduct);
-            }
+            //     // InvoiceItem::query()->create($orderProduct);
+            // }
 
             if (!empty($decode) && !empty($decode->data) && is_array($decode->data)) {
                 
@@ -2036,11 +2036,20 @@ class OrderController extends Controller
         $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
 
         if (!$order) {
-            $failUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=order_not_found';
+            $failUrl = env('FRONTEND_URL', 'https://ae.ahmedalmaghribi.com') . '/order-failure?reason=order_not_found';
             return redirect($failUrl);
         }
 
         $locale = $order->lang ?? 'en';
+
+        $alreadyPaid = Payment::where('order_id', $order->id)->where('charge_id', $payment_id)
+        ->where('status', 'completed')
+        ->exists();
+        if ($alreadyPaid) {
+            Log::info("Tabby: Order {$order->code} already has a completed payment. Skipping service.");
+            $redirectUrl = env('FRONTEND_URL', 'https://ae.ahmedalmaghribi.com') . '/'.$order->lang.'/shop-order-payment-complete?q=' . base64_encode($order->code);
+            return redirect($redirectUrl);
+        }
 
         if ($status === 'cancel') {
             // $order->status = OrderStatusEnum::CANCELED;
@@ -2070,7 +2079,7 @@ class OrderController extends Controller
                 ? "نأسف، تابي غير قادرة على الموافقة على هذه العملية. الرجاء استخدام طريقة دفع أخرى." 
                 : "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.";
             
-            $cancelUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/shop-checkout?error=' . urlencode($message);
+            $cancelUrl = env('FRONTEND_URL', 'https://ae.ahmedalmaghribi.com') . '/shop-checkout?error=' . urlencode($message);
             $createPaymentForOrderService->execute(
                 $order,
                 'tabby',
@@ -2121,14 +2130,14 @@ class OrderController extends Controller
                 $createPaymentForOrderService->execute(
                     $order,
                     'tabby',
-                    $response['status'],
+                    $captureResponse['status'],
                     $order->user_id,
                     $captureResponse['id'],
                     (isset($response['description']) && !empty($response['description'])) ? $response['description'] : $response['status'],
                 );
 
                 // Redirect to Success
-                $redirectUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/'.$order->lang.'/shop-order-payment-complete?q=' . base64_encode($order->code);
+                $redirectUrl = env('FRONTEND_URL', 'https://ae.ahmedalmaghribi.com') . '/'.$order->lang.'/shop-order-payment-complete?q=' . base64_encode($order->code);
                 return redirect($redirectUrl);
 
             } else {
@@ -2137,7 +2146,7 @@ class OrderController extends Controller
                 // $order->save();
                 Log::error('Tabby Capture Failed', ['response' => $captureResponse]);
                 
-                $failUrl = env('FRONTEND_URL', 'http://localhost:3000') . '/order-failure?reason=capture_failed';
+                $failUrl = env('FRONTEND_URL', 'https://ae.ahmedalmaghribi.com') . '/order-failure?reason=capture_failed';
                 return redirect($failUrl);
             }
         } else {
@@ -2904,6 +2913,241 @@ class OrderController extends Controller
         ]);
     }
 
+    // public function tamaraPayment(Request $request, $shippingData, $order, $prods) {
+
+    //     $curl = curl_init();
+
+    //     $payload = [
+    //         "total_amount" => [
+    //             "amount" => (float) $request->input('finalPrice'),
+    //             "currency" => "AED"
+    //         ],
+    //         "shipping_amount" => [
+    //             "amount" => (float) $request->input('shippingPrice'),
+    //             "currency" => "AED"
+    //         ],
+    //         "tax_amount" => [
+    //             "amount" => $order->tax_amount * (1 + ($request->input('vatTax') / 100)),
+    //             "currency" => "AED"
+    //         ],
+    //         "order_reference_id" => explode('#', $order->code)[1],
+    //         "order_number" => $order->code,
+    //         "items" => [],
+    //         "consumer" => [
+    //             "email" => $request->input("billingAddress.email"),
+    //             "first_name" => $request->input("billingAddress.first_name"),
+    //             "last_name" => $request->input("billingAddress.last_name"),
+    //             "phone_number" => $request->input('billingAddress.mobile')
+    //         ],
+    //         "country_code" => "AE",
+    //         "description" => "AMG Order",
+    //         "merchant_url" => [
+    //             "cancel" => env('CUSTOM_URL')."tamara-payment-redirect/#/cancel",
+    //             "failure" => env('CUSTOM_URL')."tamara-payment-redirect/#/fail",
+    //             "success" => env('CUSTOM_URL')."tamara-payment-redirect/#/success"
+    //         ],
+    //         "payment_type" => "PAY_BY_INSTALMENTS",
+    //         "instalments" => 3,
+    //         "billing_address" => [
+    //             "city" => $request->input("billingAddress.emirates"),
+    //             "country_code" => "AE",
+    //             "first_name" => $request->input("billingAddress.first_name"),
+    //             "last_name" => $request->input("billingAddress.last_name"),
+    //             "line1" => $request->input("billingAddress.area") . " " . $request->input("billingAddress.building"),
+    //             "phone_number" => $request->input('billingAddress.mobile')
+    //         ],
+    //         "shipping_address" => [
+    //             "city" => $shippingData["city"],
+    //             "country_code" => "AE",
+    //             "first_name" => $shippingData["first_name"],
+    //             "last_name" => $shippingData["last_name"],
+    //             "line1" => $shippingData["street1"],
+    //             "phone_number" => $shippingData["phone"]
+    //         ],
+    //         "locale" => "en_US"
+    //     ];
+
+    //     foreach ($prods as $item) {
+    //         $vatPercent = $request->input('vatTax'); // e.g., 5 or 15
+    //         $totalAmount = (float) $item['price']; // already includes VAT
+            
+    //         // Unit price excluding VAT
+    //         $unitPrice = $totalAmount / (1 + ($vatPercent / 100));
+
+    //         // Tax = total - unit price
+    //         $taxAmount = $totalAmount - $unitPrice;
+
+    //         $payload['items'][] = [
+    //             "name" => $item['name'],
+    //             "type" => "Physical",
+    //             "reference_id" => (string)$item['id'],
+    //             "quantity" => $item['qty'],
+    //             "sku" => $item['sku'],
+    //             "unit_price" => [
+    //                 "amount" => round($unitPrice, 2),
+    //                 "currency" => "AED"
+    //             ],
+    //             "total_amount" => [
+    //                 "amount" => round($totalAmount, 2),
+    //                 "currency" => "AED"
+    //             ],
+    //             "tax_amount" => [
+    //                 "amount" => round($taxAmount, 2),
+    //                 "currency" => "AED"
+    //             ],
+    //         ];
+    //     }
+
+    //     // echo "<pre>";print_r($payload);die;
+
+    //     $curl = curl_init();
+
+    //     curl_setopt_array($curl, [
+    //         CURLOPT_URL => env('TAMARA_API_URL').'checkout',
+    //         CURLOPT_RETURNTRANSFER => true,
+    //         CURLOPT_ENCODING => '',
+    //         CURLOPT_MAXREDIRS => 10,
+    //         CURLOPT_TIMEOUT => 0,
+    //         CURLOPT_FOLLOWLOCATION => true,
+    //         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+    //         CURLOPT_CUSTOMREQUEST => 'POST',
+    //         CURLOPT_POSTFIELDS => json_encode($payload),
+    //         CURLOPT_HTTPHEADER => [
+    //             'Content-Type: application/json',
+    //             'Authorization: Bearer ' . env('TAMARA_TOKEN')
+    //         ],
+    //     ]);
+
+    //     $response = curl_exec($curl);
+
+    //     curl_close($curl);
+    //     // echo $response;die;
+    //     return json_decode($response, true);
+    // }
+
+    // public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+    //     // echo "<pre>";print_r($request->all());die;
+    //      return response()->json([
+    //         'data' => $request->all(),
+    //     ]);
+    //     // $customer = Customer::where('email', $request->input('customerEmail'))->first();
+    //     // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
+    //     $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
+    //     // echo "<pre>";print_r($order);
+    //     $createPaymentForOrderService->execute(
+    //         $order,
+    //         'tamara',
+    //         $request['respStatus'],
+    //         // $customer->id,
+    //         $order->user_id,
+    //         $request->input('tranRef'),
+    //         $request['respMessage'],
+    //     );
+
+    //     header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+    // }
+
+    // public function tamaraPaymentWebhook(Request $request) {
+    //     if($request->event_type == 'order_approved') {
+    //         $ch = curl_init();
+    //         curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id."/authorise");
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+    //         $headers = [
+    //             'Content-Type: application/json',
+    //             'Accept: application/json',
+    //             'Authorization: Bearer ' . env('TAMARA_TOKEN')
+    //         ];
+
+    //         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    //         // Execute the request
+    //         $response = curl_exec($ch);
+
+    //         // Check for errors
+    //         if (curl_errno($ch)) {
+    //             echo 'order_approved Curl error: ' . curl_error($ch);
+    //         } else {
+    //             echo 'order_approved Response: ' . $response;
+    //         }
+
+    //         // Close cURL session
+    //         curl_close($ch);
+    //     } elseif($request->event_type == 'order_authorised') {
+    //         $url = env('TAMARA_API_URL')."payments/capture";
+
+    //         $data = [
+    //             "order_id" => $request->order_id,
+    //             "total_amount" => [
+    //                 "amount" => 198,
+    //                 "currency" => "AED"
+    //             ],
+    //             "items" => [
+    //                 [
+    //                     "name" => "Marj",
+    //                     "type" => "Physical",
+    //                     "reference_id" => "49",
+    //                     "sku" => "FGD01506",
+    //                     "quantity" => 1,
+    //                     "tax_amount" => [
+    //                         "amount" => 7.86,
+    //                         "currency" => "AED"
+    //                     ],
+    //                     "unit_price" => [
+    //                         "amount" => 157.15,
+    //                         "currency" => "AED"
+    //                     ],
+    //                     "total_amount" => [
+    //                         "amount" => 165,
+    //                         "currency" => "AED"
+    //                     ]
+    //                 ]
+    //             ],
+    //             "shipping_amount" => [
+    //                 "amount" => 20,
+    //                 "currency" => "AED"
+    //             ],
+    //             "tax_amount" => [
+    //                 "amount" => 9.43,
+    //                 "currency" => "AED"
+    //             ],
+    //             "shipping_info" => [
+    //                 "shipped_at" => "2025-10-10T17:25:00.677Z",
+    //                 "shipping_company" => "SMSA"
+    //             ]
+    //         ];
+
+    //         // Initialize cURL session
+    //         $ch = curl_init($url);
+
+    //         // Set cURL options
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_POST, true);
+    //         curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    //             'Content-Type: application/json',
+    //             'Accept: application/json',
+    //             'Authorization: Bearer ' . env('TAMARA_TOKEN')
+    //         ]);
+
+    //         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+    //         // Execute cURL request
+    //         $response = curl_exec($ch);
+
+    //         // Error handling
+    //         if (curl_errno($ch)) {
+    //             echo 'order_authorised Curl error: ' . curl_error($ch);
+    //         } else {
+    //             echo "order_authorised Response:\n" . $response;
+    //         }
+
+    //         curl_close($ch);
+
+    //     }
+
+    // }
+
     public function tamaraPayment(Request $request, $shippingData, $order, $prods) {
 
         $curl = curl_init();
@@ -2958,6 +3202,8 @@ class OrderController extends Controller
             "locale" => "en_US"
         ];
 
+        \Log::info('Order Checkout Payload:', ['request' => $payload]);
+
         foreach ($prods as $item) {
             $vatPercent = $request->input('vatTax'); // e.g., 5 or 15
             $totalAmount = (float) $item['price']; // already includes VAT
@@ -3011,34 +3257,94 @@ class OrderController extends Controller
 
         $response = curl_exec($curl);
 
+        if (curl_errno($curl)) {
+            // echo 'Order checkout Error: ' . curl_error($ch);
+            \Log::info('Order Checkout Error:', ['error' => curl_error($curl)]);exit;
+        }
+
         curl_close($curl);
         // echo $response;die;
-        return json_decode($response, true);
+        $resp = json_decode($response, true);
+        \Log::info('Order Checkout Response:', ['response' => $resp]);
+        return $resp;
     }
 
     public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
         // echo "<pre>";print_r($request->all());die;
-         return response()->json([
-            'data' => $request->all(),
-        ]);
-        // $customer = Customer::where('email', $request->input('customerEmail'))->first();
-        // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
-        $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
-        // echo "<pre>";print_r($order);
-        $createPaymentForOrderService->execute(
-            $order,
-            'tamara',
-            $request['respStatus'],
-            // $customer->id,
-            $order->user_id,
-            $request->input('tranRef'),
-            $request['respMessage'],
-        );
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->orderId);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
 
-        header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Authorization: Bearer ' . env('TAMARA_TOKEN')
+        ];
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+        // Execute the request
+        $response = curl_exec($ch);
+
+        // Check for errors
+        if (curl_errno($ch)) {
+            // echo 'order_approved Curl error: ' . curl_error($ch);
+            \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit;
+        }
+
+        // Close cURL session
+        curl_close($ch);
+
+        $resp = json_decode($response, true);
+
+        // echo "<pre>";print_r($resp);exit;
+        \Log::info('Order Get Response:', ['response' => $resp]);
+
+        if(!$resp['order_number'] && !isset($resp['order_number']) && empty($resp['order_number'])) {
+            return response()->json(['message' => 'Transaction not found']);
+        }
+
+        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'ec_orders.cod_charge', 'ec_order_addresses.name')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $resp['order_number'])->first();
+
+        if(!$order) {
+            return response()->json(['message' => 'Order not found']);
+        }
+
+        $prod = OrderProduct::where('ec_order_product.order_id', $order->id)->get();
+
+        return response()->json([
+            'message'          => 'Details Fetched successfully',
+            'order_id'         => $order->code,
+            // 'payment_method'   => $order->payment_channel,
+            'total'            => $order->amount,
+            'sub_total'        => $order->sub_total,
+            'shipping_amount'  => $order->shipping_amount,
+            'status'           => $order->status,
+            'created_at'       => $order->created_at,
+            'service_amount'   => $order->service_amount,
+            'vat_amount'       => $order->vat,
+            'tax_amount'       => $order->tax_amount,
+            // 'payment_status'   => $order->payment_status,
+            'id'                =>   $order->id,
+            'customer_name'=> $order->name,
+            'products'         => $prod,
+            'cod_charge'   => $order->cod_charge
+        ]);
+
+        // header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
     }
 
-    public function tamaraPaymentWebhook(Request $request) {
+    public function tamaraPaymentWebhook(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        $alreadyProcessed = Payment::where('charge_id', $request->order_id)
+            ->where('status', 'completed')
+            ->exists();
+
+        if ($alreadyProcessed) {
+            \Log::info('Tamara Webhook: Order already processed. Skipping.', ['tamara_order_id' => $request->order_id]);
+            return response()->json(['message' => 'Already processed'], 200); 
+        }
+        
         if($request->event_type == 'order_approved') {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id."/authorise");
@@ -3058,55 +3364,330 @@ class OrderController extends Controller
 
             // Check for errors
             if (curl_errno($ch)) {
-                echo 'order_approved Curl error: ' . curl_error($ch);
-            } else {
-                echo 'order_approved Response: ' . $response;
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
             }
 
             // Close cURL session
             curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            \Log::info('Order Approved Response:', ['response' => $resp]);
         } elseif($request->event_type == 'order_authorised') {
-            $url = env('TAMARA_API_URL')."payments/capture";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
+
+            if (isset($resp['status']) && ($resp['status'] != 'fully_captured' && $resp['status'] != 'partially_captured')) {
+
+                $url = env('TAMARA_API_URL')."payments/capture";
+
+                $data = [
+                    "order_id" => $request->order_id,
+                    "total_amount" => $resp['total_amount'],
+                    "items" => $resp['items'],
+                    "shipping_amount" => $resp['shipping_amount'],
+                    "tax_amount" => $resp['tax_amount'],
+                    "shipping_info" => [
+                        "shipped_at" => now(),
+                        "shipping_company" => "SMSA"
+                    ]
+                ];
+
+                // Initialize cURL session
+                $ch = curl_init($url);
+
+                // Set cURL options
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                    'Authorization: Bearer ' . env('TAMARA_TOKEN')
+                ]);
+
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+                // Execute cURL request
+                $capture_response = curl_exec($ch);
+
+                // Error handling
+                if (curl_errno($ch)) {
+                    // echo 'order_authorised Curl error: ' . curl_error($ch);
+                    \Log::info('Order Captured Error:', ['error' => curl_error($ch)]);exit();
+                }
+
+                curl_close($ch);
+
+                $capture_resp = json_decode($capture_response, true);
+
+                // echo "<pre>";print_r($capture_resp);exit;
+
+                \Log::info('Order Captured Response:', ['response' => $capture_resp]);
+
+                $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+                // echo "<pre>";print_r($order);
+                $createPaymentForOrderService->execute(
+                    $order,
+                    'tamara',
+                    $capture_resp['status'],
+                    // $customer->id,
+                    $order->user_id,
+                    $capture_resp['order_id'],
+                    $capture_resp['status'],
+                );
+
+                if (isset($capture_resp['status']) && $capture_resp['status'] != 'fully_captured') {
+                    // return response()->json([
+                    //     'message' => 'Order Payment Captured Failed',
+                    // ]);
+
+                    $url = env('TAMARA_API_URL')."orders/".$request->order_id."/cancel";
+                    
+                    // Initialize cURL session
+                    $ch = curl_init($url);
+
+                    // Set cURL options
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/json',
+                        'Accept: application/json',
+                        'Authorization: Bearer ' . env('TAMARA_TOKEN')
+                    ]);
+
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+                    // Execute cURL request
+                    $cancel_response = curl_exec($ch);
+
+                    // Error handling
+                    if (curl_errno($ch)) {
+                        // echo 'order_authorised Curl error: ' . curl_error($ch);
+                        \Log::info('Order Canceled Error:', ['error' => curl_error($ch)]);exit();
+                    }
+
+                    curl_close($ch);
+
+                    $cancel_resp = json_decode($cancel_response, true);
+
+                    // echo "<pre>";print_r($cancel_resp);exit;
+
+                    \Log::info('Order Canceled Response:', ['response' => $cancel_resp]);
+
+                    $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+                    // echo "<pre>";print_r($order);
+                    $createPaymentForOrderService->execute(
+                        $order,
+                        'tamara',
+                        $cancel_resp['status'],
+                        // $customer->id,
+                        $order->user_id,
+                        $cancel_resp['order_id'],
+                        $cancel_resp['status'],
+                    );
+
+                    return response()->json([
+                        'message' => 'Order Payment Canceled Successfully',
+                    ]);
+                }
+
+                return response()->json([
+                    'message' => 'Order Payment Captured Successfully',
+                ]);
+            }
+            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+                // echo "<pre>";print_r($order);
+                $createPaymentForOrderService->execute(
+                    $order,
+                    'tamara',
+                    $resp['status'],
+                    // $customer->id,
+                    $order->user_id,
+                    $resp['order_id'],
+                    $resp['status'],
+            );
+
+            return response()->json([
+                'message' => 'Order Payment Auto Captured Successfully',
+            ]);
+        } elseif($request->event_type == 'order_canceled') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
+
+            if(!isset($resp['status']) && $resp['status'] != 'new') {
+                return response()->json([
+                    'message' => 'Order Payment Canceled Failed',
+                ]);
+            }
+
+            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+            // echo "<pre>";print_r($order);
+            $createPaymentForOrderService->execute(
+                $order,
+                'tamara',
+                $resp['status'],
+                // $customer->id,
+                $order->user_id,
+                $resp['order_id'],
+                $resp['status'],
+            );
+
+            return response()->json([
+                'message' => 'Order Payment Canceled Successfully',
+            ]);
+        } elseif($request->event_type == 'order_declined') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
+
+            if(!isset($resp['status']) && $resp['status'] != 'declined') {
+                return response()->json([
+                    'message' => 'Order Payment Declined Failed',
+                ]);
+            }
+
+            $order = Order::where('code', $resp['order_number'])->orderBy('id', 'desc')->first();
+            // echo "<pre>";print_r($order);
+            $createPaymentForOrderService->execute(
+                $order,
+                'tamara',
+                $resp['status'],
+                // $customer->id,
+                $order->user_id,
+                $resp['order_id'],
+                $request->data['declined_reason'],
+            );
+
+            return response()->json([
+                'message' => 'Order Payment Declined Successfully',
+            ]);
+        } elseif($request->event_type == 'order_refunded') {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+            $headers = [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . env('TAMARA_TOKEN')
+            ];
+
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+            // Execute the request
+            $response = curl_exec($ch);
+
+            // Check for errors
+            if (curl_errno($ch)) {
+                // echo 'order_approved Curl error: ' . curl_error($ch);
+                \Log::info('Order Get Error:', ['error' => curl_error($ch)]);exit();
+            }
+
+            // Close cURL session
+            curl_close($ch);
+
+            $resp = json_decode($response, true);
+
+            // echo "<pre>";print_r($resp);exit;
+
+            \Log::info('Order Get Response:', ['response' => $resp]);
+
+            if(!isset($resp['status']) || $resp['status'] != 'fully_captured') {
+                return response()->json([
+                    'message' => 'Order Payment Refund Failed',
+                ]);
+            }
+
+            $url = env('TAMARA_API_URL')."payments/simplified-refund/".$request->order_id;
 
             $data = [
-                "order_id" => $request->order_id,
-                "total_amount" => [
-                    "amount" => 198,
-                    "currency" => "AED"
-                ],
-                "items" => [
-                    [
-                        "name" => "Marj",
-                        "type" => "Physical",
-                        "reference_id" => "49",
-                        "sku" => "FGD01506",
-                        "quantity" => 1,
-                        "tax_amount" => [
-                            "amount" => 7.86,
-                            "currency" => "AED"
-                        ],
-                        "unit_price" => [
-                            "amount" => 157.15,
-                            "currency" => "AED"
-                        ],
-                        "total_amount" => [
-                            "amount" => 165,
-                            "currency" => "AED"
-                        ]
-                    ]
-                ],
-                "shipping_amount" => [
-                    "amount" => 20,
-                    "currency" => "AED"
-                ],
-                "tax_amount" => [
-                    "amount" => 9.43,
-                    "currency" => "AED"
-                ],
-                "shipping_info" => [
-                    "shipped_at" => "2025-10-10T17:25:00.677Z",
-                    "shipping_company" => "SMSA"
-                ]
+                "total_amount" => $resp['total_amount'],
+                "comment" => "Refund for the order".$resp['order_number']
             ];
 
             // Initialize cURL session
@@ -3124,18 +3705,25 @@ class OrderController extends Controller
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
             // Execute cURL request
-            $response = curl_exec($ch);
+            $refund_response = curl_exec($ch);
 
             // Error handling
             if (curl_errno($ch)) {
-                echo 'order_authorised Curl error: ' . curl_error($ch);
-            } else {
-                echo "order_authorised Response:\n" . $response;
+                // echo 'order_authorised Curl error: ' . curl_error($ch);
+                \Log::info('Order Refunded Error:', ['error' => curl_error($ch)]);exit();
             }
 
             curl_close($ch);
 
-        }
+            $refund_resp = json_decode($refund_response, true);
 
+            // echo "<pre>";print_r($refund_resp);exit;
+
+            \Log::info('Order Refunded Response:', ['response' => $refund_resp]);
+
+            return response()->json([
+                'message' => 'Order Payment Refund Successfully',
+            ]);
+        }
     }
 }

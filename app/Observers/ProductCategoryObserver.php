@@ -38,7 +38,7 @@ class ProductCategoryObserver
             $tags = ['categories', 'categorySEO'];
         } else {
             // Subcategory
-            $tags = ['subCategories', 'subcategorySEO'];
+            $tags = ['categories', 'categorySEO', 'subCategories', 'subcategorySEO'];
         }
 
         $this->cacheService->clear($tags);
