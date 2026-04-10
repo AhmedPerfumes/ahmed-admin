@@ -145,7 +145,7 @@
                                         @foreach ($products as $product)
                                             <option value="{{ $product['id'] }}"
                                                 @if(isset($promotionData['buy_products']) && in_array($product['id'], $promotionData['buy_products'])) selected @endif
-                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                @if(in_array($product['id'], $discountedProductIds))  @endif>
                                                 {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
                                             </option>
                                         @endforeach
@@ -157,7 +157,7 @@
                                         @foreach ($products as $product)
                                             <option value="{{ $product['id'] }}"
                                                 @if(isset($promotionData['free_products']) && in_array($product['id'], $promotionData['free_products'])) selected @endif
-                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                @if(in_array($product['id'], $discountedProductIds))  @endif>
                                                 {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
                                             </option>
                                         @endforeach

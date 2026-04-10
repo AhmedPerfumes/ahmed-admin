@@ -2335,7 +2335,7 @@ class ProductController extends Controller
                     //     })->values()->toArray();
                     // }
 
-                    return [
+                    return [    
                         'id' => $firstRule->rule_id,
                         'name' => $firstPromo->name,
                         'buy_quantity' => $firstRule->buy_quantity ?? 1,
@@ -2452,7 +2452,7 @@ class ProductController extends Controller
             return 'same_product';
         } elseif ($buyQty == 2 && $getQty == 2) {
             return 'least_expensive';
-        } elseif ($buyQty == 3 && $getQty == 2) {
+        } elseif ($buyQty == 4 && $getQty == 1) {
             return $hasFreeProducts ? 'customer_select' : 'least_expensive';
         } elseif ($buyQty > 1 && $getQty == 1) {
             return 'auto_add';
