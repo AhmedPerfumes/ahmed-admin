@@ -42,6 +42,7 @@ class OrderController extends Controller
         $validator = Validator::make($request->all(), [
             'products'      => 'required'
         ]);
+        Log::info(request()->all());
 
         if ($validator->fails()) {
             return response()->json($validator->errors());
@@ -142,9 +143,9 @@ class OrderController extends Controller
 
             if (!$requestHasDiscount && $dbHasDiscount) {
                 // Request says there should be no discount, but one exists in DB
-                return response()->json([
-                    'discountMessage' => 'One or more Products were removed. Please add them again to continue. Request '.$product['product_name']
-                ]);
+                // return response()->json([
+                //     'discountMessage' => 'One or more Products were removed. Please add them again to continue. Request '.$product['product_name']
+                // ]);
             }
 
             // Optional: if you want to compare actual values of discount too
@@ -241,11 +242,13 @@ class OrderController extends Controller
                 ]);
             }
 
-            if (!$requestHasBOGO && $dbHasBOGO) {
-                return response()->json([
-                    'bogoMessage' => 'One or more Products were removed. Please add them again to continue. Request ' . $product['product_name']
-                ]);
-            }
+            // Non-gift products in BOGO promotions are valid — they are the "buy" items
+            // that qualify the customer for a free gift. Only free gift items need BOGO validation.
+            // if (!$requestHasBOGO && $dbHasBOGO) {
+            //     return response()->json([
+            //         'bogoMessage' => 'One or more Products were removed. Please add them again to continue. Request ' . $product['product_name']
+            //     ]);
+            // }
 
             array_push($barcodes, $exisProduct->barcode);
         }
@@ -644,9 +647,11 @@ class OrderController extends Controller
 
                 // Fetch active discount for the product
                 $exisProduct->discount = null;
+                $bogoOverrodeDiscount = isset($product['_original_discount']) && $product['_original_discount'] !== null;
 
-                $individualDiscount = Promotion::where('type', 'discount')
-                    ->whereDate('start_date', '<=', now())
+                if (!$bogoOverrodeDiscount) {
+                    $individualDiscount = Promotion::where('type', 'discount')
+                        ->whereDate('start_date', '<=', now())
                     ->whereDate('end_date', '>=', now())
                     ->whereHas('discountRules', function ($query) {
                         $query->where('apply_to', 'individual');
@@ -712,6 +717,8 @@ class OrderController extends Controller
                             ];
                         }
                     }
+                }
+
                 }
 
                 // Fetch active coupons for the product
@@ -806,8 +813,10 @@ class OrderController extends Controller
 
                 // $discount_price = '';
                 // $sale_price = '';
-                if(!is_null($exisProduct->discount)) {
+                if(!is_null($exisProduct->discount) && $exisProduct->is_gift != 1 && $exisProduct->is_coupon != 1) {
+                    Log::info($exisProduct);
                     if($exisProduct->discount->discount_type == 'percent') {
+                        Log::info($product['product_id']);
                         // echo "Discount Percent";
                         // echo "\n";
                         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
@@ -836,7 +845,7 @@ class OrderController extends Controller
                             'product_options' => [],
                             'options' => json_encode($options),
                             'product_type' => $exisProduct->product_type,
-                            'product_category' => $product['category_name'],
+                            'product_category' => $product['category_name'] ? $product['category_name'] : '',
                             'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
                             'vat' => $request->input('vatTax'),
                             'campaign' => $exisProduct->discount->name,

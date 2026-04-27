@@ -51,6 +51,11 @@ class ProductCategoryForm extends FormAbstract
                 EditorField::class,
                 ContentFieldOption::make()->label(trans('core/base::forms.description'))->toArray()
             )
+            ->add(
+                'description_ar',
+                EditorField::class,
+                ContentFieldOption::make()->label(trans('core/base::forms.description_ar'))->toArray()
+            )
             ->add('status', SelectField::class, StatusFieldOption::make()->toArray())
             ->add('image', MediaImageField::class)
             ->add('mobile_image', MediaImageField::class)

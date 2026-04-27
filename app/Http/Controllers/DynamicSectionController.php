@@ -32,7 +32,7 @@ class DynamicSectionController extends Controller
         'image' => $validated['image'], 
         'video1' => $validated['video1'],
         'video2' => $validated['video2'],
-    ]);
+    ]); 
 
     return redirect()->back()->with('success', 'Form submitted successfully!');
 }

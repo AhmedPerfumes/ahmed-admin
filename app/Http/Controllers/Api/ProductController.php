@@ -97,10 +97,10 @@ class ProductController extends Controller
 
                             $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                            // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
                             // Assign coupon with code
-                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                             // $val->coupon = [];
                             // foreach ($coupons as $coupon) {
                             //     $val->coupon[strtolower($coupon->code)] = [
@@ -115,8 +115,8 @@ class ProductController extends Controller
                             $val->discount = null;
 
                             $individualDiscount = Promotion::where('type', 'discount')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('discountRules', function ($query) {
                                     $query->where('apply_to', 'individual');
                                 })
@@ -150,8 +150,8 @@ class ProductController extends Controller
                             } else {
                                 // If no individual discount, try to fetch discount for group/all products
                                 $groupDiscount = Promotion::where('type', 'discount')
-                                    ->whereDate('start_date', '<=', now())
-                                    ->whereDate('end_date', '>=', now())
+                                    ->where('start_date', '<=', now())
+                                    ->where('end_date', '>=', now())
                                     ->whereHas('discountRules', function ($query) {
                                         $query->where('apply_to', '!=', 'individual');
                                     })
@@ -183,8 +183,8 @@ class ProductController extends Controller
 
                             // Fetch active coupons for the product
                             $coupons = Promotion::where('type', 'coupon')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('couponRules.products', function ($query) use ($val) {
                                     $query->where('product_id', $val->product_id);
                                 })
@@ -254,9 +254,9 @@ class ProductController extends Controller
 
                             $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                           //  $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                           //  $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                           // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                           // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                            //  $val->coupon = [];
                            //  foreach ($coupons as $coupon) {
                            //      $val->coupon[strtolower($coupon->code)] = [
@@ -271,8 +271,8 @@ class ProductController extends Controller
                             $val->discount = null;
 
                             $individualDiscount = Promotion::where('type', 'discount')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('discountRules', function ($query) {
                                     $query->where('apply_to', 'individual');
                                 })
@@ -306,8 +306,8 @@ class ProductController extends Controller
                             } else {
                                 // If no individual discount, try to fetch discount for group/all products
                                 $groupDiscount = Promotion::where('type', 'discount')
-                                    ->whereDate('start_date', '<=', now())
-                                    ->whereDate('end_date', '>=', now())
+                                    ->where('start_date', '<=', now())
+                                    ->where('end_date', '>=', now())
                                     ->whereHas('discountRules', function ($query) {
                                         $query->where('apply_to', '!=', 'individual');
                                     })
@@ -339,8 +339,8 @@ class ProductController extends Controller
 
                             // Fetch active coupons for the product
                             $coupons = Promotion::where('type', 'coupon')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('couponRules.products', function ($query) use ($val) {
                                     $query->where('product_id', $val->product_id);
                                 })
@@ -410,9 +410,9 @@ class ProductController extends Controller
 
                             $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                            // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                             // $val->coupon = [];
                             // foreach ($coupons as $coupon) {
                             //     $val->coupon[strtolower($coupon->code)] = [
@@ -427,8 +427,8 @@ class ProductController extends Controller
                             $val->discount = null;
 
                             $individualDiscount = Promotion::where('type', 'discount')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('discountRules', function ($query) {
                                     $query->where('apply_to', 'individual');
                                 })
@@ -462,8 +462,8 @@ class ProductController extends Controller
                             } else {
                                 // If no individual discount, try to fetch discount for group/all products
                                 $groupDiscount = Promotion::where('type', 'discount')
-                                    ->whereDate('start_date', '<=', now())
-                                    ->whereDate('end_date', '>=', now())
+                                    ->where('start_date', '<=', now())
+                                    ->where('end_date', '>=', now())
                                     ->whereHas('discountRules', function ($query) {
                                         $query->where('apply_to', '!=', 'individual');
                                     })
@@ -495,8 +495,8 @@ class ProductController extends Controller
 
                             // Fetch active coupons for the product
                             $coupons = Promotion::where('type', 'coupon')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('couponRules.products', function ($query) use ($val) {
                                     $query->where('product_id', $val->product_id);
                                 })
@@ -567,9 +567,9 @@ class ProductController extends Controller
 
                             $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                            // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                            // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                             // $val->coupon = [];
                             // foreach ($coupons as $coupon) {
                             //     $val->coupon[strtolower($coupon->code)] = [
@@ -584,8 +584,8 @@ class ProductController extends Controller
                             $val->discount = null;
 
                             $individualDiscount = Promotion::where('type', 'discount')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('discountRules', function ($query) {
                                     $query->where('apply_to', 'individual');
                                 })
@@ -619,8 +619,8 @@ class ProductController extends Controller
                             } else {
                                 // If no individual discount, try to fetch discount for group/all products
                                 $groupDiscount = Promotion::where('type', 'discount')
-                                    ->whereDate('start_date', '<=', now())
-                                    ->whereDate('end_date', '>=', now())
+                                    ->where('start_date', '<=', now())
+                                    ->where('end_date', '>=', now())
                                     ->whereHas('discountRules', function ($query) {
                                         $query->where('apply_to', '!=', 'individual');
                                     })
@@ -652,8 +652,8 @@ class ProductController extends Controller
 
                             // Fetch active coupons for the product
                             $coupons = Promotion::where('type', 'coupon')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('couponRules.products', function ($query) use ($val) {
                                     $query->where('product_id', $val->product_id);
                                 })
@@ -730,8 +730,8 @@ class ProductController extends Controller
                             $v->discount = null;
 
                             $individualDiscount = Promotion::where('type', 'discount')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('discountRules', function ($query) {
                                     $query->where('apply_to', 'individual');
                                 })
@@ -765,8 +765,8 @@ class ProductController extends Controller
                             } else {
                                 // If no individual discount, try to fetch discount for group/all products
                                 $groupDiscount = Promotion::where('type', 'discount')
-                                    ->whereDate('start_date', '<=', now())
-                                    ->whereDate('end_date', '>=', now())
+                                    ->where('start_date', '<=', now())
+                                    ->where('end_date', '>=', now())
                                     ->whereHas('discountRules', function ($query) {
                                         $query->where('apply_to', '!=', 'individual');
                                     })
@@ -796,7 +796,7 @@ class ProductController extends Controller
                                 }
                             }
 
-                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $v->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                            // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $v->product_id)->whereNotNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                             // $v->coupon = [];
                             // foreach ($coupons as $coupon) {
                             //     $v->coupon[strtolower($coupon->code)] = [
@@ -809,8 +809,8 @@ class ProductController extends Controller
 
                             // Fetch active coupons for the product
                             $coupons = Promotion::where('type', 'coupon')
-                                ->whereDate('start_date', '<=', now())
-                                ->whereDate('end_date', '>=', now())
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
                                 ->whereHas('couponRules.products', function ($query) use ($v) {
                                     $query->where('product_id', $v->product_id);
                                 })
@@ -882,9 +882,9 @@ class ProductController extends Controller
 
                     $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                    // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                    // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                    // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                    // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                     // $val->coupon = [];
                     // foreach ($coupons as $coupon) {
                     //     $val->coupon[strtolower($coupon->code)] = [
@@ -899,8 +899,8 @@ class ProductController extends Controller
                     $val->discount = null;
 
                     $individualDiscount = Promotion::where('type', 'discount')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('discountRules', function ($query) {
                             $query->where('apply_to', 'individual');
                         })
@@ -934,8 +934,8 @@ class ProductController extends Controller
                     } else {
                         // If no individual discount, try to fetch discount for group/all products
                         $groupDiscount = Promotion::where('type', 'discount')
-                            ->whereDate('start_date', '<=', now())
-                            ->whereDate('end_date', '>=', now())
+                            ->where('start_date', '<=', now())
+                            ->where('end_date', '>=', now())
                             ->whereHas('discountRules', function ($query) {
                                 $query->where('apply_to', '!=', 'individual');
                             })
@@ -967,8 +967,8 @@ class ProductController extends Controller
 
                     // Fetch active coupons for the product
                     $coupons = Promotion::where('type', 'coupon')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('couponRules.products', function ($query) use ($val) {
                             $query->where('product_id', $val->product_id);
                         })
@@ -1114,8 +1114,8 @@ class ProductController extends Controller
                 //             $mergedData->discount = null;
 
                 //             $individualDiscount = Promotion::where('type', 'discount')
-                //                 ->whereDate('start_date', '<=', now())
-                //                 ->whereDate('end_date', '>=', now())
+                //                 ->where('start_date', '<=', now())
+                //                 ->where('end_date', '>=', now())
                 //                 ->whereHas('discountRules', function ($query) {
                 //                     $query->where('apply_to', 'individual');
                 //                 })
@@ -1149,8 +1149,8 @@ class ProductController extends Controller
                 //             } else {
                 //                 // If no individual discount, try to fetch discount for group/all products
                 //                 $groupDiscount = Promotion::where('type', 'discount')
-                //                     ->whereDate('start_date', '<=', now())
-                //                     ->whereDate('end_date', '>=', now())
+                //                     ->where('start_date', '<=', now())
+                //                     ->where('end_date', '>=', now())
                 //                     ->whereHas('discountRules', function ($query) {
                 //                         $query->where('apply_to', '!=', 'individual');
                 //                     })
@@ -1182,8 +1182,8 @@ class ProductController extends Controller
 
                 //             // Fetch active coupons for the product
                 //             $coupons = Promotion::where('type', 'coupon')
-                //                 ->whereDate('start_date', '<=', now())
-                //                 ->whereDate('end_date', '>=', now())
+                //                 ->where('start_date', '<=', now())
+                //                 ->where('end_date', '>=', now())
                 //                 ->whereHas('couponRules.products', function ($query) use ($item) {
                 //                     $query->where('product_id', $item->child_product_id);
                 //                 })
@@ -1306,9 +1306,9 @@ class ProductController extends Controller
                 // ->paginate($limit);
                 ->get();
 
-                // $prod->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                // $prod->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNotNull('code') ->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                 // $prod->coupon = [];
                 // foreach ($coupons as $coupon) {
                 //     $prod->coupon[strtolower($coupon->code)] = [
@@ -1323,8 +1323,8 @@ class ProductController extends Controller
                 $prod->discount = null;
 
                 $individualDiscount = Promotion::where('type', 'discount')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('discountRules', function ($query) {
                         $query->where('apply_to', 'individual');
                     })
@@ -1358,8 +1358,8 @@ class ProductController extends Controller
                 } else {
                     // If no individual discount, try to fetch discount for group/all products
                     $groupDiscount = Promotion::where('type', 'discount')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('discountRules', function ($query) {
                             $query->where('apply_to', '!=', 'individual');
                         })
@@ -1391,8 +1391,8 @@ class ProductController extends Controller
 
                 // Fetch active coupons for the product
                 $coupons = Promotion::where('type', 'coupon')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('couponRules.products', function ($query) use ($prod) {
                         $query->where('product_id', $prod->product_id);
                     })
@@ -1443,9 +1443,9 @@ class ProductController extends Controller
                     ->where('ec_product_categories.parent_id', '!=', 0)
                     ->first();
 
-                    // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                    // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                    // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                    // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                     // $val->coupon = [];
                     // foreach ($coupons as $coupon) {
                     //     $val->coupon[strtolower($coupon->code)] = [
@@ -1460,8 +1460,8 @@ class ProductController extends Controller
                     $val->discount = null;
 
                     $individualDiscount = Promotion::where('type', 'discount')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('discountRules', function ($query) {
                             $query->where('apply_to', 'individual');
                         })
@@ -1495,8 +1495,8 @@ class ProductController extends Controller
                     } else {
                         // If no individual discount, try to fetch discount for group/all products
                         $groupDiscount = Promotion::where('type', 'discount')
-                            ->whereDate('start_date', '<=', now())
-                            ->whereDate('end_date', '>=', now())
+                            ->where('start_date', '<=', now())
+                            ->where('end_date', '>=', now())
                             ->whereHas('discountRules', function ($query) {
                                 $query->where('apply_to', '!=', 'individual');
                             })
@@ -1513,6 +1513,7 @@ class ProductController extends Controller
                             $discountRule = $groupDiscount->discountRules->first();
                             if ($discountRule) {
                                 $val->discount = (object) [
+                                 
                                     'value' => intval($discountRule->percentage),
                                     'apply_to' => $discountRule->apply_to,
                                     'discount_type' => 'percent',
@@ -1528,8 +1529,8 @@ class ProductController extends Controller
 
                     // Fetch active coupons for the product
                     $coupons = Promotion::where('type', 'coupon')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('couponRules.products', function ($query) use ($val) {
                             $query->where('product_id', $val->product_id);
                         })
@@ -1684,9 +1685,9 @@ class ProductController extends Controller
 
                 $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-               //  $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+               //  $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-               // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+               // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                //  $val->coupon = [];
                //  foreach ($coupons as $coupon) {
                //      $val->coupon[strtolower($coupon->code)] = [
@@ -1701,8 +1702,8 @@ class ProductController extends Controller
                 $val->discount = null;
 
                 $individualDiscount = Promotion::where('type', 'discount')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('discountRules', function ($query) {
                         $query->where('apply_to', 'individual');
                     })
@@ -1736,8 +1737,8 @@ class ProductController extends Controller
                 } else {
                     // If no individual discount, try to fetch discount for group/all products
                     $groupDiscount = Promotion::where('type', 'discount')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('discountRules', function ($query) {
                             $query->where('apply_to', '!=', 'individual');
                         })
@@ -1769,8 +1770,8 @@ class ProductController extends Controller
 
                 // Fetch active coupons for the product
                 $coupons = Promotion::where('type', 'coupon')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('couponRules.products', function ($query) use ($val) {
                         $query->where('product_id', $val->product_id);
                     })
@@ -1850,9 +1851,9 @@ class ProductController extends Controller
 
                 $val->sales = $total_sales ? intval($total_sales->total_sales) : 0;
 
-                // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                 // $val->coupon = [];
                 // foreach ($coupons as $coupon) {
                 //     $val->coupon[strtolower($coupon->code)] = [
@@ -1867,8 +1868,8 @@ class ProductController extends Controller
                 $val->discount = null;
 
                 $individualDiscount = Promotion::where('type', 'discount')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('discountRules', function ($query) {
                         $query->where('apply_to', 'individual');
                     })
@@ -1902,8 +1903,8 @@ class ProductController extends Controller
                 } else {
                     // If no individual discount, try to fetch discount for group/all products
                     $groupDiscount = Promotion::where('type', 'discount')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('discountRules', function ($query) {
                             $query->where('apply_to', '!=', 'individual');
                         })
@@ -1935,8 +1936,8 @@ class ProductController extends Controller
 
                 // Fetch active coupons for the product
                 $coupons = Promotion::where('type', 'coupon')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('couponRules.products', function ($query) use ($val) {
                         $query->where('product_id', $val->product_id);
                     })
@@ -2012,9 +2013,9 @@ class ProductController extends Controller
                     ->pluck('ec_product_tags.name')
                     ->toArray();
                 
-                // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
                 // $val->coupon = [];
                 // foreach ($coupons as $coupon) {
                 //     $val->coupon[strtolower($coupon->code)] = [
@@ -2029,8 +2030,8 @@ class ProductController extends Controller
                 $val->discount = null;
 
                 $individualDiscount = Promotion::where('type', 'discount')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('discountRules', function ($query) {
                         $query->where('apply_to', 'individual');
                     })
@@ -2064,8 +2065,8 @@ class ProductController extends Controller
                 } else {
                     // If no individual discount, try to fetch discount for group/all products
                     $groupDiscount = Promotion::where('type', 'discount')
-                        ->whereDate('start_date', '<=', now())
-                        ->whereDate('end_date', '>=', now())
+                        ->where('start_date', '<=', now())
+                        ->where('end_date', '>=', now())
                         ->whereHas('discountRules', function ($query) {
                             $query->where('apply_to', '!=', 'individual');
                         })
@@ -2097,8 +2098,8 @@ class ProductController extends Controller
 
                 // Fetch active coupons for the product
                 $coupons = Promotion::where('type', 'coupon')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('couponRules.products', function ($query) use ($val) {
                         $query->where('product_id', $val->product_id);
                     })
@@ -2334,7 +2335,7 @@ class ProductController extends Controller
                     //     })->values()->toArray();
                     // }
 
-                    return [
+                    return [    
                         'id' => $firstRule->rule_id,
                         'name' => $firstPromo->name,
                         'buy_quantity' => $firstRule->buy_quantity ?? 1,
@@ -2451,7 +2452,7 @@ class ProductController extends Controller
             return 'same_product';
         } elseif ($buyQty == 2 && $getQty == 2) {
             return 'least_expensive';
-        } elseif ($buyQty == 3 && $getQty == 2) {
+        } elseif ($buyQty == 4 && $getQty == 1) {
             return $hasFreeProducts ? 'customer_select' : 'least_expensive';
         } elseif ($buyQty > 1 && $getQty == 1) {
             return 'auto_add';
@@ -2566,8 +2567,8 @@ class ProductController extends Controller
         $val->discount = null;
 
         $individualDiscount = Promotion::where('type', 'discount')
-            ->whereDate('start_date', '<=', now())
-            ->whereDate('end_date', '>=', now())
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
             ->whereHas('discountRules', function ($query) {
                 $query->where('apply_to', 'individual');
             })
@@ -2595,8 +2596,8 @@ class ProductController extends Controller
         } else {
             // Group Discount Logic
             $groupDiscount = Promotion::where('type', 'discount')
-                ->whereDate('start_date', '<=', now())
-                ->whereDate('end_date', '>=', now())
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
                 ->whereHas('discountRules', function ($query) {
                     $query->where('apply_to', '!=', 'individual');
                 })
@@ -2621,8 +2622,8 @@ class ProductController extends Controller
         
         // 5. Coupons (Logic preserved)
         $coupons = Promotion::where('type', 'coupon')
-        ->whereDate('start_date', '<=', now())
-        ->whereDate('end_date', '>=', now())
+        ->where('start_date', '<=', now())
+        ->where('end_date', '>=', now())
         ->whereHas('couponRules.products', function ($query) use ($val) {
             $query->where('product_id', $val->product_id);
         })
@@ -2675,8 +2676,8 @@ class ProductController extends Controller
 
             // A. Check Individual Discount
             $individualDiscount = Promotion::where('type', 'discount')
-                ->whereDate('start_date', '<=', now())
-                ->whereDate('end_date', '>=', now())
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
                 ->whereHas('discountRules', function ($query) {
                     $query->where('apply_to', 'individual');
                 })
@@ -2704,8 +2705,8 @@ class ProductController extends Controller
             }
             else {
                 $groupDiscount = Promotion::where('type', 'discount')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now())
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
                     ->whereHas('discountRules', function ($query) {
                         $query->where('apply_to', '!=', 'individual');
                     })

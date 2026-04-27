@@ -78,157 +78,252 @@ class PromotionController extends Controller
         return view('promotions.create', compact('products', 'customers', 'discountedProductIds'));
     }
 
+    // public function store(Request $request)
+    // {
+    //     $today = Carbon::today();
+
+    //     $discountedProductIds = DB::table('promotions')
+    //         ->where('promotions.end_date', '>=', $today)
+    //         ->where('promotions.isDeleted', false)
+    //         ->where('promotions.type', 'discount')
+    //         ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
+    //         ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+    //         ->select('coupon_products.product_id')
+    //         ->union(
+    //             DB::table('promotions')
+    //                 ->where('promotions.end_date', '>=', $today)
+    //                 ->where('promotions.type', 'discount')
+    //                 ->where('promotions.isDeleted', false)
+    //                 ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
+    //                 ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+    //                 ->select('discount_products.product_id')
+    //         )
+    //         ->pluck('product_id')
+    //         ->unique()
+    //         ->values()
+    //         ->toArray();
+
+    //     $request->validate([
+    //         'name' => 'required|string|max:255',
+    //         'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc', 'cashback'])],
+    //         'description' => 'nullable|string',
+    //         'start_date' => 'required|date',
+    //         'end_date' => 'required|date|after_or_equal:start_date',
+    //     ]);
+
+    //     try {
+    //         DB::beginTransaction();
+
+    //         $promotion = Promotion::create([
+    //             'name' => $request->name,
+    //             'type' => $request->type,
+    //             'description' => $request->description,
+    //             'start_date' => Carbon::parse($request->start_date)->startOfDay(),
+    //             'end_date' => Carbon::parse($request->end_date)->endOfDay(),
+    //         ]);
+
+    //         switch ($request->type) {
+    //             case 'buy_x_get_y':
+    //                 $this->storeBuyXGetYRules($promotion, $request);
+    //                 break;
+    //             case 'discount':
+    //                 $this->storeDiscountRules($promotion, $request, $discountedProductIds);
+    //                 break;
+    //             case 'coupon':
+    //                 $this->storeCouponRules($promotion, $request, $discountedProductIds);
+    //                 break;
+    //             case 'foc':
+    //                 $this->storeFocRules($promotion, $request);
+    //                 break;
+    //             case 'cashback':
+    //                 $this->storeCashbackRules($promotion, $request);
+    //                 break;
+    //         }
+
+    //         DB::commit();
+    //         return redirect()->route('promotions.index')->with('success', 'Promotion created successfully.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return back()->withErrors(['error' => 'Failed to create promotion: ' . $e->getMessage()]);
+    //     }
+    // }
+
     public function store(Request $request)
-    {
-        $today = Carbon::today();
+{
+    $today = Carbon::today();
 
-        $discountedProductIds = DB::table('promotions')
-            ->where('promotions.end_date', '>=', $today)
-            ->where('promotions.isDeleted', false)
-            ->where('promotions.type', 'discount')
-            ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
-            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
-            ->select('coupon_products.product_id')
-            ->union(
-                DB::table('promotions')
-                    ->where('promotions.end_date', '>=', $today)
-                    ->where('promotions.type', 'discount')
-                    ->where('promotions.isDeleted', false)
-                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
-                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-                    ->select('discount_products.product_id')
-            )
-            ->pluck('product_id')
-            ->unique()
-            ->values()
-            ->toArray();
+    // 1. Existing Logic: Get Discounted Product IDs (No changes here)
+    $discountedProductIds = DB::table('promotions')
+        ->where('promotions.end_date', '>=', $today)
+        ->where('promotions.isDeleted', false)
+        ->where('promotions.type', 'coupon')
+        ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
+        ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+        ->select('coupon_products.product_id')
+        ->union(
+            DB::table('promotions')
+                ->where('promotions.end_date', '>=', $today)
+                ->where('promotions.type', 'discount')
+                ->where('promotions.isDeleted', false)
+                ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
+                ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+                ->select('discount_products.product_id')
+        )
+        ->pluck('product_id')
+        ->unique()
+        ->values()
+        ->toArray();
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc', 'cashback'])],
-            'description' => 'nullable|string',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
+    // 2. Updated Validation: added start_time and end_time
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc', 'cashback'])],
+        'description' => 'nullable|string',
+        'start_date' => 'required|date',
+        'start_time' => 'nullable|date_format:H:i', // New optional field
+        'end_date' => 'required|date|after_or_equal:start_date',
+        'end_time' => 'nullable|date_format:H:i',   // New optional field
+    ]);
+
+    try {
+        DB::beginTransaction();
+
+        // 3. Updated Logic: Calculate Start & End Timestamps
+        // If time is provided, use it. If not, use startOfDay()/endOfDay()
+        $startDate = $request->start_time 
+            ? Carbon::parse($request->start_date . ' ' . $request->start_time) 
+            : Carbon::parse($request->start_date)->startOfDay();
+
+        $endDate = $request->end_time 
+            ? Carbon::parse($request->end_date . ' ' . $request->end_time) 
+            : Carbon::parse($request->end_date)->endOfDay();
+
+        $promotion = Promotion::create([
+            'name' => $request->name,
+            'type' => $request->type,
+            'description' => $request->description,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
         ]);
 
-        try {
-            DB::beginTransaction();
-
-            $promotion = Promotion::create([
-                'name' => $request->name,
-                'type' => $request->type,
-                'description' => $request->description,
-                'start_date' => Carbon::parse($request->start_date)->startOfDay(),
-                'end_date' => Carbon::parse($request->end_date)->endOfDay(),
-            ]);
-
-            switch ($request->type) {
-                case 'buy_x_get_y':
-                    $this->storeBuyXGetYRules($promotion, $request);
-                    break;
-                case 'discount':
-                    $this->storeDiscountRules($promotion, $request, $discountedProductIds);
-                    break;
-                case 'coupon':
-                    $this->storeCouponRules($promotion, $request, $discountedProductIds);
-                    break;
-                case 'foc':
-                    $this->storeFocRules($promotion, $request);
-                    break;
-                case 'cashback':
-                    $this->storeCashbackRules($promotion, $request);
-                    break;
-            }
-
-            DB::commit();
-            return redirect()->route('promotions.index')->with('success', 'Promotion created successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to create promotion: ' . $e->getMessage()]);
+        // 4. Existing Switch Logic (No changes here)
+        switch ($request->type) {
+            case 'buy_x_get_y':
+                $this->storeBuyXGetYRules($promotion, $request);
+                break;
+            case 'discount':
+                $this->storeDiscountRules($promotion, $request, $discountedProductIds);
+                break;
+            case 'coupon':
+                $this->storeCouponRules($promotion, $request, $discountedProductIds);
+                break;
+            case 'foc':
+                $this->storeFocRules($promotion, $request);
+                break;
+            case 'cashback':
+                $this->storeCashbackRules($promotion, $request);
+                break;
         }
+
+        DB::commit();
+        return redirect()->route('promotions.index')->with('success', 'Promotion created successfully.');
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->withErrors(['error' => 'Failed to create promotion: ' . $e->getMessage()]);
     }
+}
+   public function update(Request $request, $id)
+{
+    $promotion = Promotion::findOrFail($id);
 
-    public function update(Request $request, $id)
-    {
-        $promotion = Promotion::findOrFail($id);
+    // 1. Existing Logic: Build discounted product ids (No changes here)
+    $today = Carbon::today();
+    $discountedProductIds = DB::table('promotions')
+        ->where('promotions.end_date', '>=', $today)
+        ->where('promotions.isDeleted', false)
+        ->where('promotions.id', '!=', $promotion->id) // Correctly excludes self
+        ->where('promotions.type', 'discount')
+        ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
+        ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+        ->select('coupon_products.product_id')
+        ->union(
+            DB::table('promotions')
+                ->where('promotions.end_date', '>=', $today)
+                ->where('promotions.isDeleted', false)
+                ->where('promotions.id', '!=', $promotion->id)
+                ->where('promotions.type', 'discount')
+                ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
+                ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+                ->select('discount_products.product_id')
+        )
+        ->pluck('product_id')
+        ->unique()
+        ->values()
+        ->toArray();
 
-        // Build discounted product ids excluding current promotion (for eligibility in coupon/discount 'all')
-        $today = Carbon::today();
-        $discountedProductIds = DB::table('promotions')
-            ->where('promotions.end_date', '>=', $today)
-            ->where('promotions.isDeleted', false)
-            ->where('promotions.id', '!=', $promotion->id)
-             ->where('promotions.type', 'discount')
-            ->join('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')
-            ->join('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
-            ->select('coupon_products.product_id')
-            ->union(
-                DB::table('promotions')
-                    ->where('promotions.end_date', '>=', $today)
-                    ->where('promotions.isDeleted', false)
-                    ->where('promotions.id', '!=', $promotion->id)
-                    ->where('promotions.type', 'discount')
-                    ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
-                    ->join('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-                    ->select('discount_products.product_id')
-            )
-            ->pluck('product_id')
-            ->unique()
-            ->values()
-            ->toArray();
+    // 2. Updated Validation: Added start_time and end_time
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc', 'cashback'])],
+        'description' => 'nullable|string',
+        'start_date' => 'required|date',
+        'start_time' => 'nullable|date_format:H:i', // New optional field
+        'end_date' => 'required|date|after_or_equal:start_date',
+        'end_time' => 'nullable|date_format:H:i',   // New optional field
+    ]);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => ['required', Rule::in(['bogo', 'buy_x_get_y', 'discount', 'coupon', 'foc', 'cashback'])],
-            'description' => 'nullable|string',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
+    try {
+        DB::beginTransaction();
+
+        // 3. Updated Logic: Calculate Start & End Timestamps
+        $startDate = $request->start_time 
+            ? Carbon::parse($request->start_date . ' ' . $request->start_time) 
+            : Carbon::parse($request->start_date)->startOfDay();
+
+        $endDate = $request->end_time 
+            ? Carbon::parse($request->end_date . ' ' . $request->end_time) 
+            : Carbon::parse($request->end_date)->endOfDay();
+
+        $oldType = $promotion->type;
+        $newType = $request->input('type', $oldType);
+
+        // Update base fields with the new Calculated Dates
+        $promotion->update([
+            'name' => $request->name,
+            'type' => $newType,
+            'description' => $request->description,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
         ]);
 
-        try {
-            DB::beginTransaction();
+        // 4. Existing Logic: Handle Rules (No changes here)
+        $this->clearPromotionRules($promotion->id, $oldType);
 
-            $oldType = $promotion->type;
-            $newType = $request->input('type', $oldType);
-
-            // Update base fields
-            $promotion->update([
-                'name' => $request->name,
-                'type' => $newType,
-                'description' => $request->description,
-                'start_date' => Carbon::parse($request->start_date)->startOfDay(),
-                'end_date' => Carbon::parse($request->end_date)->endOfDay(),
-            ]);
-
-            // Clear existing rules for previous type
-            $this->clearPromotionRules($promotion->id, $oldType);
-
-            // Recreate rules for new type
-            switch ($newType) {
-                case 'buy_x_get_y':
-                    $this->storeBuyXGetYRules($promotion, $request);
-                    break;
-                case 'discount':
-                    $this->storeDiscountRules($promotion, $request, $discountedProductIds);
-                    break;
-                case 'coupon':
-                    $this->storeCouponRules($promotion, $request, $discountedProductIds);
-                    break;
-                case 'foc':
-                    $this->storeFocRules($promotion, $request);
-                    break;
-                case 'cashback':
-                    $this->storeCashbackRules($promotion, $request);
-                    break;
-            }
-
-            DB::commit();
-            return redirect()->route('promotions.index')->with('success', 'Promotion updated successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update promotion: ' . $e->getMessage()]);
+        switch ($newType) {
+            case 'buy_x_get_y':
+                $this->storeBuyXGetYRules($promotion, $request);
+                break;
+            case 'discount':
+                $this->storeDiscountRules($promotion, $request, $discountedProductIds);
+                break;
+            case 'coupon':
+                $this->storeCouponRules($promotion, $request, $discountedProductIds);
+                break;
+            case 'foc':
+                $this->storeFocRules($promotion, $request);
+                break;
+            case 'cashback':
+                $this->storeCashbackRules($promotion, $request);
+                break;
         }
+
+        DB::commit();
+        return redirect()->route('promotions.index')->with('success', 'Promotion updated successfully.');
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->withErrors(['error' => 'Failed to update promotion: ' . $e->getMessage()]);
     }
+}
 
     public function edit($id)
 {
