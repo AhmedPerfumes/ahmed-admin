@@ -45,37 +45,38 @@ class PromotionController extends Controller
 
     public function create()
     {
-        $products = Product::select('id', 'name', 'price')->get()->toArray();
-        $customers = Customer::select('id', 'name', 'email', 'phone')->get()->toArray();
-        $today = Carbon::today();
+        die;
+        // $products = Product::select('id', 'name', 'price')->get()->toArray();
+        // $customers = Customer::select('id', 'name', 'email', 'phone')->get()->toArray();
+        // $today = Carbon::today();
 
-        $discountedProductIds = DB::table('promotions')
-            ->where('promotions.end_date', '>=', $today)
-            ->where('promotions.isDeleted', false)
-            ->where('promotions.type', 'discount')
-            ->leftJoin('coupon_rules', function ($join) {
-                $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
-                     ->where('promotions.type', '=', 'coupon');
-            })
-            ->leftJoin('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
-            ->leftJoin('discount_rules', function ($join) {
-                $join->on('promotions.id', '=', 'discount_rules.promotion_id')
-                     ->where('promotions.type', '=', 'discount');
-            })
-            ->leftJoin('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
-            ->leftJoin('buy_x_get_y_rules', function ($join) {
-                $join->on('promotions.id', '=', 'buy_x_get_y_rules.promotion_id')
-                     ->where('promotions.type', '=', 'buy_x_get_y');
-            })
-            ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
-            ->selectRaw('COALESCE(coupon_products.product_id, discount_products.product_id, buy_x_get_y_products.product_id) as product_id')
-            ->havingRaw('product_id IS NOT NULL')
-            ->pluck('product_id')
-            ->unique()
-            ->values()
-            ->toArray();
+        // $discountedProductIds = DB::table('promotions')
+        //     ->where('promotions.end_date', '>=', $today)
+        //     ->where('promotions.isDeleted', false)
+        //     ->where('promotions.type', 'discount')
+        //     ->leftJoin('coupon_rules', function ($join) {
+        //         $join->on('promotions.id', '=', 'coupon_rules.promotion_id')
+        //              ->where('promotions.type', '=', 'coupon');
+        //     })
+        //     ->leftJoin('coupon_products', 'coupon_rules.id', '=', 'coupon_products.coupon_rule_id')
+        //     ->leftJoin('discount_rules', function ($join) {
+        //         $join->on('promotions.id', '=', 'discount_rules.promotion_id')
+        //              ->where('promotions.type', '=', 'discount');
+        //     })
+        //     ->leftJoin('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+        //     ->leftJoin('buy_x_get_y_rules', function ($join) {
+        //         $join->on('promotions.id', '=', 'buy_x_get_y_rules.promotion_id')
+        //              ->where('promotions.type', '=', 'buy_x_get_y');
+        //     })
+        //     ->leftJoin('buy_x_get_y_products', 'buy_x_get_y_rules.id', '=', 'buy_x_get_y_products.rule_id')
+        //     ->selectRaw('COALESCE(coupon_products.product_id, discount_products.product_id, buy_x_get_y_products.product_id) as product_id')
+        //     ->havingRaw('product_id IS NOT NULL')
+        //     ->pluck('product_id')
+        //     ->unique()
+        //     ->values()
+        //     ->toArray();
 
-        return view('promotions.create', compact('products', 'customers', 'discountedProductIds'));
+        // return view('promotions.create', compact('products', 'customers', 'discountedProductIds'));
     }
 
     public function store(Request $request)
