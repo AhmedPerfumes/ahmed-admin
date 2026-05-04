@@ -40,6 +40,7 @@
                                 <textarea name="description" id="description" class="form-control">{{ old('description', isset($promotion) ? $promotion->description : '') }}</textarea>
                             </div>
 
+<<<<<<< HEAD
                             <!-- <div class="mb-3">
                                 <label for="start_date" class="form-label">Start Date</label>
                                 <input type="date" name="start_date" id="start_date" class="form-control" value="{{ old('start_date', isset($promotion) ? $promotion->start_date->format('Y-m-d') : '') }}" required>
@@ -49,6 +50,41 @@
                                 <label for="end_date" class="form-label">End Date</label>
                                 <input type="date" name="end_date" id="end_date" class="form-control" value="{{ old('end_date', isset($promotion) ? $promotion->end_date->format('Y-m-d') : '') }}" required>
                             </div> -->
+=======
+                           <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="start_date" class="form-label">Start Date</label>
+                                        <input type="date" name="start_date" id="start_date" class="form-control" 
+                                            value="{{ old('start_date', isset($promotion) ? $promotion->start_date->format('Y-m-d') : '') }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="start_time" class="form-label">Start Time <small class="text-muted">(Optional)</small></label>
+                                        <input type="time" name="start_time" id="start_time" class="form-control" 
+                                            value="{{ old('start_time', isset($promotion) ? $promotion->start_date->format('H:i') : '') }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="end_date" class="form-label">End Date</label>
+                                        <input type="date" name="end_date" id="end_date" class="form-control" 
+                                            value="{{ old('end_date', isset($promotion) ? $promotion->end_date->format('Y-m-d') : '') }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="end_time" class="form-label">End Time <small class="text-muted">(Optional)</small></label>
+                                        <input type="time" name="end_time" id="end_time" class="form-control" 
+                                            value="{{ old('end_time', isset($promotion) ? $promotion->end_date->format('H:i') : '') }}">
+                                    </div>
+                                </div>
+                            </div>
+>>>>>>> fb59a05b681b3908cf2cf5d1eac19a107d57c701
 
                             <!-- BOGO Fields -->
                             <!-- <div id="bogo_fields" style="display: {{ isset($promotion) && $promotion->type === 'bogo' ? 'block' : 'none' }};">
@@ -121,7 +157,7 @@
                                         @foreach ($products as $product)
                                             <option value="{{ $product['id'] }}"
                                                 @if(isset($promotionData['buy_products']) && in_array($product['id'], $promotionData['buy_products'])) selected @endif
-                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                @if(in_array($product['id'], $discountedProductIds))  @endif>
                                                 {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
                                             </option>
                                         @endforeach
@@ -133,7 +169,7 @@
                                         @foreach ($products as $product)
                                             <option value="{{ $product['id'] }}"
                                                 @if(isset($promotionData['free_products']) && in_array($product['id'], $promotionData['free_products'])) selected @endif
-                                                @if(in_array($product['id'], $discountedProductIds)) disabled @endif>
+                                                @if(in_array($product['id'], $discountedProductIds))  @endif>
                                                 {{ $product['name'] . (in_array($product['id'], $discountedProductIds) ? ' (already discounted)' : '') }}
                                             </option>
                                         @endforeach
@@ -415,27 +451,41 @@
 
                             <!-- FOC Fields -->
                             <div id="foc_fields" style="display: {{ isset($promotion) && $promotion->type === 'foc' ? 'block' : 'none' }};">
-                                <div class="mb-3">
-                                    <label for="foc_min_threshold" class="form-label">Minimum Threshold (Cart Amount)</label>
-                                    <input type="number" step="0.01" name="conditions[foc][min_threshold]" id="foc_min_threshold" class="form-control" value="{{ old('conditions.foc.min_threshold', isset($promotionData['foc_rule']) ? $promotionData['foc_rule']->min_threshold : '') }}">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="foc_max_threshold" class="form-label">Maximum Threshold (Cart Amount)</label>
-                                    <input type="number" step="0.01" name="conditions[foc][max_threshold]" id="foc_max_threshold" class="form-control" value="{{ old('conditions.foc.max_threshold', isset($promotionData['foc_rule']) ? $promotionData['foc_rule']->max_threshold : '') }}">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="foc_product_ids" class="form-label">Free Products</label>
-                                    <select name="rewards[foc][free_product_ids][]" id="foc_product_ids" multiple class="form-select">
-                                        @foreach ($products as $product)
-                                            <option value="{{ $product['id'] }}"
-                                                @if(isset($promotionData['free_products']) && in_array($product['id'], $promotionData['free_products'])) selected @endif
-                                                @if(in_array($product['id'], $discountedProductIds))@endif>
-                                                {{ $product['name']}}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="foc_min_threshold" class="form-label">Minimum Threshold (Cart Amount)</label>
+                <input type="number" step="0.01" name="conditions[foc][min_threshold]" id="foc_min_threshold" class="form-control" value="{{ old('conditions.foc.min_threshold', isset($promotionData['foc_rule']) ? $promotionData['foc_rule']->min_threshold : '') }}">
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="foc_max_threshold" class="form-label">Maximum Threshold (Cart Amount)</label>
+                <input type="number" step="0.01" name="conditions[foc][max_threshold]" id="foc_max_threshold" class="form-control" value="{{ old('conditions.foc.max_threshold', isset($promotionData['foc_rule']) ? $promotionData['foc_rule']->max_threshold : '') }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="foc_gift_limit" class="form-label">Maximum Gifts Allowed</label>
+        <input type="number" name="rewards[foc][gift_limit]" id="foc_gift_limit" class="form-control" 
+               placeholder="e.g. 3" 
+               value="{{ old('rewards.foc.gift_limit', isset($promotionData['foc_rule']) ? $promotionData['foc_rule']->gift_limit : '1') }}">
+        <small class="text-muted">How many products can the user choose from the list below?</small>
+    </div>
+
+    <div class="mb-3">
+        <label for="foc_product_ids" class="form-label">Select Available Free Products</label>
+        <select name="rewards[foc][free_product_ids][]" id="foc_product_ids" multiple class="form-select">
+            @foreach ($products as $product)
+                <option value="{{ $product['id'] }}"
+                    @if(isset($promotionData['free_products']) && in_array($product['id'], $promotionData['free_products'])) selected @endif>
+                    {{ $product['name']}}
+                </option>
+            @endforeach
+        </select>
+    </div>
+</div>
 
                             <!-- Cashback Fields -->
                             <div id="cashback_fields" style="display: {{ isset($promotion) && $promotion->type === 'cashback' ? 'block' : 'none' }};">
