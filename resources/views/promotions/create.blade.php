@@ -40,6 +40,17 @@
                                 <textarea name="description" id="description" class="form-control">{{ old('description', isset($promotion) ? $promotion->description : '') }}</textarea>
                             </div>
 
+<<<<<<< HEAD
+                            <!-- <div class="mb-3">
+                                <label for="start_date" class="form-label">Start Date</label>
+                                <input type="date" name="start_date" id="start_date" class="form-control" value="{{ old('start_date', isset($promotion) ? $promotion->start_date->format('Y-m-d') : '') }}" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="date" name="end_date" id="end_date" class="form-control" value="{{ old('end_date', isset($promotion) ? $promotion->end_date->format('Y-m-d') : '') }}" required>
+                            </div> -->
+=======
                            <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
@@ -73,6 +84,7 @@
                                     </div>
                                 </div>
                             </div>
+>>>>>>> fb59a05b681b3908cf2cf5d1eac19a107d57c701
 
                             <!-- BOGO Fields -->
                             <!-- <div id="bogo_fields" style="display: {{ isset($promotion) && $promotion->type === 'bogo' ? 'block' : 'none' }};">
@@ -564,16 +576,7 @@
                     updatePriceAndDiscount('discount', values);
                 }
             });
-const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { 
-    maxItems: 10,
-    plugins: ['remove_button'], // optional but recommended for UX
-    closeAfterSelect: false,    // keeps dropdown open for multi-select
-    onItemAdd: function() {
-        this.setTextboxValue('');    // clears the typed text
-        this.refreshOptions(false);  // ensures dropdown stays ready
-    }
-});
-
+            const groupDiscountSelect = new TomSelect('#discount_group_product_ids', { maxItems: 10 });
             const couponGroupSelect = new TomSelect('#coupon_group_product_ids', { maxItems: 10 });
             const coupon_product_group_ids = new TomSelect('#coupon_product_group_ids', { maxItems: 10 });
             const couponCustomerSelect = new TomSelect('#coupon_customer_ids', { maxItems: 10 });
