@@ -13,6 +13,7 @@ class FaqCategory extends BaseModel
 
     protected $fillable = [
         'name',
+        'ar_name',
         'description',
         'order',
         'status',

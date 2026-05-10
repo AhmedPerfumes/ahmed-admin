@@ -13,7 +13,9 @@ class Faq extends BaseModel
 
     protected $fillable = [
         'question',
+        'ar_question',
         'answer',
+        'ar_answer',
         'category_id',
         'status',
     ];

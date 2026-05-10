@@ -47,23 +47,9 @@ class FaqForm extends FormAbstract
                     ->toArray()
             )
             ->add(
-                'ar_question',
-                TextareaField::class,
-                TextareaFieldOption::make()
-                    ->label(trans('plugins/faq::faq.ar_question'))
-                    ->required()
-                    ->rows(4)
-                    ->toArray()
-            )
-            ->add(
                 'answer',
                 EditorField::class,
                 EditorFieldOption::make()->label(trans('plugins/faq::faq.answer'))->required()->rows(4)->toArray()
-            )
-            ->add(
-                'ar_answer',
-                EditorField::class,
-                EditorFieldOption::make()->label(trans('plugins/faq::faq.ar_answer'))->required()->rows(4)->toArray()
             )
             ->add('status', SelectField::class, StatusFieldOption::make()->toArray())
             ->setBreakFieldPoint('status');

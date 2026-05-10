@@ -3,11 +3,8 @@
 return [
     'name' => 'FAQs',
     'create' => 'New FAQ',
-    'ar_name' => 'Name (Arabic)',
     'question' => 'Question',
-    'ar_question' => 'Question (Arabic)',
     'answer' => 'Answer',
-    'ar_answer' => 'Answer (Arabic)',
     'category' => 'Category',
     'faq_schema_config' => 'FAQ schema configuration (:link)',
     'learn_more' => 'Learn more',
