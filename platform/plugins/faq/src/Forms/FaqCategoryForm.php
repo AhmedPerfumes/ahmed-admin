@@ -22,6 +22,7 @@ class FaqCategoryForm extends FormAbstract
             ->model(FaqCategory::class)
             ->setValidatorClass(FaqCategoryRequest::class)
             ->add('name', TextField::class, NameFieldOption::make()->required()->toArray())
+            ->add('ar_name', TextField::class, NameFieldOption::make()->label(trans('plugins/faq::faq.ar_name'))->required()->toArray())
             ->add('description', TextareaField::class, DescriptionFieldOption::make()->toArray())
             ->add('order', NumberField::class, SortOrderFieldOption::make()->toArray())
             ->add('status', SelectField::class, StatusFieldOption::make()->toArray())
