@@ -2603,12 +2603,6 @@ class OrderController extends Controller
             return response()->json(['message' => 'Customer Address Not Found']);
         }
 
-        if ($address->count() == 1) {
-            $original = $address->first()->replicate(); // clone the model
-            $original->id = -1; // change ID
-            $address->push($original); // add to collection
-        }
-
         return response()->json([
             'message' => 'Details Fetched Successfully',
             'addresses' => $address
@@ -2617,36 +2611,37 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
-        if($request->input('address_id') == -1) {
+        // address_id of 0 or -1 means "create new address"
+        if((int)$request->input('address_id') <= 0) {
             $validator = Validator::make($request->all(), [
-                'address_id'      => 'required',
-                'state' => 'required',
-                'city' => 'required',
-                'address' => 'required',
+                'state'       => 'required',
+                'city'        => 'required',
+                'address'     => 'required',
                 'customer_id' => 'required',
-                'name' => 'required',
-                'email' => 'required|email',
-                'mobile' => 'required',
+                'name'        => 'required',
+                'email'       => 'required|email',
+                'mobile'      => 'required',
             ]);
 
             if ($validator->fails()) {
                 return response()->json($validator->errors());
             }
-            
+
             $address = Address::create([
-                'name'      => $request->input('name'),
-                'email'     => $request->input('email'),
-                'phone'     => $request->input('mobile'),
-                'state' => $request->input('state'),
-                'city' => $request->input('city'),
-                'address' => $request->input('address'),
+                'name'        => $request->input('name'),
+                'email'       => $request->input('email'),
+                'phone'       => $request->input('mobile'),
+                'state'       => $request->input('state'),
+                'city'        => $request->input('city'),
+                'address'     => $request->input('address'),
                 'customer_id' => $request->input('customer_id'),
-                'is_default' => $request->input('is_default')
+                'is_default'  => $request->input('is_default', 0),
             ]);
 
             return response()->json([
-                'message' => 'Customer Address Updated Successfully',
-                'addresses' => $address
+                'message'   => 'Customer Address Created Successfully',
+                'id'        => $address->id,       // real new DB id
+                'addresses' => $address,
             ]);
         }
 
