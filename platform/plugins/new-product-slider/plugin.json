@@ -4,7 +4,7 @@
     "namespace": "Ahmed\\NewProductSlider\\",
     "provider": "Ahmed\\NewProductSlider\\Providers\\NewProductSliderServiceProvider",
     "author": "Ahmed",
-    "url": "none",
+    "url": "https://example.com",
     "version": "1.0.0",
     "description": "Dynamic slider plugins",
     "minimum_core_version": "7.0.0"
