@@ -36,17 +36,11 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    public function storeOrder(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
-        // echo "<pre>";print_r($request->all());die;
-
-        $validator = Validator::make($request->all(), [
-            'products'      => 'required'
-        ]);
+    public function storeOrder(\App\Http\Requests\StoreOrderRequest $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+        Log::info('OrderController: storeOrder() started.');
         Log::info(request()->all());
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $createPaymentForOrderService) {
 
         $barcodes = [];
 
@@ -1896,6 +1890,7 @@ class OrderController extends Controller
             }
 
             // $request['payment_status'] = 'completed';
+            Log::info('OrderController: Calling CreatePaymentForOrderService->execute().', ['order_id' => $order->id ?? null, 'payment_method' => $request->input('payment_method')]);
             $createPaymentForOrderService->execute(
                 $order,
                 $request->input('payment_method'),
@@ -1903,6 +1898,7 @@ class OrderController extends Controller
                 $customer_id,
             );
 
+            Log::info('OrderController: storeOrder() finished successfully.', ['order_id' => $order->id ?? null]);
             return response()->json([
                 'message'          => 'Order created successfully',
                 'order_id'         => $order->code,
@@ -1915,6 +1911,7 @@ class OrderController extends Controller
                 'products'         => $prod
             ]);
         }
+        });
     }
 
     public function tabbyPayment(Request $request, array $shippingData, Order $order) {
