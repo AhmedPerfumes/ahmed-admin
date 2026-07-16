@@ -9,6 +9,7 @@ use Illuminate\Support\HtmlString;
 /**
  * @method static PaymentStatusEnum PENDING()
  * @method static PaymentStatusEnum COMPLETED()
+ * @method static PaymentStatusEnum CLOSED()
  * @method static PaymentStatusEnum REFUNDING()
  * @method static PaymentStatusEnum REFUNDED()
  * @method static PaymentStatusEnum FRAUD()
@@ -19,6 +20,8 @@ class PaymentStatusEnum extends Enum
     public const PENDING = 'pending';
 
     public const COMPLETED = 'completed';
+
+    public const CLOSED = 'closed';
 
     public const REFUNDING = 'refunding';
 
@@ -36,7 +39,7 @@ class PaymentStatusEnum extends Enum
     {
         $color = match ($this->value) {
             self::PENDING, self::REFUNDING => 'warning',
-            self::COMPLETED => 'success',
+            self::COMPLETED, self::CLOSED => 'success',
             self::REFUNDED => 'info',
             self::FRAUD, self::FAILED => 'danger',
             default => 'primary',

@@ -385,7 +385,7 @@ class ProductController extends BaseController
         $products = Product::query()
             ->where('name', 'LIKE', '%' . $searchTerm . '%') // Use the correctly found search term
             ->where('is_variation', 0)
-            ->where('is_collection', 0)
+            // ->where('is_collection', 0)
             ->select(['id', 'name'])
             ->get();
 

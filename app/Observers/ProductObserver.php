@@ -16,6 +16,7 @@ class ProductObserver
     }
     public function updating(Product $product)
     {
+        Log::info("updating");
         // Check if the name is actually changing
         if ($product->isDirty('name')) {
             // We temporarily store the old name on the object itself
@@ -26,11 +27,13 @@ class ProductObserver
 
     public function saved(Product $product)
     {
+        Log::info("saved");
         $this->handleCache($product);
     }
 
     public function deleted(Product $product)
     {
+        Log::info("deleted");
         $this->handleCache($product);
     }
 
@@ -47,14 +50,14 @@ class ProductObserver
     protected function handleCache(Product $product)
     {
         $tags = [];
-
         $newSlug = $this->generateFrontendSlug($product->name);
-        
         if ($newSlug) {
+            Log::info("newSlug");
             $tags[] = 'product-' . $newSlug;
         }
 
         if (!empty($product->_temp_old_name)) {
+            Log::info("old name");
             $oldSlug = $this->generateFrontendSlug($product->_temp_old_name);
             if ($oldSlug && $oldSlug !== $newSlug) {
                 $tags[] = 'product-' . $oldSlug;
@@ -63,17 +66,24 @@ class ProductObserver
         }
 
         if ($product->wasRecentlyCreated || $product->exists === false) { 
+            Log::info("wasRecentlyCreated");
+             $tags[] = 'subCategories';
+             $tags[] = 'categories';
              $tags[] = 'products';
         }
 
-        $product->loadMissing('categories');
+        $product = $product->fresh(['categories.parent']);
 
         foreach ($product->categories as $category) {
+            Log::info("for each");
             if ($category->parent_id == 0) {
+                Log::info("parent block");
                 $tags[] = 'category-' . $category->slug;
             } else {
+                Log::info("child block");
                 $tags[] = 'subcategory-' . $category->slug;
                 if ($category->parent) {
+                    Log::info("not sure but lets see");
                     $tags[] = 'category-' . $category->parent->slug;
                 }
             }

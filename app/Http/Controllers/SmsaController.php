@@ -445,6 +445,7 @@ class SmsaController extends Controller
         $limit = $request->input('limit', 50); // Default to 50 orders per batch
         $lastId = $request->input('last_id', 0); // Cursor for pagination
         $updatedCount = 0;
+        $returnedCount = 0;
         $processedCount = 0;
         
         \Log::info("SMSA Batch: Starting process for orders with ID > $lastId (Limit: $limit)");
@@ -513,9 +514,15 @@ class SmsaController extends Controller
 
                         $updatedCount++;
                         \Log::info("SMSA Batch: Order #{$order->code} (ID: {$order->id}) marked as COMPLETED.");
-                    } else {
-                        // Optional: Log that it is still in transit
-                        \Log::info("SMSA Batch: Order #{$order->code} still in transit.");
+                    } elseif (!empty($trackData->Scans) && is_array($trackData->Scans)) {
+                        $latestScan = $trackData->Scans[0];
+
+                        if (isset($latestScan->ScanType) && $latestScan->ScanType === 'RTS') {
+
+                            Order::where('id', $order->id)->update([ 'status' => 'returned' ]);
+                            $returnedCount++;
+                            \Log::info("SMSA Batch: Order #{$order->code} marked as RETURNED (RTS).");
+                        }
                     }
                 } else {
                     \Log::error("SMSA Batch: API Error for Order #{$order->code}. HTTP Code: $httpCode");
@@ -532,9 +539,10 @@ class SmsaController extends Controller
         // 5. Return Response
         return response()->json([
             'status' => 'success',
-            'message' => "Processed $processedCount orders. Updated $updatedCount orders.",
+            'processed' => $processedCount,
+            'delivered' => $updatedCount,
+            'returned' => $returnedCount,
             'last_processed_id' => $lastId, // INPUT THIS into the next request
-            'updates_made' => $updatedCount,
             'next_url_suggestion' => route('smsa.check_status') . "?limit=$limit&last_id=$lastId"
         ]);
     }
