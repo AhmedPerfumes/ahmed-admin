@@ -33,10 +33,12 @@ use App\Models\CashbackProduct;
 use Botble\Payment\Models\Payment;
 use App\Models\ActiveCoupon;
 use Illuminate\Support\Facades\Log;
+use App\Services\OrderPricing\OrderProductPricingService;
+use App\Services\OrderPricing\PricingContext;
 
 class OrderController extends Controller
 {
-    public function storeOrder(\App\Http\Requests\StoreOrderRequest $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+    public function storeOrder(\App\Http\Requests\StoreOrderRequest $request, CreatePaymentForOrderService $createPaymentForOrderService, OrderProductPricingService $pricingService) {
         $orderTrackId = \Illuminate\Support\Str::uuid()->toString();
         
         // This injects the unique ID into every log generated during this request
@@ -154,10 +156,13 @@ class OrderController extends Controller
                 \Log::info('Concurrent Stock API Error for ' . $product['product_id'] . ':', [
                     'error' => $response->body()
                 ]);
+                // return response()->json([
+                //     'qtyMessage' => 'Something Went Wrong Please Try Again Later.'
+                // ]);
             }
         }
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $createPaymentForOrderService, $productIds, $dbProducts) {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $createPaymentForOrderService, $pricingService, $productIds, $dbProducts) {
         
             $dbIndividualDiscounts = Promotion::where('type', 'discount')
                 ->whereDate('start_date', '<=', now())
@@ -827,329 +832,15 @@ class OrderController extends Controller
 
                     array_push($prod, $exisProduct);
 
-                    // $discount_price = '';
-                    // $sale_price = '';
-                    if(!is_null($exisProduct->discount) && $exisProduct->is_gift != 1 && $exisProduct->is_coupon != 1) {
-                        Log::info($exisProduct);
-                        if($exisProduct->discount->discount_type == 'percent') {
-                            Log::info($product['product_id']);
-                            // echo "Discount Percent";
-                            // echo "\n";
-                            $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                            $total_amount = $price * $quantity;
-                            $discount_percent = $exisProduct->discount->value;
-                            $discount_amount = ($total_amount / 100) * $discount_percent;
-                            $net_amount = $total_amount - $discount_amount;
-                            $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                            $gross_amount = $net_amount + $tax_amount;
-                            $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                            $orderProduct = [
-                                'order_id' => $order->id,
-                                'product_id' => $product['product_id'],
-                                'product_name' => $exisProduct->name,
-                                'product_image' => $exisProduct->image,
-                                'qty' => $quantity,
-                                'weight' => $exisProduct->weight,
-                                'price' => $price,
-                                'total_amount' => $total_amount,
-                                'discount_percent' => $discount_percent,
-                                'discount_amount' => $discount_amount,
-                                'net_amount' => $net_amount,
-                                'tax_amount' => $tax_amount,
-                                'gross_amount' => $gross_amount,
-                                'product_options' => [],
-                                'options' => json_encode($options),
-                                'product_type' => $exisProduct->product_type,
-                                'product_category' => $product['category_name'] ? $product['category_name'] : '',
-                                'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                                'vat' => $request->input('vatTax'),
-                                'campaign' => $exisProduct->discount->name,
-                            ];   
-                        } elseif($exisProduct->discount->discount_type == 'amount') {
-                            // echo "Discount Amount";
-                            // echo "\n";
-                            $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                            $total_amount = $price * $quantity;
-                            $sale_price = $exisProduct->discount->final_price / (1 + ($request->input('vatTax') / 100));
-                            $discount_percent = 0;
-                            $discount_amount = $total_amount - ($sale_price * $quantity);
-                            $net_amount = $total_amount - $discount_amount;
-                            $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                            $gross_amount = $net_amount + $tax_amount;
-                            // echo "Price ".$price;
-                            // echo "\n";
-                            // echo "Total Amount ".$total_amount;
-                            // echo "\n";
-                            // echo "Sales Price ".$sale_price;
-                            // echo "\n";
-                            // echo "Discount Percent ".$discount_percent;
-                            // echo "\n";
-                            // echo "Discount Amount ".$discount_amount;
-                            // echo "\n";
-                            // echo "Net Amount ".$net_amount;
-                            // echo "\n";
-                            // echo "Tax Amount ".$tax_amount;
-                            // echo "\n";
-                            // echo "Gross Amount ".$gross_amount;
-                            // echo "\n";
-                            $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                            $orderProduct = [
-                                'order_id' => $order->id,
-                                'product_id' => $product['product_id'],
-                                'product_name' => $exisProduct->name,
-                                'product_image' => $exisProduct->image,
-                                'qty' => $quantity,
-                                'weight' => $exisProduct->weight,
-                                'price' => $price,
-                                'total_amount' => $total_amount,
-                                'discount_percent' => $discount_percent,
-                                'discount_amount' => $discount_amount,
-                                'net_amount' => $net_amount,
-                                'tax_amount' => $tax_amount,
-                                'gross_amount' => $gross_amount,
-                                'product_options' => [],
-                                'options' => json_encode($options),
-                                'product_type' => $exisProduct->product_type,
-                                'product_category' => $product['category_name'],
-                                'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                                'vat' => $request->input('vatTax'),
-                                'campaign' => $exisProduct->discount->name,
-                            ];
-                        }
-                    }
-                    // elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
-                    //     // echo 'Coupon';
-                    //     // echo '\n ';
-                    //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    //     $total_amount = $price * $quantity;
-                    //     $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
-                    //     $discount_amount = ($total_amount / 100) * $discount_percent;
-                    //     $net_amount = $total_amount - $discount_amount;
-                    //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    //     $gross_amount = $net_amount + $tax_amount;
-                    //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                    //     $orderProduct = [
-                    //         'order_id' => $order->id,
-                    //         'product_id' => $product['product_id'],
-                    //         'product_name' => $exisProduct->name,
-                    //         'product_image' => $exisProduct->image,
-                    //         'qty' => $quantity,
-                    //         'weight' => $exisProduct->weight,
-                    //         'price' => $price,
-                    //         'total_amount' => $total_amount,
-                    //         'discount_percent' => $discount_percent,
-                    //         'discount_amount' => $discount_amount,
-                    //         'net_amount' => $net_amount,
-                    //         'tax_amount' => $tax_amount,
-                    //         'gross_amount' => $gross_amount,
-                    //         'product_options' => [],
-                    //         'options' => json_encode($options),
-                    //         'product_type' => $exisProduct->product_type,
-                    //         'product_category' => $product['category_name'],
-                    //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                    //         'vat' => $request->input('vatTax'),
-                    //         'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : $request->input('couponCode'),
-                    //     ];
-                    // }
-                    elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
-                        // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
-                            // echo 'Customer Coupon Percent';
-                            // echo '\n ';
-                            $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                            $total_amount = $price * $quantity;
-                            $discount_percent = $product['value'];
-                            $discount_amount = ($total_amount / 100) * $discount_percent;
-                            $net_amount = $total_amount - $discount_amount;
-                            $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                            $gross_amount = $net_amount + $tax_amount;
-                            $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                            $orderProduct = [
-                                'order_id' => $order->id,
-                                'product_id' => $product['product_id'],
-                                'product_name' => $exisProduct->name,
-                                'product_image' => $exisProduct->image,
-                                'qty' => $quantity,
-                                'weight' => $exisProduct->weight,
-                                'price' => $price,
-                                'total_amount' => $total_amount,
-                                'discount_percent' => $discount_percent,
-                                'discount_amount' => $discount_amount,
-                                'net_amount' => $net_amount,
-                                'tax_amount' => $tax_amount,
-                                'gross_amount' => $gross_amount,
-                                'product_options' => [],
-                                'options' => json_encode($options),
-                                'product_type' => $exisProduct->product_type,
-                                'product_category' => $product['category_name'],
-                                'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                                'vat' => $request->input('vatTax'),
-                                'campaign' => $request->input('couponCode'),
-                            ];
-                        // } elseif($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'amount') {
-                        //     // echo 'Customer Coupon Amount';
-                        //     // echo '\n ';
-                        //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        //     $total_amount = $price * $quantity;
-                        //     $sale_price = $price - ($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'] / (1 + ($request->input('vatTax') / 100)));
-                        //     $discount_percent = 0;
-                        //     $discount_amount = $total_amount - ($sale_price * $quantity);
-                        //     $net_amount = $total_amount - $discount_amount;
-                        //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                        //     $gross_amount = $net_amount + $tax_amount;
-
-                        //     // echo "Price ".$price;
-                        //     // echo "\n";
-                        //     // echo "Total Amount ".$total_amount;
-                        //     // echo "\n";
-                        //     // echo "Sales Price ".$sale_price;
-                        //     // echo "\n";
-                        //     // echo "Discount Percent ".$discount_percent;
-                        //     // echo "\n";
-                        //     // echo "Discount Amount ".$discount_amount;
-                        //     // echo "\n";
-                        //     // echo "Net Amount ".$net_amount;
-                        //     // echo "\n";
-                        //     // echo "Tax Amount ".$tax_amount;
-                        //     // echo "\n";
-                        //     // echo "Gross Amount ".$gross_amount;
-                        //     // echo "\n";
-                        //     // echo $exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'];
-                            
-                        //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                        //     $orderProduct = [
-                        //         'order_id' => $order->id,
-                        //         'product_id' => $product['product_id'],
-                        //         'product_name' => $exisProduct->name,
-                        //         'product_image' => $exisProduct->image,
-                        //         'qty' => $quantity,
-                        //         'weight' => $exisProduct->weight,
-                        //         'price' => $price,
-                        //         'total_amount' => $total_amount,
-                        //         'discount_percent' => $discount_percent,
-                        //         'discount_amount' => $discount_amount,
-                        //         'net_amount' => $net_amount,
-                        //         'tax_amount' => $tax_amount,
-                        //         'gross_amount' => $gross_amount,
-                        //         'product_options' => [],
-                        //         'options' => json_encode($options),
-                        //         'product_type' => $exisProduct->product_type,
-                        //         'product_category' => $product['category_name'],
-                        //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                        //         'vat' => $request->input('vatTax'),
-                        //         'campaign' => $request->input('couponCode'),
-                        //     ];
-                        // }
-                    }
-                    // elseif(!is_null($exisProduct->sale_price)) {
-                    //     // echo 'Sale Price';
-                    //     // echo '\n ';
-                    //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    //     $total_amount = $price * $quantity;
-                    //     $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
-                    //     $discount_percent = 0;
-                    //     $discount_amount = $total_amount - ($sale_price * $quantity);
-                    //     $net_amount = $total_amount - $discount_amount;
-                    //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    //     $gross_amount = $net_amount + $tax_amount;
-                    //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                    //     $orderProduct = [
-                    //         'order_id' => $order->id,
-                    //         'product_id' => $product['product_id'],
-                    //         'product_name' => $exisProduct->name,
-                    //         'product_image' => $exisProduct->image,
-                    //         'qty' => $quantity,
-                    //         'weight' => $exisProduct->weight,
-                    //         'price' => $price,
-                    //         'total_amount' => $total_amount,
-                    //         'discount_percent' => $discount_percent,
-                    //         'discount_amount' => $discount_amount,
-                    //         'net_amount' => $net_amount,
-                    //         'tax_amount' => $tax_amount,
-                    //         'gross_amount' => $gross_amount,
-                    //         'product_options' => [],
-                    //         'options' => json_encode($options),
-                    //         'product_type' => $exisProduct->product_type,
-                    //         'product_category' => $product['category_name'],
-                    //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                    //         'vat' => $request->input('vatTax'),
-                    //     ];
-                    // }
-                    elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                        // echo 'FOC';
-                        // echo '\n ';
-                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        $total_amount = 0.00;
-                        $discount_percent = 100;
-                        $discount_amount = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        $net_amount = 0.00;
-                        $tax_amount = 0.00;
-                        $gross_amount = 0.00;
-                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                        $orderProduct = [
-                            'order_id' => $order->id,
-                            'product_id' => $product['product_id'],
-                            'product_name' => $exisProduct->name,
-                            'product_image' => $exisProduct->image,
-                            'qty' => $quantity,
-                            'weight' => $exisProduct->weight,
-                            'price' => $price,
-                            'total_amount' => $total_amount,
-                            'discount_percent' => $discount_percent,
-                            'discount_amount' => $discount_amount,
-                            'net_amount' => $net_amount,
-                            'tax_amount' => $tax_amount,
-                            'gross_amount' => $gross_amount,
-                            'product_options' => [],
-                            'options' => json_encode($options),
-                            'product_type' => $exisProduct->product_type,
-                            'product_category' => '',
-                            'product_subcategory' => '',
-                            'vat' => $request->input('vatTax'),
-                            'is_gift' => 1,
-                            'campaign' => $product['campaign'],
-                        ];
-                    }
-                    else {
-                        // echo 'Else';
-                        // echo '\n ';
-                        $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        $total_amount = $price * $quantity;
-                        $discount_percent = 0;
-                        $discount_amount = 0.00;
-                        $net_amount = $total_amount - $discount_amount;
-                        $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                        $gross_amount = $net_amount + $tax_amount;
-                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                        $orderProduct = [
-                            'order_id' => $order->id,
-                            'product_id' => $product['product_id'],
-                            'product_name' => $exisProduct->name,
-                            'product_image' => $exisProduct->image,
-                            'qty' => $quantity,
-                            'weight' => $exisProduct->weight,
-                            'price' => $price,
-                            'total_amount' => $total_amount,
-                            'discount_percent' => $discount_percent,
-                            'discount_amount' => $discount_amount,
-                            'net_amount' => $net_amount,
-                            'tax_amount' => $tax_amount,
-                            'gross_amount' => $gross_amount,
-                            'product_options' => [],
-                            'options' => json_encode($options),
-                            'product_type' => $exisProduct->product_type,
-                            'product_category' => $product['category_name'],
-                            'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                            'vat' => $request->input('vatTax'),
-                        ];
-                    }
+                    $ctx = new PricingContext(
+                        orderId: $order->id,
+                        vatRate: $request->input('vatTax'),
+                        quantity: $quantity,
+                        dbProduct: $exisProduct,
+                        requestProduct: $product,
+                        couponCode: $request->input('couponCode')
+                    );
+                    $orderProduct = $pricingService->buildOrderProduct($ctx);
 
                     OrderProduct::query()->create($orderProduct);
 
@@ -2745,6 +2436,12 @@ class OrderController extends Controller
             )
             ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
             ->where('ec_orders.user_id', $customerId);
+
+        if ($request->input('with_products')) {
+            $dataQuery->with(['products' => function ($q) {
+                $q->select('id', 'order_id', 'product_image');
+            }]);
+        }
 
         // Search filters
         if ($request->filled('code')) {
