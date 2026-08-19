@@ -82,9 +82,32 @@ class CreatePaymentForOrderService
 
         $order_products = OrderProduct::where('order_id', $order->getKey())->get();
 
+        \Log::info('[CreatePaymentForOrderService] Checking payment condition', [
+            'order_id'      => $order->getKey(),
+            'paymentStat'   => $paymentStat,
+            'paymentMethod' => $paymentMethod,
+        ]);
+
         if($paymentStat == 'completed' || $paymentMethod == 'cod') {
+            \Log::info('[CreatePaymentForOrderService] Condition MET — entering coupon/order processing block', [
+                'order_id'      => $order->getKey(),
+                'paymentStat'   => $paymentStat,
+                'paymentMethod' => $paymentMethod,
+            ]);
             $activeCoupon = ActiveCoupon::where('order_id', $order->id)->first();
+
+            \Log::info('[CreatePaymentForOrderService] ActiveCoupon lookup', [
+                'order_id'     => $order->getKey(),
+                'activeCoupon' => $activeCoupon ? $activeCoupon->toArray() : null,
+            ]);
+
             if ($activeCoupon) {
+                \Log::info('[CreatePaymentForOrderService] ActiveCoupon found — entering redeem block', [
+                    'order_id'              => $order->getKey(),
+                    'couponRegistrationId'  => $activeCoupon->couponRegistrationId,
+                    'couponCode'            => $activeCoupon->couponCode ?? null,
+                    'status'               => $activeCoupon->status,
+                ]);
                 try {
                     $curl = curl_init();
                     $payload = [
@@ -127,9 +150,16 @@ class CreatePaymentForOrderService
                     $activeCoupon->status = 'Redeem Exception';
                     $activeCoupon->save();
                 }
+            } else {
+                \Log::info('[CreatePaymentForOrderService] No ActiveCoupon found — skipping redeem block', [
+                    'order_id' => $order->getKey(),
+                ]);
             }
-            
-            
+
+            \Log::info('[CreatePaymentForOrderService] Exited activeCoupon if block', [
+                'order_id' => $order->getKey(),
+            ]);
+
             // if (!empty($order->coupon_code)) {
             //     try {
             //         $curl = curl_init();
@@ -142,9 +172,19 @@ class CreatePaymentForOrderService
             //                 'whsCode'              => $couponData->data[0]->whsCode,
             \Illuminate\Support\Facades\Log::info('CreatePaymentService: Dispatching SendOrderNotificationsJob.', ['order_id' => $order->id]);
             \App\Jobs\SendOrderNotificationsJob::dispatch($order, $shipping_data, $paymentMethod);
+        } else {
+            \Log::info('[CreatePaymentForOrderService] Condition NOT MET — skipping coupon/order processing block', [
+                'order_id'      => $order->getKey(),
+                'paymentStat'   => $paymentStat,
+                'paymentMethod' => $paymentMethod,
+            ]);
         }
 
-            
+        \Log::info('[CreatePaymentForOrderService] Exited if block', [
+            'order_id' => $order->getKey(),
+        ]);
+
+
         if ($paymentStat == PaymentStatusEnum::COMPLETED) {
             !$customerId ? event(new OrderPaymentConfirmedEvent($order, $user)) : null;
 

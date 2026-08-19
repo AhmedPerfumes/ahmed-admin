@@ -51,7 +51,12 @@ class OrderController extends Controller
 
         // --- PRE-TRANSACTION API CHECKS ---
         $coupon_code = $request->input('couponCode');
+        $decode = null; // Initialise — only populated below if a coupon code is present
+        \Log::info('[OrderController] storeOrder — coupon_code from request', [
+            'coupon_code' => $coupon_code,
+        ]);
         if (isset($coupon_code) && !empty($coupon_code)) {
+
             if (!isset($request->couponData) || empty($request->couponData)) {
                 return response()->json(['couponMessage' => 'Apply or Remove Coupon First']);
             }
@@ -84,6 +89,13 @@ class OrderController extends Controller
             $response = curl_exec($curl);
             curl_close($curl);
             $decode = json_decode($response);
+
+            \Log::info('[OrderController] Coupon API response decoded', [
+                'coupon_code'    => $coupon_code,
+                'raw_response'   => $response,
+                'decode'         => $decode ? (array) $decode : null,
+                'decode_data'    => !empty($decode->data) ? (array) $decode->data : null,
+            ]);
 
             if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
                 return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
@@ -1468,8 +1480,19 @@ class OrderController extends Controller
                 //     // InvoiceItem::query()->create($orderProduct);
                 // }
 
+                \Log::info('[OrderController] Checking decode/coupon condition', [
+                    'order_id'     => $order->id,
+                    'decode'       => !empty($decode) ? (array) $decode : null,
+                    'has_data'     => !empty($decode->data),
+                    'data_is_array'=> !empty($decode->data) && is_array($decode->data),
+                ]);
+
                 if (!empty($decode) && !empty($decode->data) && is_array($decode->data)) {
-                    
+                    \Log::info('[OrderController] Condition MET — processing coupon data', [
+                        'order_id'    => $order->id,
+                        'couponObject'=> (array) $decode->data[0],
+                    ]);
+
                     // Get the first coupon object from the 'data' array
                     $couponObject = $decode->data[0];
 
@@ -1487,7 +1510,22 @@ class OrderController extends Controller
 
                     // Create the new record in the 'active_coupon' table
                     ActiveCoupon::create($couponData);
+
+                    \Log::info('[OrderController] ActiveCoupon record created', [
+                        'order_id'   => $order->id,
+                        'couponData' => $couponData,
+                    ]);
+                } else {
+                    \Log::info('[OrderController] Condition NOT MET — skipping coupon creation', [
+                        'order_id' => $order->id,
+                        'decode'   => !empty($decode) ? (array) $decode : null,
+                    ]);
                 }
+
+                \Log::info('[OrderController] Exited coupon if block', [
+                    'order_id' => $order->id,
+                ]);
+
 
                 if($request->input('payment_method') == 'paytabs') {
                     $resp = $this->payTabsPayment($request, $data, $order);
@@ -2001,10 +2039,19 @@ class OrderController extends Controller
     public function payTabsCallback(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
         \Log::info('Paytabs Callback Hit (The Truth):', ['payload' => $request->all()]);
 
-        // 1. Identify the Order
+        // 1. Identify the Order and Transaction Reference
         $orderCodeRaw = $request->query('order_number') ?? $request->input('order_number');
-        $orderCode = base64_decode($orderCodeRaw);
+        $tranRef = $request->input('tran_ref');
 
+        if (!$orderCodeRaw || !$tranRef) {
+            \Log::warning('PayTabs Callback Rejected: Missing order_number or tran_ref', [
+                'order_number' => $orderCodeRaw,
+                'tran_ref'     => $tranRef
+            ]);
+            return response()->json(['message' => 'Invalid callback payload: missing order_number or tran_ref'], 400);
+        }
+
+        $orderCode = base64_decode($orderCodeRaw);
         $order = Order::where('code', $orderCode)->orderBy('id', 'desc')->first();
 
         if (!$order) {
@@ -2012,30 +2059,115 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order not found'], 404);
         }
 
-        // 2. Extract Data from Nested JSON Structure (Specific to Callback)
-        $tranRef = $request->input('tran_ref'); // Top level
-        $respStatus = $request->input('payment_result.response_status'); // Nested
-        $respMessage = $request->input('payment_result.response_message'); // Nested
+        // 2. Idempotency Check (Prevent duplicate executions/notifications)
+        $alreadyProcessed = Payment::where('charge_id', $tranRef)
+            ->where('status', 'completed')
+            ->exists();
 
-        // 3. Execute the Heavy Service (Emails, SMS, Coupon)
-        // Since this is the only place calling it, we don't need complex double-checks.
+        if ($alreadyProcessed) {
+            \Log::info("PayTabs Callback: Transaction {$tranRef} for Order {$order->code} already processed. Skipping.");
+            return response()->json(['message' => 'Already processed'], 200);
+        }
+
+        // 3. ZERO-TRUST STEP: Direct Server-to-Server Inquiry to PayTabs Query API
+        $PROFILE_ID = config('paytabs.profile_id');
+        $SERVER_KEY = config('paytabs.server_key');
+        $QUERY_URL  = 'https://secure.paytabs.com/payment/query';
+
+        $queryPayload = [
+            'profile_id' => (int) $PROFILE_ID,
+            'tran_ref'   => $tranRef,
+        ];
+
+        $curlOptions = [
+            CURLOPT_URL            => $QUERY_URL,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING       => '',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => json_encode($queryPayload),
+            CURLOPT_HTTPHEADER     => [
+                'authorization:' . $SERVER_KEY,
+                'Content-Type:application/json'
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+        ];
+
+        if (file_exists(base_path('certs/cacert.pem'))) {
+            $curlOptions[CURLOPT_CAINFO] = base_path('certs/cacert.pem');
+        }
+
+        $curl = curl_init();
+        curl_setopt_array($curl, $curlOptions);
+        $rawResponse = curl_exec($curl);
+        $curlError   = curl_error($curl);
+        $httpCode    = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        if ($curlError) {
+            \Log::error('PayTabs Verification cURL Error: ' . $curlError);
+            return response()->json(['message' => 'Failed to reach PayTabs verification gateway'], 500);
+        }
+
+        $verifiedData = json_decode($rawResponse, true);
+        \Log::info("PayTabs Verification Response for Order {$order->code}:", [
+            'http_code' => $httpCode,
+            'response'  => $verifiedData
+        ]);
+
+        if (empty($verifiedData) || empty($verifiedData['payment_result'])) {
+            \Log::error('PayTabs Verification Failed: Invalid response from PayTabs Query API', [
+                'raw' => $rawResponse
+            ]);
+            return response()->json(['message' => 'Payment verification inquiry failed'], 400);
+        }
+
+        // 4. Cross-verify PayTabs Official Response with Database Records
+        $verifiedStatus  = $verifiedData['payment_result']['response_status'] ?? null;
+        $verifiedMessage = $verifiedData['payment_result']['response_message'] ?? 'Verified via PayTabs Query API';
+        $verifiedAmount  = (float) ($verifiedData['cart_amount'] ?? 0);
+        $verifiedCartId  = (string) ($verifiedData['cart_id'] ?? '');
+
+        // Match Cart ID (Order Code)
+        $cleanOrderCode = str_replace('#', '', $order->code);
+        $expectedCartId = explode('#', $order->code)[1] ?? $order->code;
+
+        if ($verifiedCartId !== $cleanOrderCode && $verifiedCartId !== $order->code && $verifiedCartId !== $expectedCartId) {
+            \Log::error('PayTabs Verification Mismatch: Cart ID mismatch', [
+                'expected' => $order->code,
+                'received' => $verifiedCartId
+            ]);
+            return response()->json(['message' => 'Verification failed: Cart ID mismatch'], 400);
+        }
+
+        // Match Amount (Prevent Underpayment attacks)
+        if (abs($verifiedAmount - (float) $order->amount) > 0.01) {
+            \Log::error('PayTabs Verification Mismatch: Amount mismatch', [
+                'expected' => (float) $order->amount,
+                'received' => $verifiedAmount
+            ]);
+            return response()->json(['message' => 'Verification failed: Amount mismatch'], 400);
+        }
+
+        // 5. Execute Order Payment Processing with Official Verified Status
         try {
             $createPaymentForOrderService->execute(
                 $order,
                 'paytabs',
-                $respStatus,
+                $verifiedStatus,
                 $order->user_id,
                 $tranRef,
-                $respMessage
+                $verifiedMessage
             );
-            \Log::info("Paytabs Callback Success: Order {$order->code} processed.");
+            \Log::info("Paytabs Callback Success: Order {$order->code} processed with verified status: {$verifiedStatus}");
         } catch (\Exception $e) {
-            \Log::error("Paytabs Callback Error: " . $e->getMessage());
+            \Log::error("Paytabs Callback Execution Error: " . $e->getMessage());
             return response()->json(['message' => 'Error updating order'], 500);
         }
 
-        // 4. Return 200 OK to PayTabs
-        return response()->json(['message' => 'Callback received successfully']);
+        // 6. Return 200 OK to PayTabs
+        return response()->json(['message' => 'Callback verified and processed successfully']);
     }
 
     public function payTabsPaymentRedirect(Request $request) {
