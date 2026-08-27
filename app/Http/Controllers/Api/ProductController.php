@@ -1038,7 +1038,7 @@ class ProductController extends Controller
 
                 ->select(
                     // Product columns
-                    DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar', 'ec_products.content', 'ec_products.content_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge',
+                    DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar', 'ec_products.content', 'ec_products.content_ar', 'ec_products.seo_content', 'ec_products.seo_content_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge',
                     'ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5',
 
                     // New Fragrance Note columns
@@ -2422,10 +2422,20 @@ class ProductController extends Controller
             $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
 
             return [
-                'name'     => html_entity_decode($item->product_name), // Fixes &amp; for the UI
-                'image'    => $displayImage, 
-                'price'    => $item->price,
-                'url_path' => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
+                'id'                => $item->product_id,
+                'product_id'        => $item->product_id,
+                'product_name'      => $item->product_name,
+                'name'              => html_entity_decode($item->product_name), // Fixes &amp; for the UI
+                'image'             => $displayImage, 
+                'images'            => $item->images ?? null,
+                'price'             => $item->price,
+                'sale_price'        => $item->sale_price ?? null,
+                'category_name'     => $item->category_name ?? '',
+                'subcategory_name'  => $subcatName ?? '',
+                'product_qty'       => $item->product_qty ?? 100,
+                'collection_name'   => $item->collection_name ?? null,
+                'discount'          => $item->discount ?? null,
+                'url_path'          => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
             ];
         });
 

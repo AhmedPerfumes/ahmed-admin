@@ -47,6 +47,8 @@ class Product extends BaseModel
         'description_ar',
         'content',
         'content_ar',
+        'seo_content',
+        'seo_content_ar',
         'fragrance_notes',
         'fragrance_notes_ar',
         'image', // Featured image
@@ -125,6 +127,9 @@ class Product extends BaseModel
         'name' => SafeContent::class,
         'description' => SafeContent::class,
         'content' => SafeContent::class,
+        'content_ar' => SafeContent::class,
+        'seo_content' => SafeContent::class,
+        'seo_content_ar' => SafeContent::class,
         'fragrance_notes' => SafeContent::class,
         'sale_type' => 'int',
         'start_date' => 'datetime',

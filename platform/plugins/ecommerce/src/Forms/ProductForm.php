@@ -144,10 +144,10 @@ class ProductForm extends FormAbstract
             ->add('description_ar', EditorField::class, EditorFieldOption::make()->label(trans('core/base::forms.description_ar'))->placeholder(trans('core/base::forms.description_ar_placeholder'))->required()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
             ->add('description_row_end', 'html', ['html' => '</div>'])
 
-            // ->add('content_row_start', 'html', ['html' => '<div class="row">'])
-            // ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            // ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
-            // ->add('content_row_end', 'html', ['html' => '</div>'])
+            ->add('seo_content_row_start', 'html', ['html' => '<div class="row">'])
+            ->add('seo_content', EditorField::class, EditorFieldOption::make()->label('SEO Content')->placeholder('Enter SEO content...')->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('seo_content_ar', EditorField::class, EditorFieldOption::make()->label('SEO Content (Arabic)')->placeholder('Enter SEO content in Arabic...')->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())
+            ->add('seo_content_row_end', 'html', ['html' => '</div>'])
 
             // ->add('fragrance_row_start', 'html', ['html' => '<div class="row">'])
             // ->add('fragrance_notes', EditorField::class, ContentFieldOption::make()->label('Fragrance Notes')->allowedShortcodes()->wrapperAttributes(['class' => 'form-group col-md-6'])->toArray())

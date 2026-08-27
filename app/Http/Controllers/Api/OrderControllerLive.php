@@ -164,9 +164,9 @@ class OrderController extends Controller
                     ]);
                 }
             } elseif ($response) {
-                // return response()->json([
-                //     'qtyMessage' => "We couldn't verify the stock for this product right now. Please try again later. If the issue continues, contact support and mention reference code: STOCK-A7K92PQL."
-                // ]);
+                return response()->json([
+                    'qtyMessage' => "We couldn't verify the stock for this product right now. Please try again later. If the issue continues, contact support and mention reference code: STOCK-A7K92PQL."
+                ]);
             }
         }
 
