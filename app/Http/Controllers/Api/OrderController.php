@@ -205,7 +205,7 @@ class OrderController extends Controller
                 ->whereHas('focRules.products', function ($query) use ($productIds) { $query->whereIn('product_id', $productIds); })
                 ->with([
                     'focRules' => function ($query) {
-                        $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold', 'gift_limit');
+                        $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold', 'gift_limit', 'allow_with_discount');
                     },
                     'focRules.products' => function ($query) use ($productIds) {
                         $query->whereIn('product_id', $productIds);
@@ -224,6 +224,7 @@ class OrderController extends Controller
 
             // Calculate actual cart total from DB prices for non-gift products (prevents payload tampering of totalPrice)
             $actualDbCartTotal = 0;
+            $actualDbNonDiscountedCartTotal = 0;
             foreach ($request->input('products') as $cartItem) {
                 $isGiftItem = (isset($cartItem['is_gift']) && filter_var($cartItem['is_gift'], FILTER_VALIDATE_BOOLEAN)) ||
                               (isset($cartItem['type']) && in_array($cartItem['type'], ['foc', 'bogo']));
@@ -238,6 +239,7 @@ class OrderController extends Controller
                 }
 
                 $unitPrice = (float)$dbItem->price;
+                $hasDiscount = false;
 
                 // Check for individual promotion discount in DB
                 $itemIndDiscount = $dbIndividualDiscounts->first(function ($promo) use ($cartItem) {
@@ -247,6 +249,7 @@ class OrderController extends Controller
                 });
 
                 if ($itemIndDiscount) {
+                    $hasDiscount = true;
                     $indRule = collect($itemIndDiscount->discountRules)->firstWhere('apply_to', 'individual');
                     $specificRule = collect($indRule->individualRules ?? [])->firstWhere('product_id', $cartItem['product_id']);
                     if ($specificRule) {
@@ -264,6 +267,7 @@ class OrderController extends Controller
                     });
 
                     if ($itemGroupDiscount) {
+                        $hasDiscount = true;
                         $grpRule = collect($itemGroupDiscount->discountRules)->firstWhere('apply_to', '!=', 'individual');
                         if ($grpRule && isset($grpRule->percentage)) {
                             $unitPrice = $unitPrice - ($unitPrice * ((float)$grpRule->percentage / 100));
@@ -272,7 +276,12 @@ class OrderController extends Controller
                 }
 
                 $qty = isset($cartItem['quantity']) && (int)$cartItem['quantity'] > 0 ? (int)$cartItem['quantity'] : 1;
-                $actualDbCartTotal += ($unitPrice * $qty);
+                $itemTotal = ($unitPrice * $qty);
+                $actualDbCartTotal += $itemTotal;
+
+                if (!$hasDiscount) {
+                    $actualDbNonDiscountedCartTotal += $itemTotal;
+                }
             }
 
             $barcodes = [];
@@ -445,13 +454,12 @@ class OrderController extends Controller
 
                 $focFromDb = null;
                 if ($requestHasFOC) {
-                    $cartTotalPrice = $actualDbCartTotal;
-
-                    $focFromDb = $dbFOCs->first(function ($promo) use ($product, $cartTotalPrice) {
-                        return collect($promo->focRules)->some(function ($rule) use ($product, $cartTotalPrice) {
+                    $focFromDb = $dbFOCs->first(function ($promo) use ($product, $actualDbCartTotal, $actualDbNonDiscountedCartTotal) {
+                        return collect($promo->focRules)->some(function ($rule) use ($product, $actualDbCartTotal, $actualDbNonDiscountedCartTotal) {
+                            $applicableTotal = $rule->allow_with_discount ? $actualDbCartTotal : $actualDbNonDiscountedCartTotal;
                             $min = (float)$rule->min_threshold;
                             $max = ($rule->max_threshold !== null && $rule->max_threshold !== '') ? (float)$rule->max_threshold : null;
-                            $withinThreshold = ($cartTotalPrice >= $min) && ($max === null || $cartTotalPrice <= $max);
+                            $withinThreshold = ($applicableTotal >= $min) && ($max === null || $applicableTotal <= $max);
 
                             return $withinThreshold && collect($rule->products)->contains('product_id', $product['product_id']);
                         });
@@ -468,10 +476,11 @@ class OrderController extends Controller
                 }
 
                 if ($requestHasFOC && $dbHasFOC) {
-                    $matchedRule = collect($focFromDb->focRules)->first(function ($rule) use ($product, $cartTotalPrice) {
+                    $matchedRule = collect($focFromDb->focRules)->first(function ($rule) use ($product, $actualDbCartTotal, $actualDbNonDiscountedCartTotal) {
+                        $applicableTotal = $rule->allow_with_discount ? $actualDbCartTotal : $actualDbNonDiscountedCartTotal;
                         $min = (float)$rule->min_threshold;
                         $max = ($rule->max_threshold !== null && $rule->max_threshold !== '') ? (float)$rule->max_threshold : null;
-                        return ($cartTotalPrice >= $min) && ($max === null || $cartTotalPrice <= $max) && collect($rule->products)->contains('product_id', $product['product_id']);
+                        return ($applicableTotal >= $min) && ($max === null || $applicableTotal <= $max) && collect($rule->products)->contains('product_id', $product['product_id']);
                     });
 
                     $giftLimit = $matchedRule ? (int)($matchedRule->gift_limit ?: 1) : 1;

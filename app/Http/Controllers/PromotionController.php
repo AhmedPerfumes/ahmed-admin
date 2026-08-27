@@ -607,6 +607,7 @@ private function preparePromotionData(Promotion $promotion)
             'min_threshold' => $request->input('conditions.foc.min_threshold'),
             'max_threshold' => $request->input('conditions.foc.max_threshold'),
             'gift_limit'    => $request->input('rewards.foc.gift_limit', 1),
+            'allow_with_discount' => (bool)$request->input('conditions.foc.allow_with_discount', false),
         ]);
 
         foreach ($request->input('rewards.foc.free_product_ids', []) as $productId) {

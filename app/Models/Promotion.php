@@ -162,7 +162,11 @@ class FocRule extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['promotion_id', 'min_threshold', 'max_threshold','gift_limit'];
+    protected $fillable = ['promotion_id', 'min_threshold', 'max_threshold', 'gift_limit', 'allow_with_discount'];
+
+    protected $casts = [
+        'allow_with_discount' => 'boolean',
+    ];
 
     public function promotion() { return $this->belongsTo(Promotion::class); }
     public function products() { return $this->hasMany(FocProduct::class, 'foc_rule_id'); }
