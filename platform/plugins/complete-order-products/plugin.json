@@ -1,0 +1,11 @@
+{
+    "id": "ahmed/complete-order-products",
+    "name": "Complete Order Products",
+    "namespace": "Ahmed\\CompleteOrderProducts\\",
+    "provider": "Ahmed\\CompleteOrderProducts\\Providers\\CompleteOrderProductsServiceProvider",
+    "author": "Ahmed",
+    "url": "https://ahmedalmaghribi.com",
+    "version": "1.0.0",
+    "description": "Complete Your Order Cross-sell & Add-on Products Plugin",
+    "minimum_core_version": "7.0.0"
+}

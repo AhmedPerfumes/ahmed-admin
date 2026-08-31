@@ -9,6 +9,7 @@ use Botble\Ecommerce\Models\ProductCategory;
 use Botble\Ecommerce\Models\ShippingRule;
 use Botble\Ecommerce\Models\Tax;
 use Botble\Ecommerce\Models\Currency;
+use Botble\SimpleSlider\Models\SimpleSlider;
 use Botble\SimpleSlider\Models\SimpleSliderItem;
 use Botble\Page\Models\Page;
 use Botble\Media\Models\MediaFile;
@@ -80,8 +81,13 @@ class ProductCategoryController extends Controller
         $tax = Tax::select('percentage')->where('status', 'published')->first();
         $shipping_service_charges = ShippingRule::select('price')->get();
         $currency = Currency::select('symbol')->where('is_default', 1)->first();
-        $home_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'desktop')->orderBy('order', 'asc')->get();
-        $home_mobile_sliders = SimpleSliderItem::select('title', 'image', 'link', 'order', 'sub_title', 'season', 'type', 'color')->where('type', 'mobile')->orderBy('order', 'asc')->get();
+        $homeSlider = SimpleSlider::where('key', 'home-slider')->orWhere('id', 1)->where('status', 'published')->first();
+        $homeSliderId = $homeSlider ? $homeSlider->id : 1;
+        $home_sliders = SimpleSliderItem::select('title', 'title_ar', 'image', 'mobile_image', 'link', 'order', 'sub_title', 'sub_title_ar', 'season', 'season_ar', 'color')
+            ->where('simple_slider_id', $homeSliderId)
+            ->orderBy('order', 'asc')
+            ->get();
+        $home_mobile_sliders = $home_sliders;
         // $dynamic_sections= DB::table('dynamic_sections')->select('heading', 'description','link','image','video1','video2')->get();
         $pop_up = Page::select('name','content','description','image','mobile_image','link')->where('template', 'full-width')->where('status', 'published')->get();
         $top_header=ProductAttribute::select('title','color')->get();

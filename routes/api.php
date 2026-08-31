@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CartController;
 use Botble\Ecommerce\Http\Controllers\PrebookingApiController;
 use App\Http\Controllers\Api\TabbyCronController;
 use App\Http\Controllers\SmsaController;
+use App\Http\Controllers\Api\SliderApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -122,4 +123,9 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
     Route::withoutMiddleware('customLogs')->post('/products/live-status', [ProductController::class, 'getProductsLiveStatus']);
 
     Route::withoutMiddleware('restrict.domains')->get('smsa/check-status', [SmsaController::class, 'checkDeliveryStatus'])->name('smsa.check_status');
+    
+    // Slider API Routes
+    Route::withoutMiddleware('customLogs')->get('/sliders/{id}', [SliderApiController::class, 'getSliderById']);
+    Route::withoutMiddleware('customLogs')->get('/sliders/key/{key}', [SliderApiController::class, 'getSliderByKey']);
+    Route::withoutMiddleware('customLogs')->post('/sliders/by-ids', [SliderApiController::class, 'getSlidersByIds']);
 });
