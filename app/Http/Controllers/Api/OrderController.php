@@ -398,7 +398,8 @@ class OrderController extends Controller
                 $cashback_product_ids = [];
             }
 
-            $customer_id = $request->input('customer_id');
+            $authCustomer = auth()->user();
+            $customer_id = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
             if (!$customer_id) {
                 $validator = Validator::make($request->all(), [
@@ -2339,18 +2340,10 @@ class OrderController extends Controller
     }
     public function customerDetails(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'customer_id'      => 'required'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
-        }
-
-        $customer = Customer::select('id', 'name', 'email', 'phone')->where('id', $request->input('customer_id'))->first();
+        $customer = auth()->user() ?? Customer::find($request->input('customer_id'));
 
         if(!$customer) {
-            return response()->json(['message' => 'Customer Not Found']);
+            return response()->json(['message' => 'Customer Not Found'], 404);
         }
 
         return response()->json([
@@ -2364,75 +2357,95 @@ class OrderController extends Controller
 
     public function customerUpdate(Request $request)
     {
+        $authCustomer = auth()->user();
+        $targetId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
+
         if($request->flag == 'fpassword') {
             $validator = Validator::make($request->all(), [
-            'customer_id'      => 'required',
-            'customer_password' => 'required',
+                'customer_password' => 'required|string|min:6',
+            ], [
+                'customer_password.required' => 'Password is required.',
+                'customer_password.min'      => 'Password must be at least 6 characters.',
             ]);
 
             if ($validator->fails()) {
-                return response()->json($validator->errors());
+                return response()->json([
+                    'message' => 'Validation Error',
+                    'errors'  => $validator->errors()
+                ], 422);
             }
 
-            $customer = Customer::find($request->input('customer_id'));
+            $customer = Customer::find($targetId);
 
             if (!$customer) {
-                return response()->json(['message' => 'Customer Not Found']);
+                return response()->json(['message' => 'Customer Not Found'], 404);
             }
 
             $customer->password = Hash::make($request->input('customer_password'));
             $customer->save();
 
             return response()->json([
-                'message' => 'Password Updated Successfully',
-                'customer_id' => $customer->id,
-                'customer_name' => $customer->name,
-                'customer_email' => $customer->email,
+                'message'         => 'Password Updated Successfully',
+                'customer_id'     => $customer->id,
+                'customer_name'   => $customer->name,
+                'customer_email'  => $customer->email,
                 'customer_mobile' => $customer->phone
             ]);
         } else {
             $validator = Validator::make($request->all(), [
-                'customer_id'      => 'required',
-                'customer_name' => 'required',
-                 'customer_email' => 'required|email|unique:ec_customers,email,' . $request->input('customer_id'),
-                'customer_mobile' => 'required|unique:ec_customers,phone,' . $request->input('customer_id'),
-                // 'customer_password' => 'required',
+                'customer_name'     => 'required|string|min:2|max:120',
+                'customer_email'    => 'required|email|max:150|unique:ec_customers,email,' . $targetId,
+                'customer_mobile'   => ['required', 'regex:/^\d{9,15}$/', 'unique:ec_customers,phone,' . $targetId],
+                'customer_password' => 'nullable|string|min:6',
+            ], [
+                'customer_name.required'   => 'Full name is required.',
+                'customer_name.min'        => 'Name must be at least 2 characters.',
+                'customer_email.required'  => 'Email address is required.',
+                'customer_email.email'     => 'Please provide a valid email address.',
+                'customer_email.unique'    => 'This email address is already in use.',
+                'customer_mobile.required' => 'Mobile number is required.',
+                'customer_mobile.regex'    => 'Please provide a valid mobile number.',
+                'customer_mobile.unique'   => 'This mobile number is already in use.',
+                'customer_password.min'    => 'New password must be at least 6 characters.',
             ]);
 
             if ($validator->fails()) {
-                return response()->json($validator->errors());
+                return response()->json([
+                    'message' => 'Validation Error',
+                    'errors'  => $validator->errors()
+                ], 422);
             }       
 
-            $customer = Customer::find($request->input('customer_id'));
+            $customer = Customer::find($targetId);
 
             if (!$customer) {
-                return response()->json(['message' => 'Customer Not Found']);
+                return response()->json(['message' => 'Customer Not Found'], 404);
             }
 
-            $customer->name = $request->input('customer_name');
-            $customer->email = $request->input('customer_email');
-            $customer->phone = $request->input('customer_mobile');
+            $customer->name = trim($request->input('customer_name'));
+            $customer->email = trim($request->input('customer_email'));
+            $customer->phone = trim($request->input('customer_mobile'));
             if(isset($request->customer_password) && !empty($request->customer_password)) {
                 $customer->password = Hash::make($request->input('customer_password'));
             }
             $customer->save();
 
-            $addresses = Address::where('customer_id', $request->input('customer_id'))->get();
+            $addresses = Address::where('customer_id', $customer->id)->get();
 
             if(!$addresses->isEmpty()) {
                 foreach ($addresses as $key => $address) {
-                    $address->name = $request->input('customer_name');
-                    $address->email = $request->input('customer_email');
-                    $address->phone = $request->input('customer_mobile');
+                    $address->name = $customer->name;
+                    $address->email = $customer->email;
+                    $address->phone = $customer->phone;
                     $address->save();
                 }   
             }
 
             return response()->json([
-                'message' => 'Customer Updated Successfully',
-                'customer_id' => $customer->id,
-                'customer_name' => $customer->name,
-                'customer_email' => $customer->email,
+                'message'         => 'Customer Updated Successfully',
+                'customer_id'     => $customer->id,
+                'customer_name'   => $customer->name,
+                'customer_email'  => $customer->email,
                 'customer_mobile' => $customer->phone
             ]);
         }
@@ -2440,15 +2453,14 @@ class OrderController extends Controller
 
     public function customerAddressDetails(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'customer_id'      => 'required'
-        ]);
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
+        if (!$customerId) {
+            return response()->json(['message' => 'Customer Id is required'], 400);
         }
 
-        $address = Address::where('customer_id', $request->input('customer_id'))->get();
+        $address = Address::where('customer_id', $customerId)->get();
 
         if($address->isEmpty()) {
             return response()->json(['message' => 'Customer Address Not Found']);
@@ -2462,13 +2474,15 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
+
         // address_id of 0 or -1 means "create new address"
         if((int)$request->input('address_id') <= 0) {
             $validator = Validator::make($request->all(), [
                 'state'       => 'required',
                 'city'        => 'required',
                 'address'     => 'required',
-                'customer_id' => 'required',
                 'name'        => 'required',
                 'email'       => 'required|email',
                 'mobile'      => 'required',
@@ -2485,7 +2499,7 @@ class OrderController extends Controller
                 'state'       => $request->input('state'),
                 'city'        => $request->input('city'),
                 'address'     => $request->input('address'),
-                'customer_id' => $request->input('customer_id'),
+                'customer_id' => $customerId,
                 'is_default'  => $request->input('is_default', 0),
             ]);
 
@@ -2507,10 +2521,14 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $address = Address::find($request->input('address_id'));
+        $query = Address::where('id', $request->input('address_id'));
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
+        }
+        $address = $query->first();
 
         if (!$address) {
-            return response()->json(['message' => 'Customer Address Not Found']);
+            return response()->json(['message' => 'Customer Address Not Found'], 404);
         }
 
         $address->state = $request->input('state');
@@ -2525,14 +2543,60 @@ class OrderController extends Controller
         ]);
     }
 
+    public function customerAddressDelete(Request $request)
+    {
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
+
+        if (!$customerId) {
+            return response()->json(['message' => 'Unauthenticated. Please log in.'], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address_id' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $address = Address::where('id', $request->input('address_id'))
+            ->where('customer_id', $customerId)
+            ->first();
+
+        if (!$address) {
+            return response()->json(['message' => 'Address not found or does not belong to this customer'], 404);
+        }
+
+        $wasDefault = (int) $address->is_default === 1;
+        $address->delete();
+
+        $remainingAddresses = Address::where('customer_id', $customerId)->get();
+
+        // If the deleted address was default, auto-promote the first remaining address
+        if ($wasDefault && $remainingAddresses->isNotEmpty()) {
+            $newDefault = $remainingAddresses->first();
+            $newDefault->is_default = 1;
+            $newDefault->save();
+            $remainingAddresses = Address::where('customer_id', $customerId)->get();
+        }
+
+        return response()->json([
+            'message'     => 'Address deleted successfully',
+            'was_default' => $wasDefault,
+            'addresses'   => $remainingAddresses,
+        ]);
+    }
+
     public function customerOrders(Request $request)
     {
-        // Customer/user ID (required for total filtering)
-        $customerId = $request->input('customer_id');
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
         if (!$customerId) {
             return response()->json(['message' => 'Customer Id is Required']);
         }
+
 
         // Main columns
         $columns = [
@@ -2563,7 +2627,15 @@ class OrderController extends Controller
                 'ec_orders.amount',
                 'ec_orders.tax_amount',
                 'ec_orders.sub_total',
+                'ec_orders.shipping_amount',
+                'ec_orders.shipping_amount_vat',
+                'ec_orders.service_amount',
+                'ec_orders.service_amount_vat',
+                'ec_orders.cod_charge',
+                'ec_orders.cod_charge_vat',
                 'ec_orders.coupon_code',
+                'ec_orders.discount_amount',
+                // 'ec_orders.promotion_amount',
                 'payments.payment_channel'
             )
             ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
@@ -2596,12 +2668,24 @@ class OrderController extends Controller
             $dataQuery->where('payments.payment_channel', 'like', '%' . $request->payment_channel . '%');
         }
 
-        // Sorting
-        $orderBy = $request->input('orderBy', 'ec_orders.id');
-        $orderDir = $request->input('orderDir', 'desc');
-        if (in_array($orderBy, $columns)) {
-            $dataQuery->orderBy($orderBy, $orderDir);
-        }
+        // Sorting — accept both qualified ("ec_orders.created_at") and
+        // unqualified ("created_at") column names from the frontend.
+        $allowedColumns = [
+            'id'              => 'ec_orders.id',
+            'created_at'      => 'ec_orders.created_at',
+            'amount'          => 'ec_orders.amount',
+            'status'          => 'ec_orders.status',
+            'ec_orders.id'          => 'ec_orders.id',
+            'ec_orders.created_at'  => 'ec_orders.created_at',
+            'ec_orders.amount'      => 'ec_orders.amount',
+            'ec_orders.status'      => 'ec_orders.status',
+        ];
+        $orderByRaw   = $request->input('orderBy', 'created_at');
+        $orderDir     = in_array(strtolower($request->input('orderDir', 'desc')), ['asc', 'desc'])
+                            ? strtolower($request->input('orderDir', 'desc'))
+                            : 'desc';
+        $qualifiedCol = $allowedColumns[$orderByRaw] ?? 'ec_orders.created_at';
+        $dataQuery->orderBy($qualifiedCol, $orderDir);
 
         // Pagination
         $page = (int) $request->input('page', 1);
@@ -2637,6 +2721,29 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
+        $order = Order::select(
+            'ec_orders.id',
+            'ec_orders.code',
+            'ec_orders.created_at',
+            'ec_orders.status',
+            'ec_orders.amount',
+            'ec_orders.tax_amount',
+            'ec_orders.sub_total',
+            'ec_orders.shipping_amount',
+            'ec_orders.shipping_amount_vat',
+            'ec_orders.service_amount',
+            'ec_orders.service_amount_vat',
+            'ec_orders.cod_charge',
+            'ec_orders.cod_charge_vat',
+            'ec_orders.coupon_code',
+            'ec_orders.discount_amount',
+            // 'ec_orders.promotion_amount',
+            'payments.payment_channel'
+        )
+        ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
+        ->where('ec_orders.id', $request->input('order_id'))
+        ->first();
+
         $order_products = OrderProduct::select('id', 'product_name', 'product_image', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
 
         if($order_products->isEmpty()) {
@@ -2647,6 +2754,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => 'Details Fetched successfully',
+            'order' => $order,
             'order_products' => $order_products,
             'order_address' => $order_address,
         ]);
@@ -2692,7 +2800,8 @@ class OrderController extends Controller
 
         // Customer-specific coupons
         $customerCoupons = collect();
-        $customerId = $request->input('customer_id');
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
         if ($customerId && $customerId != '-1') {
             $customerCoupons = Promotion::where('type', 'coupon')
@@ -2739,8 +2848,13 @@ class OrderController extends Controller
 
     public function customerPasswordCheck(Request $request)
     {
+        $customer = auth()->user() ?? Customer::find($request->input('customer_id'));
+
+        if (!$customer) {
+            return response()->json(['message' => 'Customer Not Found'], 404);
+        }
+
         $validator = Validator::make($request->all(), [
-            'customer_id'      => 'required',
             'customer_password' => 'required'
         ]);
 
@@ -2748,21 +2862,11 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
         
-        $customer = Customer::find($request->input('customer_id'));
-
-        if (!$customer) {
-            return response()->json(['message' => 'Customer Not Found']);
+        if (Hash::check($request->input('customer_password'), $customer->password)) {
+            return response()->json(['status' => 'success', 'message' => 'Password Correct']);
+        } else {
+            return response()->json(['status' => 'error', 'message' => 'Incorrect Password'], 400);
         }
-
-        $customer_password = Hash::check($request->input('customer_password'), $customer->password);
-
-        if (!Hash::check($request->input('customer_password'), $customer->password)) {
-            return response()->json(['message' => 'Incorrect Password']);
-        }
-
-        return response()->json([
-            'message' => 'Customer Found Successfully',
-        ]);
     }
 
     // public function tamaraPayment(Request $request, $shippingData, $order, $prods) {
