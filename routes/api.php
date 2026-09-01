@@ -12,11 +12,7 @@ use App\Http\Controllers\Api\CartController;
 use Botble\Ecommerce\Http\Controllers\PrebookingApiController;
 use App\Http\Controllers\Api\TabbyCronController;
 use App\Http\Controllers\SmsaController;
-<<<<<<< HEAD
 use App\Http\Controllers\Api\AiRecommendation;
-=======
-use App\Http\Controllers\Api\SliderApiController;
->>>>>>> saad
 
 /*
 |--------------------------------------------------------------------------
@@ -38,9 +34,29 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
 
     Route::post('/signin', [AuthController::class, 'signin']);
 
-    Route::get('/signout', [AuthController::class, 'signout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
 
-    Route::get('/customer', [AuthController::class, 'getCustomer']);
+    // Protected Customer Account Module Routes
+    Route::middleware(['jwt.auth'])->group(function () {
+        Route::get('/signout', [AuthController::class, 'signout']);
+        Route::get('/customer', [AuthController::class, 'getCustomer']);
+        Route::post('/customerDetails', [OrderController::class, 'customerDetails']);
+        Route::post('/customerUpdate', [OrderController::class, 'customerUpdate']);
+        Route::post('/customerAddressDetails', [OrderController::class, 'customerAddressDetails']);
+        Route::post('/customerAddressUpdate', [OrderController::class, 'customerAddressUpdate']);
+        Route::post('/customerAddressDelete', [OrderController::class, 'customerAddressDelete']);
+        Route::get('/customerOrders', [OrderController::class, 'customerOrders']);
+        Route::post('/customerOrderDetails', [OrderController::class, 'customerOrderDetails']);
+        Route::post('/customerCouponDetails', [OrderController::class, 'customerCouponDetails']);
+        Route::post('/customerPasswordCheck', [OrderController::class, 'customerPasswordCheck']);
+        Route::post('/storeOrder', [OrderController::class, 'storeOrder']);
+
+        // Multi-Device Sessions Routes
+        Route::get('/sessions', [AuthController::class, 'getSessions']);
+        Route::post('/sessions/revoke', [AuthController::class, 'revokeSession']);
+        Route::post('/sessions/revoke-others', [AuthController::class, 'revokeOtherSessions']);
+    });
+
 
     Route::post('/submitReview', [AuthController::class, 'submitReview']);
 
@@ -64,7 +80,6 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
     Route::withoutMiddleware('customLogs')->post('/productSEO', [ProductController::class, 'getProductSEO']);
 
     // Order Routes
-    Route::post('/storeOrder', [OrderController::class, 'storeOrder']);
     Route::withoutMiddleware('restrict.domains')->get('/tabbyPaymentRedirect', [OrderController::class, 'tabbyPaymentRedirect'])->name('payment.tabby.redirect');
     Route::get('/tabbyAllPayments', [TabbyCronController::class, 'tabbyAllPayments']);
     Route::withoutMiddleware('restrict.domains')->post('/payTabsPaymentRedirect', [OrderController::class, 'payTabsPaymentRedirect']);
@@ -86,16 +101,8 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
     Route::post('/feedback', [ContactController::class, 'feedback']);
     Route::post('/campaign', [ContactController::class, 'campaign']);
 
-    Route::post('/customerDetails', [OrderController::class, 'customerDetails']);
-    Route::post('/customerUpdate', [OrderController::class, 'customerUpdate']);
-    Route::post('/customerAddressDetails', [OrderController::class, 'customerAddressDetails']);
-    Route::post('/customerAddressUpdate', [OrderController::class, 'customerAddressUpdate']);
-    Route::get('/customerOrders', [OrderController::class, 'customerOrders']);
-    Route::post('/customerOrderDetails', [OrderController::class, 'customerOrderDetails']);
-    Route::post('/customerCouponDetails', [OrderController::class, 'customerCouponDetails']);
-    Route::post('/customerPasswordCheck', [OrderController::class, 'customerPasswordCheck']);
-
     Route::get('/getFilters', [ProductController::class, 'getFilters']);
+
 
     // Address to get all reviews for a specific product
     Route::get('/products/{product}/reviews', [ApiProductReviewController::class, 'index']);
