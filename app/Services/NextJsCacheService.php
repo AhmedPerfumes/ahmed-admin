@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Log;
 
 class NextJsCacheService
 {
+    public static function revalidate($tags)
+    {
+        app(self::class)->clear($tags);
+    }
+
     public function clear($tags)
     {
         // Normalize to array
@@ -18,7 +23,8 @@ class NextJsCacheService
 
     protected function sendRequest($tags)
     {
-        $url = env('FRONTEND_URL') . 'api/clearcache';
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000/en/');
+        $url = rtrim($frontendUrl, '/') . '/api/clearcache';
         $secret = env('NEXTJS_REVALIDATION_SECRET');
 
         dispatch(function () use ($url, $secret, $tags) {

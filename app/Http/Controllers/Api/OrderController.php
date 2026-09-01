@@ -383,7 +383,7 @@ class OrderController extends Controller
                     });
                 }
 
-                $requestHasDiscount = !is_null($product['discount']);
+                $requestHasDiscount = isset($product['discount']) && !is_null($product['discount']);
                 $dbHasDiscount = !is_null($discountFromDb);
 
                 if ($requestHasDiscount && !$dbHasDiscount) {
