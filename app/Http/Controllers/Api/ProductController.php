@@ -1038,7 +1038,7 @@ class ProductController extends Controller
 
                 ->select(
                     // Product columns
-                    DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar', 'ec_products.content', 'ec_products.content_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge',
+                    DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar', 'ec_products.content', 'ec_products.content_ar', 'ec_products.seo_content', 'ec_products.seo_content_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge',
                     'ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5',
 
                     // New Fragrance Note columns
@@ -1618,6 +1618,146 @@ class ProductController extends Controller
                     // If the main product has no family, return an empty array for consistency.
                     $prod->item_family = [];
                 }
+
+                // Fetch Complete Order Products for "Complete your order with" cross-sell slider
+                try {
+                    $completeOrderItems = DB::table('complete_order_products')
+                        ->join('ec_products', 'complete_order_products.product_id', '=', 'ec_products.id')
+                        ->where('complete_order_products.status', 'published')
+                        ->where('ec_products.status', 'published')
+                        ->where('ec_products.id', '!=', $prod->product_id)
+                        ->select(
+                            'complete_order_products.id as addon_id',
+                            'complete_order_products.custom_title',
+                            'complete_order_products.custom_title_ar',
+                            'complete_order_products.order_index',
+                            'ec_products.id as product_id',
+                            'ec_products.name as product_name',
+                            'ec_products.name_ar as product_name_ar',
+                            'ec_products.image',
+                            'ec_products.images',
+                            'ec_products.description',
+                            'ec_products.quantity as product_qty',
+                            DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'),
+                            DB::raw('CAST(ec_products.sale_price AS DECIMAL(8,2)) as sale_price')
+                        )
+                        ->orderBy('complete_order_products.order_index', 'asc')
+                        ->orderBy('complete_order_products.id', 'desc')
+                        ->get();
+
+                    foreach ($completeOrderItems as $item) {
+                        if (!empty($item->custom_title)) {
+                            $item->product_name = $item->custom_title;
+                        }
+                        if (!empty($item->custom_title_ar)) {
+                            $item->product_name_ar = $item->custom_title_ar;
+                        }
+
+                        // Category
+                        $category = DB::table('ec_product_category_product')
+                            ->select('ec_product_categories.name as category_name')
+                            ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                            ->where('product_id', $item->product_id)
+                            ->where('ec_product_categories.parent_id', 0)
+                            ->first();
+                        $item->category_name = $category ? $category->category_name : 'Perfumes';
+
+                        // Subcategory
+                        $subcategory = DB::table('ec_product_categories')
+                            ->select('name as subcategory_name')
+                            ->join('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                            ->where('product_id', $item->product_id)
+                            ->where('ec_product_categories.parent_id', '!=', 0)
+                            ->first();
+                        $item->subcategory = $subcategory;
+
+                        $item->labels = DB::table('ec_product_label_products')
+                            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                            ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                            ->where('product_id', $item->product_id)
+                            ->get();
+
+                        $item->tags = DB::table('ec_product_tag_product')
+                            ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                            ->where('product_id', $item->product_id)
+                            ->pluck('ec_product_tags.name')
+                            ->toArray();
+
+                        $item->discount = null;
+                        $itemDiscount = Promotion::where('type', 'discount')
+                            ->where('start_date', '<=', now())
+                            ->where('end_date', '>=', now())
+                            ->whereHas('discountRules', function ($query) {
+                                $query->where('apply_to', 'individual');
+                            })
+                            ->whereHas('discountRules.individualRules', function ($query) use ($item) {
+                                $query->where('product_id', $item->product_id);
+                            })
+                            ->with(['discountRules' => function ($query) {
+                                $query->where('apply_to', 'individual')
+                                    ->select('id', 'promotion_id', 'apply_to');
+                            }, 'discountRules.individualRules' => function ($query) use ($item) {
+                                $query->where('product_id', $item->product_id)
+                                    ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                            }])
+                            ->first();
+
+                        if ($itemDiscount) {
+                            $dRule = $itemDiscount->discountRules->first();
+                            $iRule = $dRule ? $dRule->individualRules->first() : null;
+                            if ($iRule) {
+                                $item->discount = (object)[
+                                    'value' => (float)$iRule->value,
+                                    'apply_to' => $dRule->apply_to,
+                                    'discount_type' => $iRule->discount_type,
+                                    'product_price' => $iRule->product_price ? (float)$iRule->product_price : (float)$item->price,
+                                    'discount_amount' => $iRule->discount_amount ? (float)$iRule->discount_amount : null,
+                                    'final_price' => $iRule->final_price ? (float)$iRule->final_price : null,
+                                    'start_date' => $itemDiscount->start_date->format('Y-m-d H:i:s'),
+                                    'end_date' => $itemDiscount->end_date->format('Y-m-d H:i:s'),
+                                ];
+                            }
+                        } else {
+                            $groupDiscount = Promotion::where('type', 'discount')
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
+                                ->whereHas('discountRules', function ($query) {
+                                    $query->where('apply_to', '!=', 'individual');
+                                })
+                                ->whereHas('discountRules.products', function ($query) use ($item) {
+                                    $query->where('product_id', $item->product_id);
+                                })
+                                ->with(['discountRules' => function ($query) {
+                                    $query->where('apply_to', '!=', 'individual')
+                                        ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                                }])
+                                ->first();
+
+                            if ($groupDiscount) {
+                                $dRule = $groupDiscount->discountRules->first();
+                                if ($dRule) {
+                                    $pct = (float)$dRule->percentage;
+                                    $finalPrice = (float)$item->price - ((float)$item->price * $pct / 100);
+                                    $item->discount = (object)[
+                                        'value' => $pct,
+                                        'apply_to' => $dRule->apply_to,
+                                        'discount_type' => 'percent',
+                                        'product_price' => (float)$item->price,
+                                        'discount_amount' => ((float)$item->price * $pct / 100),
+                                        'final_price' => $finalPrice,
+                                        'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                                        'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                                    ];
+                                }
+                            }
+                        }
+                    }
+
+                    $prod->complete_order_products = $completeOrderItems;
+                } catch (\Exception $e) {
+                    $prod->complete_order_products = [];
+                }
+
             $response = response()->json($prod)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
 
             if ($response->isNotModified(request())) {
@@ -2200,7 +2340,7 @@ class ProductController extends Controller
 
     public function freeGiftProducts(Request $request)
     {
-        $thresholds = DB::table('foc_rules')->where('type', 'foc')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('promotions', 'promotions.id', '=', 'foc_rules.promotion_id')->select('name', 'foc_rules.id', 'min_threshold AS min', 'max_threshold As max','gift_limit')->orderBy('min', 'asc')->get();
+        $thresholds = DB::table('foc_rules')->where('type', 'foc')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('promotions', 'promotions.id', '=', 'foc_rules.promotion_id')->select('name', 'foc_rules.id', 'min_threshold AS min', 'max_threshold As max', 'gift_limit', 'allow_with_discount')->orderBy('min', 'asc')->get();
 
         if($thresholds->isEmpty()) {
             return response()->json(['thresholds' => []])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => []])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
@@ -2422,10 +2562,20 @@ class ProductController extends Controller
             $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
 
             return [
-                'name'     => html_entity_decode($item->product_name), // Fixes &amp; for the UI
-                'image'    => $displayImage, 
-                'price'    => $item->price,
-                'url_path' => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
+                'id'                => $item->product_id,
+                'product_id'        => $item->product_id,
+                'product_name'      => $item->product_name,
+                'name'              => html_entity_decode($item->product_name), // Fixes &amp; for the UI
+                'image'             => $displayImage, 
+                'images'            => $item->images ?? null,
+                'price'             => $item->price,
+                'sale_price'        => $item->sale_price ?? null,
+                'category_name'     => $item->category_name ?? '',
+                'subcategory_name'  => $subcatName ?? '',
+                'product_qty'       => $item->product_qty ?? 100,
+                'collection_name'   => $item->collection_name ?? null,
+                'discount'          => $item->discount ?? null,
+                'url_path'          => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}"
             ];
         });
 

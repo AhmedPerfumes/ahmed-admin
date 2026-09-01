@@ -158,16 +158,17 @@
                                                     @endif
 
                                                 @elseif($type === 'foc')
-                                                    <strong>FOC:</strong>
-                                                    @foreach($promotion->focRules as $rule)
-                                                        <p>Min: {{ $rule->min_threshold }}</p>
-                                                        <p>Max: {{ $rule->max_threshold }}</p>
-                                                        <p>Products:
-                                                            @foreach($rule->products as $p)
-                                                                {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
-                                                            @endforeach
-                                                        </p>
-                                                    @endforeach
+                                                     <strong>FOC:</strong>
+                                                     @foreach($promotion->focRules as $rule)
+                                                         <p>Min: {{ $rule->min_threshold }}</p>
+                                                         <p>Max: {{ $rule->max_threshold }}</p>
+                                                         <p>Allow with Discount: <span class="badge {{ $rule->allow_with_discount ? 'bg-success' : 'bg-secondary' }}">{{ $rule->allow_with_discount ? 'Yes' : 'No' }}</span></p>
+                                                         <p>Products:
+                                                             @foreach($rule->products as $p)
+                                                                 {{ $p->product->name ?? 'N/A' }}@if(!$loop->last), @endif
+                                                             @endforeach
+                                                         </p>
+                                                     @endforeach
                                                 @endif
                                             </td>
 

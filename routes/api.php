@@ -12,7 +12,11 @@ use App\Http\Controllers\Api\CartController;
 use Botble\Ecommerce\Http\Controllers\PrebookingApiController;
 use App\Http\Controllers\Api\TabbyCronController;
 use App\Http\Controllers\SmsaController;
+<<<<<<< HEAD
 use App\Http\Controllers\Api\AiRecommendation;
+=======
+use App\Http\Controllers\Api\SliderApiController;
+>>>>>>> saad
 
 /*
 |--------------------------------------------------------------------------

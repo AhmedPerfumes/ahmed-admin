@@ -44,6 +44,5 @@ class AppServiceProvider extends ServiceProvider
         if (class_exists(Promotion::class)) {
             Promotion::observe(PromotionObserver::class);
         }
-        
     }
 }

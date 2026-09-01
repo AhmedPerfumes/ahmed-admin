@@ -40,17 +40,6 @@
                                 <textarea name="description" id="description" class="form-control">{{ old('description', isset($promotion) ? $promotion->description : '') }}</textarea>
                             </div>
 
-<<<<<<< HEAD
-                            <!-- <div class="mb-3">
-                                <label for="start_date" class="form-label">Start Date</label>
-                                <input type="date" name="start_date" id="start_date" class="form-control" value="{{ old('start_date', isset($promotion) ? $promotion->start_date->format('Y-m-d') : '') }}" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="end_date" class="form-label">End Date</label>
-                                <input type="date" name="end_date" id="end_date" class="form-control" value="{{ old('end_date', isset($promotion) ? $promotion->end_date->format('Y-m-d') : '') }}" required>
-                            </div> -->
-=======
                            <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
@@ -84,7 +73,6 @@
                                     </div>
                                 </div>
                             </div>
->>>>>>> fb59a05b681b3908cf2cf5d1eac19a107d57c701
 
                             <!-- BOGO Fields -->
                             <!-- <div id="bogo_fields" style="display: {{ isset($promotion) && $promotion->type === 'bogo' ? 'block' : 'none' }};">
@@ -484,6 +472,16 @@
                 </option>
             @endforeach
         </select>
+    </div>
+
+    <div class="form-check mb-3">
+        <input type="hidden" name="conditions[foc][allow_with_discount]" value="0">
+        <input class="form-check-input" type="checkbox" name="conditions[foc][allow_with_discount]" id="foc_allow_with_discount" value="1"
+            {{ old('conditions.foc.allow_with_discount', isset($promotionData['foc_rule']) && $promotionData['foc_rule']->allow_with_discount ? '1' : '0') == '1' ? 'checked' : '' }}>
+        <label class="form-check-label fw-bold" for="foc_allow_with_discount">
+            Allow with Discount
+        </label>
+        <div class="form-text text-muted">If checked, the FOC promotion and threshold will apply to discounted products as well.</div>
     </div>
 </div>
 

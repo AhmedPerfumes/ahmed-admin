@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Log;
 
 class NextJsCacheService
 {
+    public static function revalidate($tags)
+    {
+        app(self::class)->clear($tags);
+    }
+
     public function clear($tags)
     {
         // Normalize to array

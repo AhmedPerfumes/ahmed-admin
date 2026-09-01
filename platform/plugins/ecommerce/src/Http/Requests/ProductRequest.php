@@ -50,6 +50,8 @@ class ProductRequest extends Request
             'description' => ['required', 'string', 'max:300000'],
             'description_ar' => ['required', 'string', 'max:300000'],
             'content' => ['nullable', 'string', 'max:300000'],
+            'seo_content' => ['nullable', 'string', 'max:300000'],
+            'seo_content_ar' => ['nullable', 'string', 'max:300000'],
             'fragrance_notes' => ['nullable', 'string', 'max:300000'],
             'price' => [
                 'numeric',

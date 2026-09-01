@@ -42,6 +42,10 @@ class SimpleSliderController extends BaseController
         $form = SimpleSliderForm::create()->setRequest($request);
         $form->save();
 
+        if (class_exists(\App\Services\NextJsCacheService::class)) {
+            \App\Services\NextJsCacheService::revalidate(['home-sliders', 'menu-data']);
+        }
+
         return $this
             ->httpResponse()
             ->setPreviousRoute('simple-slider.index')
@@ -64,6 +68,10 @@ class SimpleSliderController extends BaseController
     {
         SimpleSliderForm::createFromModel($simpleSlider)->setRequest($request)->save();
 
+        if (class_exists(\App\Services\NextJsCacheService::class)) {
+            \App\Services\NextJsCacheService::revalidate(['home-sliders', 'menu-data']);
+        }
+
         return $this
             ->httpResponse()
             ->setPreviousRoute('simple-slider.index')
@@ -72,13 +80,23 @@ class SimpleSliderController extends BaseController
 
     public function destroy(SimpleSlider $simpleSlider)
     {
-        return DeleteResourceAction::make($simpleSlider);
+        $response = DeleteResourceAction::make($simpleSlider);
+
+        if (class_exists(\App\Services\NextJsCacheService::class)) {
+            \App\Services\NextJsCacheService::revalidate(['home-sliders', 'menu-data']);
+        }
+
+        return $response;
     }
 
     public function postSorting(Request $request)
     {
         foreach ($request->input('items', []) as $key => $id) {
             SimpleSliderItem::query()->where('id', $id)->update(['order' => ($key + 1)]);
+        }
+
+        if (class_exists(\App\Services\NextJsCacheService::class)) {
+            \App\Services\NextJsCacheService::revalidate(['home-sliders', 'menu-data']);
         }
 
         return $this
