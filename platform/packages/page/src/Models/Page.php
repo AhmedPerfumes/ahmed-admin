@@ -21,15 +21,18 @@ class Page extends BaseModel
 
     protected int $historyLimit = 20;
 
-    protected array $dontKeepRevisionOf = ['content'];
+    protected array $dontKeepRevisionOf = ['content', 'content_ar'];
 
     protected $fillable = [
         'name',
+        'name_ar',
         'content',
+        'content_ar',
         'image',
         'mobile_image',
         'template',
         'description',
+        'description_ar',
         'status',
         'user_id',
         'link'
@@ -38,7 +41,9 @@ class Page extends BaseModel
     protected $casts = [
         'status' => BaseStatusEnum::class,
         'name' => SafeContent::class,
+        'name_ar' => SafeContent::class,
         'description' => SafeContent::class,
+        'description_ar' => SafeContent::class,
         'template' => SafeContent::class,
     ];
 

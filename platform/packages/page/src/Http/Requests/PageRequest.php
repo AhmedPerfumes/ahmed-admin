@@ -14,8 +14,11 @@ class PageRequest extends Request
     {
         return [
             'name' => ['required', 'string', 'max:120'],
+            'name_ar' => ['nullable', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:400'],
+            'description_ar' => ['nullable', 'string', 'max:400'],
             'content' => ['nullable', 'string'],
+            'content_ar' => ['nullable', 'string'],
             'template' => [Rule::in(array_keys(Template::getPageTemplates()))],
             'status' => [Rule::in(BaseStatusEnum::values())],
             'image' => ['nullable', 'string', new MediaImageRule()],

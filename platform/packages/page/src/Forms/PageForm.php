@@ -7,6 +7,8 @@ use Botble\Base\Forms\FieldOptions\DescriptionFieldOption;
 use Botble\Base\Forms\FieldOptions\NameFieldOption;
 use Botble\Base\Forms\FieldOptions\SelectFieldOption;
 use Botble\Base\Forms\FieldOptions\StatusFieldOption;
+use Botble\Base\Forms\FieldOptions\TextareaFieldOption;
+use Botble\Base\Forms\FieldOptions\TextFieldOption;
 use Botble\Base\Forms\Fields\EditorField;
 use Botble\Base\Forms\Fields\MediaImageField;
 use Botble\Base\Forms\Fields\SelectField;
@@ -26,9 +28,12 @@ class PageForm extends FormAbstract
             ->setValidatorClass(PageRequest::class)
             ->hasTabs()
             ->add('name', TextField::class, NameFieldOption::make()->maxLength(120)->required()->toArray())
+            ->add('name_ar', TextField::class, TextFieldOption::make()->label('Name (Arabic)')->placeholder('Enter Arabic name')->maxLength(120)->toArray())
             ->add('description', TextareaField::class, DescriptionFieldOption::make()->toArray())
+            ->add('description_ar', TextareaField::class, TextareaFieldOption::make()->label('Description (Arabic)')->placeholder('Enter Arabic description')->maxLength(400)->toArray())
             ->add('link', TextField::class)
             ->add('content', EditorField::class, ContentFieldOption::make()->allowedShortcodes()->toArray())
+            ->add('content_ar', EditorField::class, ContentFieldOption::make()->label('Content (Arabic)')->allowedShortcodes()->toArray())
             ->add('status', SelectField::class, StatusFieldOption::make()->toArray())
             ->when(Template::getPageTemplates(), function (PageForm $form, array $templates) {
                 return $form
