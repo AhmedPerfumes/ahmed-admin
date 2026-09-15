@@ -10,6 +10,7 @@ use Botble\Page\Http\Requests\PageRequest;
 use Botble\Page\Models\Page;
 use Botble\Page\Tables\PageTable;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NextJsCacheService;
 
 class PageController extends BaseController
 {
@@ -44,6 +45,10 @@ class PageController extends BaseController
                 ->save();
         });
 
+        if (class_exists(NextJsCacheService::class)) {
+            NextJsCacheService::revalidate(["home-sliders"]);
+        }
+
         return $this
             ->httpResponse()
             ->setPreviousRoute('pages.index')
@@ -64,6 +69,10 @@ class PageController extends BaseController
             ->setRequest($request)
             ->save();
 
+        if (class_exists(NextJsCacheService::class)) {
+            NextJsCacheService::revalidate(["home-sliders"]);
+        }
+
         return $this
             ->httpResponse()
             ->setPreviousRoute('pages.index')
@@ -72,6 +81,12 @@ class PageController extends BaseController
 
     public function destroy(Page $page)
     {
-        return DeleteResourceAction::make($page);
+        $response = DeleteResourceAction::make($page);
+
+        if (class_exists(NextJsCacheService::class)) {
+            NextJsCacheService::revalidate(["home-sliders"]);
+        }
+
+        return $response;
     }
 }

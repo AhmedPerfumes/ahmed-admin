@@ -68,6 +68,11 @@ if (is_in_admin(true)) {
             'uses' => '\App\Http\Controllers\ProductReviewController@approve',
         ]);
 
+        Route::post('/{product_review}/send-coupon', [
+            'as' => 'send-coupon',
+            'uses' => '\App\Http\Controllers\ProductReviewController@sendCoupon',
+        ]);
+
         Route::delete('/{product_review}', [
             'as' => 'destroy',
             'uses' => '\App\Http\Controllers\ProductReviewController@destroy',

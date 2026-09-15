@@ -10,10 +10,14 @@ class SimpleSliderItemRequest extends Request
     {
         return [
             'simple_slider_id' => ['required', 'string'],
-            // 'title' => ['nullable', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'title_ar' => ['nullable', 'string', 'max:255'],
+            'sub_title' => ['nullable', 'string', 'max:255'],
+            'sub_title_ar' => ['nullable', 'string', 'max:255'],
+            'season' => ['nullable', 'string', 'max:255'],
+            'season_ar' => ['nullable', 'string', 'max:255'],
             'image' => ['required', 'string'],
-            // 'sub_title' => ['required', 'string', 'max:255'],
-            // 'season' => ['required', 'string', 'max:255'],
+            'mobile_image' => ['nullable', 'string'],
             'order' => ['required', 'integer', 'min:0', 'max:1000'],
         ];
     }

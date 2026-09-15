@@ -11,12 +11,17 @@ class SimpleSliderItem extends BaseModel
 
     protected $fillable = [
         'title',
+        'title_ar',
         'description',
+        'description_ar',
         'link',
         'image',
+        'mobile_image',
         'order',
         'season',
+        'season_ar',
         'sub_title',
+        'sub_title_ar',
         'simple_slider_id',
         'type',
         'color'
@@ -24,10 +29,14 @@ class SimpleSliderItem extends BaseModel
 
     protected $casts = [
         'title' => SafeContent::class,
+        'title_ar' => SafeContent::class,
         'description' => SafeContent::class,
+        'description_ar' => SafeContent::class,
         'link' => SafeContent::class,
-         'sub_title' => SafeContent::class,
+        'sub_title' => SafeContent::class,
+        'sub_title_ar' => SafeContent::class,
         'season' => SafeContent::class,
+        'season_ar' => SafeContent::class,
     ];
 
     protected static function booted(): void

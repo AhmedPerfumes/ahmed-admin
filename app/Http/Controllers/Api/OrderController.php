@@ -2459,13 +2459,36 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $order = Order::select('ec_orders.id', 'ec_orders.code', 'ec_orders.status', 'ec_orders.amount', 'ec_orders.sub_total', 'ec_orders.shipping_amount', 'payments.payment_channel', 'ec_orders.created_at', 'ec_orders.service_amount', 'ec_orders.vat', 'ec_orders.tax_amount', 'payments.status AS payment_status', 'ec_orders.cod_charge', 'ec_order_addresses.name')->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')->join('payments', 'payments.order_id', 'ec_orders.id', 'left')->where('ec_orders.code', $request->input('order_number'))->first();
+        $order = Order::select(
+            'ec_orders.id',
+            'ec_orders.code',
+            'ec_orders.status',
+            'ec_orders.amount',
+            'ec_orders.sub_total',
+            'ec_orders.shipping_amount',
+            'payments.payment_channel',
+            'ec_orders.created_at',
+            'ec_orders.service_amount',
+            'ec_orders.vat',
+            'ec_orders.tax_amount',
+            'payments.status AS payment_status',
+            'ec_orders.cod_charge',
+            'ec_order_addresses.name',
+            'ec_order_addresses.email as customer_email',
+            'ec_order_addresses.phone as customer_phone'
+        )
+        ->join('ec_order_addresses', 'ec_order_addresses.order_id', 'ec_orders.id', 'left')
+        ->join('payments', 'payments.order_id', 'ec_orders.id', 'left')
+        ->where('ec_orders.code', $request->input('order_number'))
+        ->first();
 
         if(!$order) {
             return response()->json(['message' => 'Order not found']);
         }
 
-        $prod = OrderProduct::select('id', 'id as product_id', 'product_name', 'qty', 'price', 'order_id', 'is_gift', 'discount_percent', 'discount_amount', 'gross_amount', 'vat')->where('ec_order_product.order_id', $order->id)->get();
+        $prod = OrderProduct::select('id', 'product_id', 'product_name', 'product_image', 'qty', 'price', 'order_id', 'is_gift', 'discount_percent', 'discount_amount', 'gross_amount', 'vat')->where('ec_order_product.order_id', $order->id)->get();
+
+        $reviewedProductIds = \App\Models\ProductReview::where('order_id', $order->id)->pluck('product_id')->toArray();
 
         return response()->json([
             'message'          => 'Details Fetched successfully',
@@ -2480,10 +2503,13 @@ class OrderController extends Controller
             'vat_amount'       => $order->vat,
             'tax_amount'       => $order->tax_amount,
             'payment_status'   => $order->payment_status,
-            'id'                =>   $order->id,
-            'customer_name'=> $order->name,
+            'id'               => $order->id,
+            'customer_name'    => $order->name,
+            'customer_email'   => $order->customer_email,
+            'customer_phone'   => $order->customer_phone,
             'products'         => $prod,
-            'cod_charge'   => $order->cod_charge
+            'reviewed_product_ids' => $reviewedProductIds,
+            'cod_charge'       => $order->cod_charge
         ]);
     }
 
@@ -2541,7 +2567,6 @@ class OrderController extends Controller
 
     public function customerDetails(Request $request)
     {
-<<<<<<< HEAD
         $customer = Auth::guard('api')->user();
         if (!$customer) {
             return response()->json(['message' => 'Unauthorizedsss'], 401);
@@ -2556,9 +2581,6 @@ class OrderController extends Controller
         }
 
         $customer = Customer::select('id', 'name', 'email', 'phone')->where('id', $request->input('customer_id'))->first();
-=======
-        $customer = auth()->user() ?? Customer::find($request->input('customer_id'));
->>>>>>> 543d5c07ed7cbed4772210303a69eb9cd92e575e
 
         if(!$customer) {
             return response()->json(['message' => 'Customer Not Found'], 404);
@@ -2702,7 +2724,6 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
-<<<<<<< HEAD
         $customer = Auth::guard('api')->user();
         if (!$customer) {
             return response()->json(['message' => 'Unauthorized'], 401);
@@ -2718,11 +2739,6 @@ class OrderController extends Controller
         //         'email' => 'required|email',
         //         'mobile' => 'required',
         //     ]);
-=======
-        $authCustomer = auth()->user();
-        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
-
->>>>>>> 543d5c07ed7cbed4772210303a69eb9cd92e575e
         // address_id of 0 or -1 means "create new address"
         if((int)$request->input('address_id') <= 0) {
             $validator = Validator::make($request->all(), [
@@ -2739,7 +2755,6 @@ class OrderController extends Controller
             }
             
             $address = Address::create([
-<<<<<<< HEAD
                 'name'      => $request->input('name'),
                 'email'     => $request->input('email'),
                 'phone'     => $request->input('mobile'),
@@ -2750,16 +2765,6 @@ class OrderController extends Controller
                 'address' => $request->input('address'),
                 'customer_id' => $request->input('customer_id'),
                 'is_default' => $request->input('is_default',0),
-=======
-                'name'        => $request->input('name'),
-                'email'       => $request->input('email'),
-                'phone'       => $request->input('mobile'),
-                'state'       => $request->input('state'),
-                'city'        => $request->input('city'),
-                'address'     => $request->input('address'),
-                'customer_id' => $customerId,
-                'is_default'  => $request->input('is_default', 0),
->>>>>>> 543d5c07ed7cbed4772210303a69eb9cd92e575e
             ]);
 
             return response()->json([
@@ -2807,33 +2812,6 @@ class OrderController extends Controller
         return response()->json([
             'message' => 'Customer Address Updated Successfully',
             'addresses' => $address
-        ]);
-    }
-     public function customerAddressDelete(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'address_id'  => 'required|integer',
-            'customer_id' => 'required|integer',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
-        }
-
-        $address = Address::where('id', $request->input('address_id'))
-            ->where('customer_id', $request->input('customer_id'))
-            ->first();
-
-        if (!$address) {
-            return response()->json(['message' => 'Address not found or does not belong to this customer'], 404);
-        }
-
-        $wasDefault = $address->is_default === 1;
-        $address->delete();
-
-        return response()->json([
-            'message'    => 'Address deleted successfully',
-            'was_default' => $wasDefault,
         ]);
     }
 
@@ -2885,28 +2863,31 @@ class OrderController extends Controller
     public function customerOrders(Request $request)
     {
         $authCustomer = auth()->user();
+        if (!$authCustomer) {
+            $authCustomer = auth('api')->user();
+        }
         $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
         if (!$customerId) {
-            return response()->json(['message' => 'Customer Id is Required']);
+            return response()->json(['message' => 'Customer Id is Required'], 401);
         }
 
+        // Status counts for filter tabs (structured like customerReviews)
+        $statusCounts = Order::where('ec_orders.user_id', $customerId)
+            ->selectRaw("
+                COUNT(*) as all_count,
+                SUM(CASE WHEN ec_orders.status LIKE '%processing%' THEN 1 ELSE 0 END) as processing_count,
+                SUM(CASE WHEN ec_orders.status LIKE '%shipped%' THEN 1 ELSE 0 END) as shipped_count,
+                SUM(CASE WHEN ec_orders.status IN ('delivered', 'completed') THEN 1 ELSE 0 END) as delivered_count,
+                SUM(CASE WHEN ec_orders.status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as cancelled_count
+            ")
+            ->first();
 
-        // Main columns
-        $columns = [
-            'ec_orders.id',
-            'ec_orders.code',
-            'ec_orders.created_at',
-            'ec_orders.status',
-            'ec_orders.amount',
-            'ec_orders.tax_amount',
-            'ec_orders.sub_total',
-            'ec_orders.coupon_code',
-            'payments.payment_channel'
-        ];
-
-        // Total: All records for the given customer
-        $total = Order::where('ec_orders.user_id', $customerId)->count();
+        $totalAll = (int) ($statusCounts->all_count ?? 0);
+        $totalProcessing = (int) ($statusCounts->processing_count ?? 0);
+        $totalShipped = (int) ($statusCounts->shipped_count ?? 0);
+        $totalDelivered = (int) ($statusCounts->delivered_count ?? 0);
+        $totalCancelled = (int) ($statusCounts->cancelled_count ?? 0);
 
         // Filtered Query
         $filteredQuery = Order::select('ec_orders.id')
@@ -2941,12 +2922,6 @@ class OrderController extends Controller
             }]);
         }
 
-        if ($request->input('with_products')) {
-            $dataQuery->with(['products' => function ($q) {
-                $q->select('id', 'order_id', 'product_image');
-            }]);
-        }
-
         // Search filters
         if ($request->filled('code')) {
             $filteredQuery->where('ec_orders.code', 'like', '%' . $request->code . '%');
@@ -2954,8 +2929,15 @@ class OrderController extends Controller
         }
 
         if ($request->filled('status')) {
-            $filteredQuery->where('ec_orders.status', 'like', '%' . $request->status . '%');
-            $dataQuery->where('ec_orders.status', 'like', '%' . $request->status . '%');
+            $statuses = array_filter(array_map('trim', explode(',', $request->status)));
+            if (count($statuses) > 1) {
+                $filteredQuery->whereIn('ec_orders.status', $statuses);
+                $dataQuery->whereIn('ec_orders.status', $statuses);
+            } else {
+                $statusVal = reset($statuses);
+                $filteredQuery->where('ec_orders.status', 'like', '%' . $statusVal . '%');
+                $dataQuery->where('ec_orders.status', 'like', '%' . $statusVal . '%');
+            }
         }
 
         if ($request->filled('created_at')) {
@@ -2971,10 +2953,10 @@ class OrderController extends Controller
         // Sorting — accept both qualified ("ec_orders.created_at") and
         // unqualified ("created_at") column names from the frontend.
         $allowedColumns = [
-            'id'              => 'ec_orders.id',
-            'created_at'      => 'ec_orders.created_at',
-            'amount'          => 'ec_orders.amount',
-            'status'          => 'ec_orders.status',
+            'id'                    => 'ec_orders.id',
+            'created_at'            => 'ec_orders.created_at',
+            'amount'                => 'ec_orders.amount',
+            'status'                => 'ec_orders.status',
             'ec_orders.id'          => 'ec_orders.id',
             'ec_orders.created_at'  => 'ec_orders.created_at',
             'ec_orders.amount'      => 'ec_orders.amount',
@@ -2988,10 +2970,14 @@ class OrderController extends Controller
         $dataQuery->orderBy($qualifiedCol, $orderDir);
 
         // Pagination
-        $page = (int) $request->input('page', 1);
+        $page = max(1, (int) $request->input('page', 1));
         $pageSize = (int) $request->input('pageSize', 10);
+        if ($pageSize < 1 || $pageSize > 100) {
+            $pageSize = 10;
+        }
 
-        $filteredTotal = $filteredQuery->distinct('ec_orders.id')->count('ec_orders.id');
+        $filteredTotal = (int) $filteredQuery->distinct('ec_orders.id')->count('ec_orders.id');
+        $lastPage = $pageSize > 0 ? (int) max(1, ceil($filteredTotal / $pageSize)) : 1;
 
         $orders = $dataQuery
             ->skip(($page - 1) * $pageSize)
@@ -3005,9 +2991,20 @@ class OrderController extends Controller
         });
 
         return response()->json([
-            'data' => $orders,
-            'total' => $total,
-            'filtered' => $filteredTotal
+            'status'       => 'success',
+            'data'         => $orders,
+            'total'        => $filteredTotal,
+            'counts'       => [
+                'all'        => $totalAll,
+                'processing' => $totalProcessing,
+                'shipped'    => $totalShipped,
+                'delivered'  => $totalDelivered,
+                'cancelled'  => $totalCancelled,
+            ],
+            'current_page' => $page,
+            'last_page'    => $lastPage,
+            'per_page'     => $pageSize,
+            'filtered'     => $filteredTotal,
         ]);
     }
 
@@ -3044,7 +3041,7 @@ class OrderController extends Controller
         ->where('ec_orders.id', $request->input('order_id'))
         ->first();
 
-        $order_products = OrderProduct::select('id', 'product_name', 'product_image', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
+        $order_products = OrderProduct::select('id', 'product_id', 'product_name', 'product_image', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
 
         if($order_products->isEmpty()) {
             return response()->json(['message' => 'Order Products Not Found']);
@@ -3052,11 +3049,14 @@ class OrderController extends Controller
 
         $order_address = OrderAddress::select('id', 'name', 'phone', 'email', 'state', 'city', 'address')->where('order_id', $request->input('order_id'))->get();
 
+        $reviewedProductIds = \App\Models\ProductReview::where('order_id', $order->id)->pluck('product_id')->toArray();
+
         return response()->json([
             'message' => 'Details Fetched successfully',
             'order' => $order,
             'order_products' => $order_products,
             'order_address' => $order_address,
+            'reviewed_product_ids' => $reviewedProductIds,
         ]);
     }
 

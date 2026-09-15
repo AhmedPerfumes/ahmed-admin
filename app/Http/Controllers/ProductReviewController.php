@@ -23,54 +23,93 @@ class ProductReviewController extends Controller
         return view('admin.reviews.show', ['review' => $productReview]);
     }
 
-    // v-- ADD THIS NEW FUNCTION TO HANDLE THE APPROVAL --v
+    /**
+     * Handle review approval / unpublishing strictly without triggering coupon or email.
+     */
     public function approve(ProductReview $productReview, Request $request)
     {
-        // Set the status to the system's "PUBLISHED" value
+        $action = $request->input('action', 'publish');
+        if ($action === 'unpublish') {
+            $productReview->status = 'pending';
+            $productReview->save();
+            return back()->with('success_message', 'Review unpublished (status set to pending).');
+        }
+
         $productReview->status = 'published';
         $productReview->save();
 
-        $couponSuccess = false;
+        return back()->with('success_message', 'Review approved and published successfully.');
+    }
+
+    /**
+     * Handle independent coupon generation and reward email sending.
+     */
+    public function sendCoupon(ProductReview $productReview, Request $request)
+    {
         $selectedCouponId = $request->input('couponId');
 
-        if ($productReview->customer_phone && $selectedCouponId) {
-            try {
-                $apiUrl = env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Register';
+        if (!$selectedCouponId) {
+            return back()->with('error_message', 'Please select a coupon.');
+        }
 
-                $postData = [
-                    'couponId'     => $selectedCouponId,
-                    'customerName' => $productReview->customer_name,
-                    'mobileNo'     => $productReview->customer_phone,
-                    'email'     => $productReview->customer_email,
-                ];
-                $ch = curl_init($apiUrl);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
-                curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                    'Content-Type: application/json',
-                ]);
-                $apiResponse = curl_exec($ch);
-                Log::info("Api Response". $apiResponse);
-                
-                if (!curl_errno($ch)) {
-                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    if ($httpCode >= 200 && $httpCode < 300) {
-                        $couponSuccess = true;
-                        Log::info("Coupon registered for review ID {$productReview->id}");
-                    }
-                } else {
-                    Log::error("Coupon API Error: " . curl_error($ch));
+        if (!$productReview->customer_phone || !$productReview->customer_email) {
+            return back()->with('error_message', 'Customer email and phone number are required to assign a coupon.');
+        }
+
+        $voucherCodeText = 'SURVEY10';
+        if ($selectedCouponId == env('REVIEW_COUPON_ID_15')) {
+            $voucherCodeText = 'SURVEY15';
+        }
+
+        $couponSuccess = false;
+
+        try {
+            $apiUrl = env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Register';
+
+            $postData = [
+                'couponId'     => $selectedCouponId,
+                'customerName' => $productReview->customer_name,
+                'mobileNo'     => $productReview->customer_phone,
+                'email'        => $productReview->customer_email,
+            ];
+            $ch = curl_init($apiUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+            ]);
+            $apiResponse = curl_exec($ch);
+            Log::info("Coupon Api Response: " . $apiResponse);
+
+            if (!curl_errno($ch)) {
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                if ($httpCode >= 200 && $httpCode < 300) {
+                    $couponSuccess = true;
+                    Log::info("Coupon registered for review ID {$productReview->id}");
                 }
-                curl_close($ch);
-                
-            } catch (\Exception $e) {
-                Log::error("Coupon Integration Failed: " . $e->getMessage());
+            } else {
+                Log::error("Coupon API Error: " . curl_error($ch));
             }
+            curl_close($ch);
+
+        } catch (\Exception $e) {
+            Log::error("Coupon Integration Failed: " . $e->getMessage());
+        }
+
+        if ($couponSuccess) {
+            $productReview->coupon_code = $voucherCodeText;
+            $productReview->coupon_sent_at = now();
+            $productReview->save();
         }
 
         $this->sendApprovalEmail($productReview, $couponSuccess, $selectedCouponId);
-        return back()->with('success_message', 'Review published. ' . ($couponSuccess ? 'Coupon assigned.' : 'Coupon assignment failed (check logs).'));
+
+        if ($couponSuccess) {
+            return back()->with('success_message', "Coupon ($voucherCodeText) assigned and reward email sent to {$productReview->customer_email}.");
+        } else {
+            return back()->with('error_message', 'Coupon assignment failed (check logs). Reward email was sent without a coupon.');
+        }
     }
 
     private function sendApprovalEmail($productReview, $couponAssigned, $couponId = null)

@@ -17,8 +17,7 @@ use Botble\Ecommerce\Models\ProductFragranceMap;
 
 class ProductController extends Controller
 {
-    public function getProducts(Request $request)
-    {
+    public function getProducts(Request $request) {
         // $customer = Auth::guard('api')->user();
 
         // if (!$customer) {
@@ -49,15 +48,15 @@ class ProductController extends Controller
             }
 
             if (!isset($subCategory)) {
-                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description')->where('status', 'published')->where('parent_id', 0)->where('id', $categoryData->id)->get()->first();
+                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description', 'description_ar')->where('status', 'published')->where('parent_id', 0)->where('id', $categoryData->id)->get()->first();
             } else {
-                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description')->where('status', 'published')->where('parent_id', $categoryData->id)->where('id', $subCategoryData->id)->get()->first();
+                $productCategory = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'description', 'description_ar')->where('status', 'published')->where('parent_id', $categoryData->id)->where('id', $subCategoryData->id)->get()->first();
             }
             
             if (!isset($subCategory)) {
                 if($category == 'HAIR MIST') {
                     $productCategory->products = DB::table('ec_product_category_product')
-                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name','ec_products.name_ar as product_name_ar', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.name_ar as product_name_ar', 'ec_products.maximum_order_quantity')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                         ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -214,7 +213,7 @@ class ProductController extends Controller
                         }
                 } elseif($category == 'EXTRAIT DE PARFUM') {
                     $productCategory->products = DB::table('ec_product_category_product')
-                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name','ec_products.name_ar as product_name_ar', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.name_ar as product_name_ar', 'ec_products.maximum_order_quantity')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                         ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -370,7 +369,7 @@ class ProductController extends Controller
                         }
                 } elseif($category == 'GIFT SETS') {
                     $productCategory->products = DB::table('ec_product_category_product')
-                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name','ec_products.name_ar as product_name_ar', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.name_ar as product_name_ar', 'ec_products.maximum_order_quantity')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                         ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -524,10 +523,9 @@ class ProductController extends Controller
                                 }
                             }
                         }
-                }
-                elseif($category == 'ONLINE EXCLUSIVE') {
+                } elseif($category == 'ONLINE EXCLUSIVE') {
                     $productCategory->products = DB::table('ec_product_category_product')
-                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name','ec_products.name_ar as product_name_ar', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.name_ar as product_name_ar', 'ec_products.maximum_order_quantity')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                         ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -681,12 +679,11 @@ class ProductController extends Controller
                                 }
                             }
                         }
-                }
-                else {
+                } else {
                     $productCategory->productSubCategories = ProductCategory::select('id', 'name', 'image', 'mobile_image', 'video')->where('parent_id', $productCategory->id)->where('status', 'published')->orderBy('order', 'asc')->get();
                     foreach ($productCategory->productSubCategories as $key => $val) {
                         $val->products = DB::table('ec_product_category_product')
-                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name','ec_products.name_ar as product_name_ar',  'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                        ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.name_ar as product_name_ar', 'ec_products.maximum_order_quantity')
                         ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                         ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -842,7 +839,7 @@ class ProductController extends Controller
                 }
             } else {
                 $productCategory->products = DB::table('ec_product_category_product')
-                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name','ec_products.name_ar as product_name_ar' , 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.name_ar as product_name_ar', 'ec_products.maximum_order_quantity')
                 ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                 ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -1028,17 +1025,49 @@ class ProductController extends Controller
             //     ->first();
             // , 'ec_products.content as content'
             // , 'ec_products.fragrance_notes as fragrance_notes'
+             // Step 1: Get parent category ID
+            // Helper function to normalize strings
+            function normalize($str) {
+                return strtolower(trim(str_replace(["'", "’"], '', $str)));
+            }
+
+            // Normalize inputs
+            $normalizedCategory = normalize($category);
+            $normalizedSubCategory = normalize($subCategory);
+
+            // Step 1: Get parent category ID
+            $parentCategoryId = DB::table('ec_product_categories')
+                ->whereRaw("REPLACE(LOWER(name), \"'\", '') = ?", [$normalizedCategory])
+                ->value('id');
+
+            // Debug (optional)
+            // dd($parentCategoryId);
+
+            // Step 2: Get subcategory ID (only if NOT online exclusive)
+            $subCategoryId = null;
+
+            if ($normalizedSubCategory !== 'online exclusive') {
+                $subCategoryId = DB::table('ec_product_categories')
+                    ->where('parent_id', $parentCategoryId)
+                    ->whereRaw("REPLACE(LOWER(name), \"'\", '') = ?", [$normalizedSubCategory])
+                    ->value('id');
+            }
+            
+            // Step 3: Get all products under that subcategory
             $prod = DB::table('ec_products')
                 ->join('ec_product_category_product', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
                 ->join('ec_product_categories', 'ec_product_categories.id', '=', 'ec_product_category_product.category_id', 'left')
-                ->join('product_fragrance_map', 'ec_products.id', '=', 'product_fragrance_map.product_id', 'left')
-                ->join('product_fragrance_notes', 'product_fragrance_map.fragrance_note_id', '=', 'product_fragrance_notes.id', 'left')
+
+                // START: JOINS FOR FRAGRANCE NOTES
+                ->leftJoin('product_fragrance_map', 'ec_products.id', '=', 'product_fragrance_map.product_id')
+                ->leftJoin('product_fragrance_notes', 'product_fragrance_map.fragrance_note_id', '=', 'product_fragrance_notes.id')
+                // END: JOINS
 
                 ->select(
                     // Product columns
-                    DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar', 'ec_products.content', 'ec_products.content_ar', 'ec_products.seo_content', 'ec_products.seo_content_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge',
+                    DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name_ar as product_name_ar', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.description_ar','ec_products.seo_content','ec_products.seo_content_ar','ec_products.content', 'ec_products.content_ar', 'ec_products.quantity as product_qty', 'ec_products.video_media as video', 'ec_products.sale_price', 'ec_products.sku', 'ec_products.sillage', 'ec_products.longevity', 'ec_products.how_to_use', 'ec_products.occasion', 'ec_products.size', 'ec_products.item_profile', 'ec_products.item_classification', 'ec_products.ingredients', 'ec_products.olfactory_family', 'ec_products.fragrance_type', 'ec_products.fragrance_category', 'ec_products.dispenser_type', 'ec_products.additional_details', 'ec_products.story', 'ec_products.badge',
                     'ec_products.itemCategory_1', 'ec_products.itemCategory_2', 'ec_products.itemCategory_3', 'ec_products.itemCategory_4', 'ec_products.itemCategory_5',
 
                     // New Fragrance Note columns
@@ -1047,200 +1076,192 @@ class ProductController extends Controller
                     'product_fragrance_notes.itemFamily',
                     'product_fragrance_notes.top_note', 'product_fragrance_notes.top_note_ar', 'product_fragrance_notes.top_note_image', 'product_fragrance_notes.top_note_description', 'product_fragrance_notes.top_note_description_ar',
                     'product_fragrance_notes.heart_note', 'product_fragrance_notes.heart_note_ar', 'product_fragrance_notes.heart_note_image', 'product_fragrance_notes.heart_note_description', 'product_fragrance_notes.heart_note_description_ar',
-                    'product_fragrance_notes.base_note', 'product_fragrance_notes.base_note_ar', 'product_fragrance_notes.base_note_image', 'product_fragrance_notes.base_note_description', 'product_fragrance_notes.base_note_description_ar'
+                    'product_fragrance_notes.base_note', 'product_fragrance_notes.base_note_ar', 'product_fragrance_notes.base_note_image', 'product_fragrance_notes.base_note_description', 'product_fragrance_notes.base_note_description_ar', 'ec_products.maximum_order_quantity'
                 )
                 ->where('ec_products.status', 'published')
-                ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9]', '')"), '=', implode('', explode(' ', $product)))
-                ->where('ec_product_categories.name', $category)
+                // ->where(DB::raw("REGEXP_REPLACE(REPLACE(REPLACE(ec_products.name, '&amp;', '&'), '&', ' '),'[^a-zA-Z0-9]', '')"), '=', implode('', explode(' ', $product)))
+                // ->where('ec_product_categories.name', $category)
+                // ->where('ec_product_categories.id', $subCategoryId)
+                // Normalize product name match
+                ->where(DB::raw("
+                    REGEXP_REPLACE(
+                        REPLACE(REPLACE(ec_products.name, '&amp;', '&'), '&', ' '),
+                        '[^a-zA-Z0-9]', ''
+                    )
+                "), '=', implode('', explode(' ', $product)))
+
+            // Conditional category filter
+                ->when($normalizedSubCategory === 'online exclusive',
+                    function ($q) use ($category) {
+                        $q->where('ec_product_categories.name', $category);
+                    },
+                    function ($q) use ($subCategoryId) {
+                        $q->where('ec_product_categories.id', $subCategoryId);
+                    }
+                )
                 ->orderBy('ec_products.id', 'desc')
                 ->first();
                 
 
-                // if ($prod && $prod->is_collection) {
-                //     // Step 1, 2, and 3 remain the same...
-                //     $collectionItems = DB::table('ec_collection_items')
-                //         ->where('collection_product_id', $prod->product_id)
-                //         ->orderBy('sort_order', 'asc')
-                //         ->get();
-                    
-                //     $childProductIds = $collectionItems->pluck('child_product_id')->filter()->unique()->all();
-
-                //     $childProductsData = [];
-                //     if (!empty($childProductIds)) {
-                //         $childProductsData = DB::table('ec_products')
-                //             ->whereIn('ec_products.id', $childProductIds)
-                //             ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
-                //             ->leftJoin('ec_product_categories as main_cat', function ($join) {
-                //                 $join->on('pivot_main.category_id', '=', 'main_cat.id')->where('main_cat.parent_id', 0);
-                //             })
-                //             ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
-                //             ->leftJoin('ec_product_categories as sub_cat', function ($join) {
-                //                 $join->on('pivot_sub.category_id', '=', 'sub_cat.id')->where('sub_cat.parent_id', '!=', 0);
-                //             })
-                //             ->select(
-                //                 'ec_products.id',
-                //                 DB::raw('MAX(ec_products.name) as name'),
-                //                 DB::raw('MAX(ec_products.name_ar) as name_ar'),
-                //                 DB::raw('MAX(ec_products.price) as price'),
-                //                 DB::raw('MAX(ec_products.image) as image'),
-                //                 DB::raw('MAX(ec_products.images) as images'),
-                //                 DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category'),
-                //                 DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory')
-                //             )
-                //             ->groupBy('ec_products.id')
-                //             ->get()
-                //             ->keyBy('id');
-                //     }
-
-                //     // Step 4: Combine and Format the data.
-                //     $prod->collection_items = $collectionItems->map(function ($item) use ($childProductsData) {
-                //         if ($item->child_product_id && isset($childProductsData[$item->child_product_id])) {
-                //             $fullProductData = $childProductsData[$item->child_product_id];
-                //             $mergedData = (object) array_merge((array)$item, (array)$fullProductData);
-
-                //             if (empty($mergedData->subcategory)) {
-                //                 $mergedData->subcategory = $mergedData->category;
-                //             }
-
-                //             // --- ADDED: Formatting for category and subcategory ---
-                //             if ($mergedData->category) {
-                //                 $mergedData->category = strtolower(str_replace(' ', '-', $mergedData->category));
-                //             }
-                //             if ($mergedData->subcategory) {
-                //                 $mergedData->subcategory = strtolower(str_replace(' ', '-', $mergedData->subcategory));
-                //             }
-
-                //             // Fetch active discount for the product
-                //             $mergedData->discount = null;
-
-                //             $individualDiscount = Promotion::where('type', 'discount')
-                //                 ->where('start_date', '<=', now())
-                //                 ->where('end_date', '>=', now())
-                //                 ->whereHas('discountRules', function ($query) {
-                //                     $query->where('apply_to', 'individual');
-                //                 })
-                //                 ->whereHas('discountRules.individualRules', function ($query) use ($item) {
-                //                     $query->where('product_id', $item->child_product_id);
-                //                 })
-                //                 ->with(['discountRules' => function ($query) {
-                //                     $query->where('apply_to', 'individual')
-                //                         ->select('id', 'promotion_id', 'apply_to');
-                //                 }, 'discountRules.individualRules' => function ($query) use ($item) {
-                //                     $query->where('product_id', $item->child_product_id)
-                //                         ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
-                //                 }])
-                //                 ->first();
-
-                //             if ($individualDiscount) {
-                //                 $discountRule = $individualDiscount->discountRules->first();
-                //                 $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
-                //                 if ($individualRule) {
-                //                     $mergedData->discount = (object) [
-                //                         'value' => intval($individualRule->value),
-                //                         'apply_to' => $discountRule->apply_to,
-                //                         'discount_type' => $individualRule->discount_type,
-                //                         'product_price' => $individualRule->product_price,
-                //                         'discount_amount' => $individualRule->discount_amount,
-                //                         'final_price' => $individualRule->final_price,
-                //                         'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
-                //                         'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
-                //                     ];
-                //                 }
-                //             } else {
-                //                 // If no individual discount, try to fetch discount for group/all products
-                //                 $groupDiscount = Promotion::where('type', 'discount')
-                //                     ->where('start_date', '<=', now())
-                //                     ->where('end_date', '>=', now())
-                //                     ->whereHas('discountRules', function ($query) {
-                //                         $query->where('apply_to', '!=', 'individual');
-                //                     })
-                //                     ->whereHas('discountRules.products', function ($query) use ($item) {
-                //                         $query->where('product_id', $item->child_product_id);
-                //                     })
-                //                     ->with(['discountRules' => function ($query) {
-                //                         $query->where('apply_to', '!=', 'individual')
-                //                             ->select('id', 'promotion_id', 'percentage', 'apply_to');
-                //                     }])
-                //                     ->first();
-
-                //                 if ($groupDiscount) {
-                //                     $discountRule = $groupDiscount->discountRules->first();
-                //                     if ($discountRule) {
-                //                         $mergedData->discount = (object) [
-                //                             'value' => intval($discountRule->percentage),
-                //                             'apply_to' => $discountRule->apply_to,
-                //                             'discount_type' => 'percent',
-                //                             'product_price' => null,
-                //                             'discount_amount' => null,
-                //                             'final_price' => null,
-                //                             'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
-                //                             'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
-                //                         ];
-                //                     }
-                //                 }
-                //             }
-
-                //             // Fetch active coupons for the product
-                //             $coupons = Promotion::where('type', 'coupon')
-                //                 ->where('start_date', '<=', now())
-                //                 ->where('end_date', '>=', now())
-                //                 ->whereHas('couponRules.products', function ($query) use ($item) {
-                //                     $query->where('product_id', $item->child_product_id);
-                //                 })
-                //                 ->with(['couponRules' => function ($query) use ($item) {
-                //                     $query->whereNotNull('coupon_code')
-                //                         ->select('id', 'promotion_id', 'coupon_code', 'percentage')
-                //                         ->with(['products' => function ($subQuery) use ($item) {
-                //                             $subQuery->where('product_id', $item->child_product_id)
-                //                                     ->select('id', 'coupon_rule_id', 'product_id');
-                //                         }]);
-                //                 }])
-                //                 ->get();
-
-                //             $mergedData->coupon = [];
-                //             foreach ($coupons as $promotion) {
-                //                 foreach ($promotion->couponRules as $couponRule) {
-                //                     if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
-                //                         $mergedData->coupon[strtolower($couponRule->coupon_code)] = [
-                //                             'code' => strtolower($couponRule->coupon_code),
-                //                             'value' => intval($couponRule->percentage),
-                //                             'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
-                //                             'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
-                //                         ];
-                //                     }
-                //                 }
-                //             }
-
-                //             return $mergedData;
-                //         } else {
-                //             return $item;
-                //         }
-                //     });
-
-                // } elseif ($prod) {
-                //     $prod->collection_items = [];
-                // }
-
                 if ($prod && $prod->is_collection) {
-                    $collectionItems = DB::table('ec_collection_items')->where('collection_product_id', $prod->product_id)->orderBy('sort_order', 'asc')->get();
+                    // Step 1, 2, and 3 remain the same...
+                    $collectionItems = DB::table('ec_collection_items')
+                        ->where('collection_product_id', $prod->product_id)
+                        ->orderBy('sort_order', 'asc')
+                        ->get();
                     
                     $childProductIds = $collectionItems->pluck('child_product_id')->filter()->unique()->all();
 
                     $childProductsData = [];
                     if (!empty($childProductIds)) {
-                        $childProductsData = DB::table('ec_products')->whereIn('id', $childProductIds)->select('id', 'name', 'name_ar', 'price', 'image', 'images' )->get()->keyBy('id');
+                        $childProductsData = DB::table('ec_products')
+                            ->whereIn('ec_products.id', $childProductIds)
+                            ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                                $join->on('pivot_main.category_id', '=', 'main_cat.id')->where('main_cat.parent_id', 0);
+                            })
+                            ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                                $join->on('pivot_sub.category_id', '=', 'sub_cat.id')->where('sub_cat.parent_id', '!=', 0);
+                            })
+                            ->select(
+                                'ec_products.id',
+                                DB::raw('MAX(ec_products.name) as name'),
+                                DB::raw('MAX(ec_products.name_ar) as name_ar'),
+                                DB::raw('MAX(ec_products.price) as price'),
+                                DB::raw('MAX(ec_products.image) as image'),
+                                DB::raw('MAX(ec_products.images) as images'),
+                                DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category'),
+                                DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory')
+                            )
+                            ->groupBy('ec_products.id')
+                            ->get()
+                            ->keyBy('id');
                     }
 
                     // Step 4: Combine and Format the data.
                     $prod->collection_items = $collectionItems->map(function ($item) use ($childProductsData) {
                         if ($item->child_product_id && isset($childProductsData[$item->child_product_id])) {
                             $fullProductData = $childProductsData[$item->child_product_id];
-                            
-                            // Merge the collection pivot data (sort_order, etc) with the actual product data
-                            return (object) array_merge((array)$item, (array)$fullProductData);
+                            $mergedData = (object) array_merge((array)$item, (array)$fullProductData);
+
+                            if (empty($mergedData->subcategory)) {
+                                $mergedData->subcategory = $mergedData->category;
+                            }
+
+                            // --- ADDED: Formatting for category and subcategory ---
+                            if ($mergedData->category) {
+                                $mergedData->category = strtolower(str_replace(' ', '-', $mergedData->category));
+                            }
+                            if ($mergedData->subcategory) {
+                                $mergedData->subcategory = strtolower(str_replace(' ', '-', $mergedData->subcategory));
+                            }
+
+                            // Fetch active discount for the product
+                            $mergedData->discount = null;
+
+                            $individualDiscount = Promotion::where('type', 'discount')
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
+                                ->whereHas('discountRules', function ($query) {
+                                    $query->where('apply_to', 'individual');
+                                })
+                                ->whereHas('discountRules.individualRules', function ($query) use ($item) {
+                                    $query->where('product_id', $item->child_product_id);
+                                })
+                                ->with(['discountRules' => function ($query) {
+                                    $query->where('apply_to', 'individual')
+                                        ->select('id', 'promotion_id', 'apply_to');
+                                }, 'discountRules.individualRules' => function ($query) use ($item) {
+                                    $query->where('product_id', $item->child_product_id)
+                                        ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                                }])
+                                ->first();
+
+                            if ($individualDiscount) {
+                                $discountRule = $individualDiscount->discountRules->first();
+                                $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+                                if ($individualRule) {
+                                    $mergedData->discount = (object) [
+                                        'value' => intval($individualRule->value),
+                                        'apply_to' => $discountRule->apply_to,
+                                        'discount_type' => $individualRule->discount_type,
+                                        'product_price' => $individualRule->product_price,
+                                        'discount_amount' => $individualRule->discount_amount,
+                                        'final_price' => $individualRule->final_price,
+                                        'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                                        'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                                    ];
+                                }
+                            } else {
+                                // If no individual discount, try to fetch discount for group/all products
+                                $groupDiscount = Promotion::where('type', 'discount')
+                                    ->where('start_date', '<=', now())
+                                    ->where('end_date', '>=', now())
+                                    ->whereHas('discountRules', function ($query) {
+                                        $query->where('apply_to', '!=', 'individual');
+                                    })
+                                    ->whereHas('discountRules.products', function ($query) use ($item) {
+                                        $query->where('product_id', $item->child_product_id);
+                                    })
+                                    ->with(['discountRules' => function ($query) {
+                                        $query->where('apply_to', '!=', 'individual')
+                                            ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                                    }])
+                                    ->first();
+
+                                if ($groupDiscount) {
+                                    $discountRule = $groupDiscount->discountRules->first();
+                                    if ($discountRule) {
+                                        $mergedData->discount = (object) [
+                                            'value' => intval($discountRule->percentage),
+                                            'apply_to' => $discountRule->apply_to,
+                                            'discount_type' => 'percent',
+                                            'product_price' => null,
+                                            'discount_amount' => null,
+                                            'final_price' => null,
+                                            'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                                            'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                                        ];
+                                    }
+                                }
+                            }
+
+                            // Fetch active coupons for the product
+                            $coupons = Promotion::where('type', 'coupon')
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
+                                ->whereHas('couponRules.products', function ($query) use ($item) {
+                                    $query->where('product_id', $item->child_product_id);
+                                })
+                                ->with(['couponRules' => function ($query) use ($item) {
+                                    $query->whereNotNull('coupon_code')
+                                        ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                                        ->with(['products' => function ($subQuery) use ($item) {
+                                            $subQuery->where('product_id', $item->child_product_id)
+                                                    ->select('id', 'coupon_rule_id', 'product_id');
+                                        }]);
+                                }])
+                                ->get();
+
+                            $mergedData->coupon = [];
+                            foreach ($coupons as $promotion) {
+                                foreach ($promotion->couponRules as $couponRule) {
+                                    if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                                        $mergedData->coupon[strtolower($couponRule->coupon_code)] = [
+                                            'code' => strtolower($couponRule->coupon_code),
+                                            'value' => intval($couponRule->percentage),
+                                            'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                                            'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+                                        ];
+                                    }
+                                }
+                            }
+
+                            return $mergedData;
+                        } else {
+                            return $item;
                         }
-                        
-                        return $item;
                     });
 
                 } elseif ($prod) {
@@ -1262,193 +1283,57 @@ class ProductController extends Controller
                 // ->orderBy('ec_products.id', 'desc')
                 // ->first();
                 // print_r($prod);die();
-                $dynamicDescriptionKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Description';
-                $wordsToRemove = ['&', ' &', '& ', ' & ', 'amp', ' amp', 'amp ', ' amp ', ';', ' ;', '; ', ' ; '];
-                $cleanDescriptionString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicDescriptionKey));
-                $prod->$cleanDescriptionString = $cleanDescriptionString;
+                if($prod) {
+                    $dynamicDescriptionKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Description';
+                    $wordsToRemove = ['&', ' &', '& ', ' & ', 'amp', ' amp', 'amp ', ' amp ', ';', ' ;', '; ', ' ; '];
+                    $cleanDescriptionString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicDescriptionKey));
+                    $prod->$cleanDescriptionString = $cleanDescriptionString;
 
-                $dynamicContentKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Content';
-                $cleanContentString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicContentKey));
-                $prod->$cleanContentString = $cleanContentString;
+                    $dynamicContentKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Content';
+                    $cleanContentString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicContentKey));
+                    $prod->$cleanContentString = $cleanContentString;
 
-                $dynamicNotesKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Notes';
-                $cleanNotesString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicNotesKey));
-                $prod->$cleanNotesString = $cleanNotesString;
+                    $dynamicNotesKey = preg_replace('/[^a-zA-Z0-9\s]/', '', $prod->product_name).' Notes';
+                    $cleanNotesString = preg_replace('/\s+/', ' ', str_ireplace($wordsToRemove, '', $dynamicNotesKey));
+                    $prod->$cleanNotesString = $cleanNotesString;
 
-                $prod->labels = DB::table('ec_product_label_products')
-                    ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
-                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                    ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                    ->where('product_id', $prod->product_id)
-                    ->get();
-
-                $prod->tags = DB::table('ec_product_tag_product')
-                    // ->select('ec_product_tags.name as tag_name')
-                    // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                    ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                    ->where('product_id', $prod->product_id)
-                    ->pluck('ec_product_tags.name')
-                    ->toArray();
-
-                $prod->related_prods = DB::table('ec_product_category_product')
-                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_product_labels.name as label_name', 'ec_product_labels.color as label_color', 'ec_products.sale_price')
-                ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
-                ->join ('ec_product_related_relations', 'ec_product_related_relations.to_product_id', '=', 'ec_products.id', 'left')
-                ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
-                ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
-                ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                ->where('ec_product_categories.status', 'published')
-                ->where('ec_product_collections.name', NULL)
-                ->where('ec_product_categories.parent_id', 0)
-                ->where('ec_product_related_relations.from_product_id', $prod->product_id)
-                // ->paginate($limit);
-                ->get();
-
-                // $prod->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
-
-                // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                // $prod->coupon = [];
-                // foreach ($coupons as $coupon) {
-                //     $prod->coupon[strtolower($coupon->code)] = [
-                //         'code' => strtolower($coupon->code),
-                //         'value' => $coupon->value,
-                //         'start_date' => $coupon->start_date,
-                //         'end_date' => $coupon->end_date,
-                //     ];
-                // }
-
-                // Fetch active discount for the product
-                $prod->discount = null;
-
-                $individualDiscount = Promotion::where('type', 'discount')
-                    ->where('start_date', '<=', now())
-                    ->where('end_date', '>=', now())
-                    ->whereHas('discountRules', function ($query) {
-                        $query->where('apply_to', 'individual');
-                    })
-                    ->whereHas('discountRules.individualRules', function ($query) use ($prod) {
-                        $query->where('product_id', $prod->product_id);
-                    })
-                    ->with(['discountRules' => function ($query) {
-                        $query->where('apply_to', 'individual')
-                            ->select('id', 'promotion_id', 'apply_to');
-                    }, 'discountRules.individualRules' => function ($query) use ($prod) {
-                        $query->where('product_id', $prod->product_id)
-                            ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
-                    }])
-                    ->first();
-
-                if ($individualDiscount) {
-                    $discountRule = $individualDiscount->discountRules->first();
-                    $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
-                    if ($individualRule) {
-                        $prod->discount = (object) [
-                            'value' => intval($individualRule->value),
-                            'apply_to' => $discountRule->apply_to,
-                            'discount_type' => $individualRule->discount_type,
-                            'product_price' => $individualRule->product_price,
-                            'discount_amount' => $individualRule->discount_amount,
-                            'final_price' => $individualRule->final_price,
-                            'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
-                            'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
-                        ];
-                    }
-                } else {
-                    // If no individual discount, try to fetch discount for group/all products
-                    $groupDiscount = Promotion::where('type', 'discount')
-                        ->where('start_date', '<=', now())
-                        ->where('end_date', '>=', now())
-                        ->whereHas('discountRules', function ($query) {
-                            $query->where('apply_to', '!=', 'individual');
-                        })
-                        ->whereHas('discountRules.products', function ($query) use ($prod) {
-                            $query->where('product_id', $prod->product_id);
-                        })
-                        ->with(['discountRules' => function ($query) {
-                            $query->where('apply_to', '!=', 'individual')
-                                ->select('id', 'promotion_id', 'percentage', 'apply_to');
-                        }])
-                        ->first();
-
-                    if ($groupDiscount) {
-                        $discountRule = $groupDiscount->discountRules->first();
-                        if ($discountRule) {
-                            $prod->discount = (object) [
-                                'value' => intval($discountRule->percentage),
-                                'apply_to' => $discountRule->apply_to,
-                                'discount_type' => 'percent',
-                                'product_price' => null,
-                                'discount_amount' => null,
-                                'final_price' => null,
-                                'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
-                                'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
-                            ];
-                        }
-                    }
-                }
-
-                // Fetch active coupons for the product
-                $coupons = Promotion::where('type', 'coupon')
-                    ->where('start_date', '<=', now())
-                    ->where('end_date', '>=', now())
-                    ->whereHas('couponRules.products', function ($query) use ($prod) {
-                        $query->where('product_id', $prod->product_id);
-                    })
-                    ->with(['couponRules' => function ($query) use ($prod) {
-                        $query->whereNotNull('coupon_code')
-                            ->select('id', 'promotion_id', 'coupon_code', 'percentage')
-                            ->with(['products' => function ($subQuery) use ($prod) {
-                                $subQuery->where('product_id', $prod->product_id)
-                                        ->select('id', 'coupon_rule_id', 'product_id');
-                            }]);
-                    }])
-                    ->get();
-
-                $prod->coupon = [];
-                foreach ($coupons as $promotion) {
-                    foreach ($promotion->couponRules as $couponRule) {
-                        if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
-                            $prod->coupon[strtolower($couponRule->coupon_code)] = [
-                                'code' => strtolower($couponRule->coupon_code),
-                                'value' => intval($couponRule->percentage),
-                                'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
-                                'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
-                            ];
-                        }
-                    }
-                }
-
-                foreach ($prod->related_prods as $key => $val) {
-                    $val->labels = DB::table('ec_product_label_products')
+                    $prod->labels = DB::table('ec_product_label_products')
                         ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
                         // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
-                        ->where('product_id', $val->product_id)
+                        ->where('product_id', $prod->product_id)
                         ->get();
 
-                    $val->tags = DB::table('ec_product_tag_product')
+                    $prod->tags = DB::table('ec_product_tag_product')
                         // ->select('ec_product_tags.name as tag_name')
                         // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
                         ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
-                        ->where('product_id', $val->product_id)
+                        ->where('product_id', $prod->product_id)
                         ->pluck('ec_product_tags.name')
                         ->toArray();
 
-                    $val->subcategory = DB::table('ec_product_categories')
-                    ->select('name as subcategory_name')
-                    ->join ('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
-                    ->where('product_id', $val->product_id)
-                    ->where('ec_product_categories.parent_id', '!=', 0)
-                    ->first();
+                    $prod->related_prods = DB::table('ec_product_category_product')
+                    ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_product_labels.name as label_name', 'ec_product_labels.color as label_color', 'ec_products.sale_price', 'ec_products.maximum_order_quantity')
+                    ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                    ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+                    ->join ('ec_product_related_relations', 'ec_product_related_relations.to_product_id', '=', 'ec_products.id', 'left')
+                    ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
+                    ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
+                    ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                    ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                    ->where('ec_product_categories.status', 'published')
+                    ->where('ec_product_collections.name', NULL)
+                    ->where('ec_product_categories.parent_id', 0)
+                    ->where('ec_product_related_relations.from_product_id', $prod->product_id)
+                    // ->paginate($limit);
+                    ->get();
 
-                    // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+                    // $prod->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
 
-                    // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
-                    // $val->coupon = [];
+                    // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $prod->product_id)->whereNotNull('code') ->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                    // $prod->coupon = [];
                     // foreach ($coupons as $coupon) {
-                    //     $val->coupon[strtolower($coupon->code)] = [
+                    //     $prod->coupon[strtolower($coupon->code)] = [
                     //         'code' => strtolower($coupon->code),
                     //         'value' => $coupon->value,
                     //         'start_date' => $coupon->start_date,
@@ -1457,7 +1342,7 @@ class ProductController extends Controller
                     // }
 
                     // Fetch active discount for the product
-                    $val->discount = null;
+                    $prod->discount = null;
 
                     $individualDiscount = Promotion::where('type', 'discount')
                         ->where('start_date', '<=', now())
@@ -1465,14 +1350,14 @@ class ProductController extends Controller
                         ->whereHas('discountRules', function ($query) {
                             $query->where('apply_to', 'individual');
                         })
-                        ->whereHas('discountRules.individualRules', function ($query) use ($val) {
-                            $query->where('product_id', $val->product_id);
+                        ->whereHas('discountRules.individualRules', function ($query) use ($prod) {
+                            $query->where('product_id', $prod->product_id);
                         })
                         ->with(['discountRules' => function ($query) {
                             $query->where('apply_to', 'individual')
                                 ->select('id', 'promotion_id', 'apply_to');
-                        }, 'discountRules.individualRules' => function ($query) use ($val) {
-                            $query->where('product_id', $val->product_id)
+                        }, 'discountRules.individualRules' => function ($query) use ($prod) {
+                            $query->where('product_id', $prod->product_id)
                                 ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
                         }])
                         ->first();
@@ -1481,7 +1366,7 @@ class ProductController extends Controller
                         $discountRule = $individualDiscount->discountRules->first();
                         $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
                         if ($individualRule) {
-                            $val->discount = (object) [
+                            $prod->discount = (object) [
                                 'value' => intval($individualRule->value),
                                 'apply_to' => $discountRule->apply_to,
                                 'discount_type' => $individualRule->discount_type,
@@ -1500,8 +1385,8 @@ class ProductController extends Controller
                             ->whereHas('discountRules', function ($query) {
                                 $query->where('apply_to', '!=', 'individual');
                             })
-                            ->whereHas('discountRules.products', function ($query) use ($val) {
-                                $query->where('product_id', $val->product_id);
+                            ->whereHas('discountRules.products', function ($query) use ($prod) {
+                                $query->where('product_id', $prod->product_id);
                             })
                             ->with(['discountRules' => function ($query) {
                                 $query->where('apply_to', '!=', 'individual')
@@ -1512,8 +1397,7 @@ class ProductController extends Controller
                         if ($groupDiscount) {
                             $discountRule = $groupDiscount->discountRules->first();
                             if ($discountRule) {
-                                $val->discount = (object) [
-                                 
+                                $prod->discount = (object) [
                                     'value' => intval($discountRule->percentage),
                                     'apply_to' => $discountRule->apply_to,
                                     'discount_type' => 'percent',
@@ -1531,24 +1415,24 @@ class ProductController extends Controller
                     $coupons = Promotion::where('type', 'coupon')
                         ->where('start_date', '<=', now())
                         ->where('end_date', '>=', now())
-                        ->whereHas('couponRules.products', function ($query) use ($val) {
-                            $query->where('product_id', $val->product_id);
+                        ->whereHas('couponRules.products', function ($query) use ($prod) {
+                            $query->where('product_id', $prod->product_id);
                         })
-                        ->with(['couponRules' => function ($query) use ($val) {
+                        ->with(['couponRules' => function ($query) use ($prod) {
                             $query->whereNotNull('coupon_code')
                                 ->select('id', 'promotion_id', 'coupon_code', 'percentage')
-                                ->with(['products' => function ($subQuery) use ($val) {
-                                    $subQuery->where('product_id', $val->product_id)
+                                ->with(['products' => function ($subQuery) use ($prod) {
+                                    $subQuery->where('product_id', $prod->product_id)
                                             ->select('id', 'coupon_rule_id', 'product_id');
                                 }]);
                         }])
                         ->get();
 
-                    $val->coupon = [];
+                    $prod->coupon = [];
                     foreach ($coupons as $promotion) {
                         foreach ($promotion->couponRules as $couponRule) {
                             if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
-                                $val->coupon[strtolower($couponRule->coupon_code)] = [
+                                $prod->coupon[strtolower($couponRule->coupon_code)] = [
                                     'code' => strtolower($couponRule->coupon_code),
                                     'value' => intval($couponRule->percentage),
                                     'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
@@ -1557,69 +1441,206 @@ class ProductController extends Controller
                             }
                         }
                     }
-                }
+
+                    foreach ($prod->related_prods as $key => $val) {
+                        $val->labels = DB::table('ec_product_label_products')
+                            ->select('ec_product_labels.name as label_name', 'ec_product_labels.color as label_color')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->get();
+
+                        $val->tags = DB::table('ec_product_tag_product')
+                            // ->select('ec_product_tags.name as tag_name')
+                            // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+                            ->join('ec_product_tags', 'ec_product_tag_product.tag_id', '=', 'ec_product_tags.id', 'left')
+                            ->where('product_id', $val->product_id)
+                            ->pluck('ec_product_tags.name')
+                            ->toArray();
+
+                        $val->subcategory = DB::table('ec_product_categories')
+                        ->select('name as subcategory_name')
+                        ->join ('ec_product_category_product', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+                        ->where('product_id', $val->product_id)
+                        ->where('ec_product_categories.parent_id', '!=', 0)
+                        ->first();
+
+                        // $val->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
+
+                        // $coupons = DiscountProduct::select('code', 'value', 'start_date', 'end_date')->where('product_id', $val->product_id)->whereNotNull('code')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->get();
+                        // $val->coupon = [];
+                        // foreach ($coupons as $coupon) {
+                        //     $val->coupon[strtolower($coupon->code)] = [
+                        //         'code' => strtolower($coupon->code),
+                        //         'value' => $coupon->value,
+                        //         'start_date' => $coupon->start_date,
+                        //         'end_date' => $coupon->end_date,
+                        //     ];
+                        // }
+
+                        // Fetch active discount for the product
+                        $val->discount = null;
+
+                        $individualDiscount = Promotion::where('type', 'discount')
+                            ->where('start_date', '<=', now())
+                            ->where('end_date', '>=', now())
+                            ->whereHas('discountRules', function ($query) {
+                                $query->where('apply_to', 'individual');
+                            })
+                            ->whereHas('discountRules.individualRules', function ($query) use ($val) {
+                                $query->where('product_id', $val->product_id);
+                            })
+                            ->with(['discountRules' => function ($query) {
+                                $query->where('apply_to', 'individual')
+                                    ->select('id', 'promotion_id', 'apply_to');
+                            }, 'discountRules.individualRules' => function ($query) use ($val) {
+                                $query->where('product_id', $val->product_id)
+                                    ->select('discount_rule_id', 'product_id', 'value', 'discount_type', 'product_price', 'discount_amount', 'final_price');
+                            }])
+                            ->first();
+
+                        if ($individualDiscount) {
+                            $discountRule = $individualDiscount->discountRules->first();
+                            $individualRule = $discountRule ? $discountRule->individualRules->first() : null;
+                            if ($individualRule) {
+                                $val->discount = (object) [
+                                    'value' => intval($individualRule->value),
+                                    'apply_to' => $discountRule->apply_to,
+                                    'discount_type' => $individualRule->discount_type,
+                                    'product_price' => $individualRule->product_price,
+                                    'discount_amount' => $individualRule->discount_amount,
+                                    'final_price' => $individualRule->final_price,
+                                    'start_date' => $individualDiscount->start_date->format('Y-m-d H:i:s'),
+                                    'end_date' => $individualDiscount->end_date->format('Y-m-d H:i:s'),
+                                ];
+                            }
+                        } else {
+                            // If no individual discount, try to fetch discount for group/all products
+                            $groupDiscount = Promotion::where('type', 'discount')
+                                ->where('start_date', '<=', now())
+                                ->where('end_date', '>=', now())
+                                ->whereHas('discountRules', function ($query) {
+                                    $query->where('apply_to', '!=', 'individual');
+                                })
+                                ->whereHas('discountRules.products', function ($query) use ($val) {
+                                    $query->where('product_id', $val->product_id);
+                                })
+                                ->with(['discountRules' => function ($query) {
+                                    $query->where('apply_to', '!=', 'individual')
+                                        ->select('id', 'promotion_id', 'percentage', 'apply_to');
+                                }])
+                                ->first();
+
+                            if ($groupDiscount) {
+                                $discountRule = $groupDiscount->discountRules->first();
+                                if ($discountRule) {
+                                    $val->discount = (object) [
+                                        'value' => intval($discountRule->percentage),
+                                        'apply_to' => $discountRule->apply_to,
+                                        'discount_type' => 'percent',
+                                        'product_price' => null,
+                                        'discount_amount' => null,
+                                        'final_price' => null,
+                                        'start_date' => $groupDiscount->start_date->format('Y-m-d H:i:s'),
+                                        'end_date' => $groupDiscount->end_date->format('Y-m-d H:i:s'),
+                                    ];
+                                }
+                            }
+                        }
+
+                        // Fetch active coupons for the product
+                        $coupons = Promotion::where('type', 'coupon')
+                            ->where('start_date', '<=', now())
+                            ->where('end_date', '>=', now())
+                            ->whereHas('couponRules.products', function ($query) use ($val) {
+                                $query->where('product_id', $val->product_id);
+                            })
+                            ->with(['couponRules' => function ($query) use ($val) {
+                                $query->whereNotNull('coupon_code')
+                                    ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                                    ->with(['products' => function ($subQuery) use ($val) {
+                                        $subQuery->where('product_id', $val->product_id)
+                                                ->select('id', 'coupon_rule_id', 'product_id');
+                                    }]);
+                            }])
+                            ->get();
+
+                        $val->coupon = [];
+                        foreach ($coupons as $promotion) {
+                            foreach ($promotion->couponRules as $couponRule) {
+                                if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                                    $val->coupon[strtolower($couponRule->coupon_code)] = [
+                                        'code' => strtolower($couponRule->coupon_code),
+                                        'value' => intval($couponRule->percentage),
+                                        'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                                        'end_date' => $promotion->end_date->format('Y-m-d H:i:s'),
+                                    ];
+                                }
+                            }
+                        }
+                    }
 
                 // Check if the main product has an itemFamily value.
-                if (isset($prod->product_family) && !empty($prod->product_family)) {
+                    if (isset($prod->product_family) && !empty($prod->product_family)) {
 
-                    $currentProductFamily = $prod->product_family;
-                    $productId = $prod->product_id;
+                        $currentProductFamily = $prod->product_family;
+                        $productId = $prod->product_id;
 
-                    // This query is now much simpler. It doesn't need to join the notes tables.
-                    $results = DB::table('ec_products')
-                        ->select(
-                            'ec_products.id as product_id',
-                            DB::raw('MAX(ec_products.name) as product_name'),
-                            DB::raw('MAX(ec_products.image) as image'),
-                            DB::raw('MAX(ec_products.images) as images'),
-                            DB::raw('MAX(ec_products.description) as description'),
-                            DB::raw('MAX(ec_products.quantity) as product_qty'),
-                            DB::raw('CAST(MAX(ec_products.price) AS DECIMAL(10,2)) as price'),
-                            DB::raw('CAST(MAX(ec_products.sale_price) AS DECIMAL(10,2)) as sale_price'),
-                            DB::raw('GROUP_CONCAT(DISTINCT ec_product_collections.name) as collection_name'),
-                            DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category_name'),
-                            DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory_name'),
-                            DB::raw("CONCAT('[', GROUP_CONCAT(DISTINCT JSON_OBJECT('name', ec_product_labels.name, 'color', ec_product_labels.color)), ']') as labels")
-                        )
-                        ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
-                        ->leftJoin('ec_product_categories as main_cat', function ($join) {
-                            $join->on('pivot_main.category_id', '=', 'main_cat.id')
-                                ->where('main_cat.parent_id', 0);
-                        })
-                        ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
-                        ->leftJoin('ec_product_categories as sub_cat', function ($join) {
-                            $join->on('pivot_sub.category_id', '=', 'sub_cat.id')
-                                ->where('sub_cat.parent_id', '!=', 0);
-                        })
-                        ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
-                        ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
-                        ->leftJoin('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id')
-                        ->leftJoin('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
-                        
-                        // This is the key change: we now look at the new 'product_family' column.
-                        ->where('ec_products.product_family', $currentProductFamily)
+                        // This query is now much simpler. It doesn't need to join the notes tables.
+                        $results = DB::table('ec_products')
+                            ->select(
+                                'ec_products.id as product_id',
+                                DB::raw('MAX(ec_products.name) as product_name'),
+                                DB::raw('MAX(ec_products.image) as image'),
+                                DB::raw('MAX(ec_products.images) as images'),
+                                DB::raw('MAX(ec_products.description) as description'),
+                                DB::raw('MAX(ec_products.quantity) as product_qty'),
+                                DB::raw('CAST(MAX(ec_products.price) AS DECIMAL(10,2)) as price'),
+                                DB::raw('CAST(MAX(ec_products.sale_price) AS DECIMAL(10,2)) as sale_price'),
+                                DB::raw('MAX(ec_products.maximum_order_quantity) as maximum_order_quantity'),   // ✅ Added properly
+                                DB::raw('GROUP_CONCAT(DISTINCT ec_product_collections.name) as collection_name'),
+                                DB::raw('GROUP_CONCAT(DISTINCT main_cat.name) as category_name'),
+                                DB::raw('GROUP_CONCAT(DISTINCT sub_cat.name) as subcategory_name'),
+                                DB::raw("CONCAT('[', GROUP_CONCAT(DISTINCT JSON_OBJECT('name', ec_product_labels.name, 'color', ec_product_labels.color)), ']') as labels")
+                            )
+                            ->leftJoin('ec_product_category_product as pivot_main', 'pivot_main.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_categories as main_cat', function ($join) {
+                                $join->on('pivot_main.category_id', '=', 'main_cat.id')
+                                    ->where('main_cat.parent_id', 0);
+                            })
+                            ->leftJoin('ec_product_category_product as pivot_sub', 'pivot_sub.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_categories as sub_cat', function ($join) {
+                                $join->on('pivot_sub.category_id', '=', 'sub_cat.id')
+                                    ->where('sub_cat.parent_id', '!=', 0);
+                            })
+                            ->leftJoin('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id')
+                            ->leftJoin('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id')
+                            ->leftJoin('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id')
+                            
+                            // This is the key change: we now look at the new 'product_family' column.
+                            ->where('ec_products.product_family', $currentProductFamily)
 
-                        ->where('ec_products.id', '!=', $productId)
-                        ->groupBy('ec_products.id')
-                        ->get();
+                            ->where('ec_products.id', '!=', $productId)
+                            ->groupBy('ec_products.id')
+                            ->get();
 
-                    // The post-processing part remains the same
-                    $prod->item_family = $results->map(function ($item) {
-                        $item->subcategory = $item->subcategory_name ? [
-                            'subcategory_name' => $item->subcategory_name,
-                        ] : null;
-                        unset($item->subcategory_name);
-                        $item->labels = json_decode($item->labels);
-                        $item->images = json_decode($item->images, true) ?? [];
-                        return $item;
-                    });
+                        // The post-processing part remains the same
+                        $prod->item_family = $results->map(function ($item) {
+                            $item->subcategory = $item->subcategory_name ? [
+                                'subcategory_name' => $item->subcategory_name,
+                            ] : null;
+                            unset($item->subcategory_name);
+                            $item->labels = json_decode($item->labels);
+                            $item->images = json_decode($item->images, true) ?? [];
+                            return $item;
+                        });
 
-                } else {
-                    // If the main product has no family, return an empty array for consistency.
-                    $prod->item_family = [];
-                }
-
-                // Fetch Complete Order Products for "Complete your order with" cross-sell slider
+                    } else {
+                        // If the main product has no family, return an empty array for consistency.
+                        $prod->item_family = [];
+                    }
+                    // Fetch Complete Order Products for "Complete your order with" cross-sell slider
                 try {
                     $completeOrderItems = DB::table('complete_order_products')
                         ->join('ec_products', 'complete_order_products.product_id', '=', 'ec_products.id')
@@ -1758,7 +1779,12 @@ class ProductController extends Controller
                     $prod->complete_order_products = [];
                 }
 
-            $response = response()->json($prod)->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+                    $response = response()->json($prod);
+                    // ->header('Cache-Control', 'public, max-age=86400, s-maxage=172800')->setEtag(md5(json_encode($prod)));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+                } else {
+                    $response = response()->json((object) []);
+                }
+            
 
             if ($response->isNotModified(request())) {
                 return $response;
@@ -1768,28 +1794,71 @@ class ProductController extends Controller
         }
     }
 
+
     public function getAllProducts(Request $request)
     {
         $limit = (int)$request['limit'];
         $page = (int)$request['page'];
         $search = implode('', explode(' ', $request['search']));
+        $discountName = $request['discount_name'];
 
         if($search == '') {
             // echo "if";
-            $prod = DB::table('ec_product_category_product')
-                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_categories.id as category_id', 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+            // $prod = DB::table('ec_product_category_product')
+            //     ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_categories.id as category_id', 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.maximum_order_quantity')
+            //     ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
+            //     ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
+            //     ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
+            //     ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
+            //     // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
+            //     // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
+            //     ->where('ec_product_categories.status', 'published')
+            //     ->where('ec_product_collections.name', NULL)
+            //     ->where('ec_product_categories.parent_id', 0)
+            //     // ->orderBy('ec_product_category_product.product_id', 'desc')
+            //     ->paginate($limit);
+            //     // ->get();
+
+            $query = DB::table('ec_product_category_product')
+                ->select(
+                    DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 
+                    'ec_product_categories.id as category_id', 
+                    'ec_product_category_product.product_id', 
+                    'ec_products.name as product_name', 
+                    'ec_product_categories.name as category_name', 
+                    'ec_products.image', 
+                    'ec_products.images', 
+                    'ec_product_collections.name as collection_name', 
+                    'ec_products.description', 
+                    'ec_products.quantity as product_qty', 
+                    'ec_products.sale_price', 
+                    'ec_products.maximum_order_quantity'
+                )
                 ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                 ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collections', 'ec_product_collection_products.product_collection_id', '=', 'ec_product_collections.id', 'left')
-                // ->join('ec_product_label_products', 'ec_product_label_products.product_id', '=', 'ec_products.id', 'left')
-                // ->join('ec_product_labels', 'ec_product_label_products.product_label_id', '=', 'ec_product_labels.id', 'left')
                 ->where('ec_product_categories.status', 'published')
                 ->where('ec_product_collections.name', NULL)
-                ->where('ec_product_categories.parent_id', 0)
-                // ->orderBy('ec_product_category_product.product_id', 'desc')
-                ->paginate($limit);
-                // ->get();
+                ->where('ec_product_categories.parent_id', 0);
+
+            // Apply Discount Name filter if provided
+            if (!empty($discountName)) {
+                $query->whereExists(function ($q) use ($discountName) {
+                    $q->select(DB::raw(1))
+                        ->from('promotions')
+                        ->join('discount_rules', 'promotions.id', '=', 'discount_rules.promotion_id')
+                        ->leftJoin('discount_products', 'discount_rules.id', '=', 'discount_products.discount_rule_id')
+                        ->where('promotions.name', $discountName)
+                        ->where('promotions.type', 'discount')
+                        ->where('promotions.start_date', '<=', now())
+                        ->where('promotions.end_date', '>=', now())
+                        ->whereColumn('discount_products.product_id', 'ec_product_category_product.product_id');
+                });
+            }
+
+            // Execute pagination after all conditions are attached
+            $prod = $query->paginate($limit);
 
             foreach ($prod as $key => $val) {
                 $val->labels = DB::table('ec_product_label_products')
@@ -1942,7 +2011,7 @@ class ProductController extends Controller
         } else {
             // echo "else";
             $prod = DB::table('ec_product_category_product')
-                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_categories.id as category_id', 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+                ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_categories.id as category_id', 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_product_categories.name as category_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.maximum_order_quantity')
                 ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
                 ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
                 ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -2125,7 +2194,7 @@ class ProductController extends Controller
             ]);
         }
         $products = DB::table('ec_product_category_product')
-            ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price')
+            ->select(DB::raw('CAST(ec_products.price AS DECIMAL(8,2)) as price'), 'ec_product_category_product.product_id', 'ec_products.name as product_name', 'ec_products.image', 'ec_products.images', 'ec_product_collections.name as collection_name', 'ec_products.description', 'ec_products.quantity as product_qty', 'ec_products.sale_price', 'ec_products.maximum_order_quantity')
             ->join ('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id', 'left')
             ->join ('ec_products', 'ec_product_category_product.product_id', '=', 'ec_products.id', 'left')
             ->join('ec_product_collection_products', 'ec_product_collection_products.product_id', '=', 'ec_products.id', 'left')
@@ -2340,10 +2409,15 @@ class ProductController extends Controller
 
     public function freeGiftProducts(Request $request)
     {
-        $thresholds = DB::table('foc_rules')->where('type', 'foc')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('promotions', 'promotions.id', '=', 'foc_rules.promotion_id')->select('name', 'foc_rules.id', 'min_threshold AS min', 'max_threshold As max', 'gift_limit', 'allow_with_discount')->orderBy('min', 'asc')->get();
+        // echo now();die();
+       $thresholds = DB::table('foc_rules')->where('type', 'foc')->where('start_date', '<=', now())->where('end_date', '>=', now())->join('promotions', 'promotions.id', '=', 'foc_rules.promotion_id')->select('name', 'foc_rules.id', 'min_threshold AS min', 'max_threshold As max', 'gift_limit', 'allow_with_discount')->orderBy('min', 'asc')->get();
 
         if($thresholds->isEmpty()) {
-            return response()->json(['thresholds' => []])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => []])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
+            return response()->json(['thresholds' => $thresholds])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0')
+            ->header('X-Cache-Status', 'BYPASS'); // optional debug
         }
         foreach ($thresholds as $threshold) {
             $giftData = [];
@@ -2376,13 +2450,11 @@ class ProductController extends Controller
             $threshold->gifts = $giftData;
         }
 
-        $response = response()->json(['thresholds' => $thresholds])->header('Cache-Control', 'public, max-age=0, s-maxage=0')->setEtag(md5(json_encode(['thresholds' => $thresholds])));  // Cache 1 Day in the browser, 2 Days at Cloudflare
-
-        if ($response->isNotModified(request())) {
-            return $response;
-        }
-
-        return $response;
+        return response()->json(['thresholds' => $thresholds])
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0')
+        ->header('X-Cache-Status', 'BYPASS'); // optional debug
     }
 
     public function bogoProducts(Request $request)
@@ -2475,7 +2547,7 @@ class ProductController extends Controller
                     //     })->values()->toArray();
                     // }
 
-                    return [    
+                    return [
                         'id' => $firstRule->rule_id,
                         'name' => $firstPromo->name,
                         'buy_quantity' => $firstRule->buy_quantity ?? 1,
@@ -2484,7 +2556,7 @@ class ProductController extends Controller
                         'free_products' => $freeProducts,
                         'selection_rule' => $this->determineSelectionRule($firstRule, $firstPromo->name, !empty($freeProducts)),
                         'campaign' => $firstPromo->name
-                            ? str_replace(' ', '_', strtolower($firstPromo->name)) . '_2025_campaign'
+                            ? str_replace(' ', '_', strtolower($firstPromo->name)) . '_'.now()->year.'_campaign'
                             : 'default_campaign_' . $firstRule->rule_id,
                     ];
                 })->filter()->values()->toArray();
@@ -2502,175 +2574,6 @@ class ProductController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
-    }
-
-    public function getSearchSuggestions(Request $request){
-        // 1. Prepare the request for the internal call
-        $request->merge([
-            'limit' => 6, 
-            'page' => 1,
-            'search' => $request->input('keyword') 
-        ]);
-
-        // 2. Call the internal method
-        $response = $this->getAllProducts($request);
-        
-        // 3. Get the underlying data from the JsonResponse
-        $originalData = $response->getData();
-        
-        // Laravel's paginate() puts results in a 'data' property
-        $items = isset($originalData->data) ? $originalData->data : [];
-
-        // 4. Batch fetch extra product details & slugs matching ProductReviewController structure
-        $productIds = collect($items)->pluck('product_id')->filter()->unique()->values()->all();
-        $extraDetails = [];
-        $slugs = [];
-        $couponsMap = [];
-
-        if (!empty($productIds)) {
-            $extraDetails = DB::table('ec_products')
-                ->whereIn('id', $productIds)
-                ->select('id', 'name_ar', 'description_ar', 'stock_status', 'quantity')
-                ->get()
-                ->keyBy('id');
-
-            $slugs = DB::table('slugs')
-                ->where('reference_type', 'Botble\Ecommerce\Models\Product')
-                ->whereIn('reference_id', $productIds)
-                ->pluck('key', 'reference_id');
-
-            // Fetch active coupons for the product IDs
-            $coupons = Promotion::where('type', 'coupon')
-                ->where('start_date', '<=', now())
-                ->where('end_date', '>=', now())
-                ->whereHas('couponRules.products', function ($query) use ($productIds) {
-                    $query->whereIn('product_id', $productIds);
-                })
-                ->with(['couponRules' => function ($query) use ($productIds) {
-                    $query->whereNotNull('coupon_code')
-                        ->select('id', 'promotion_id', 'coupon_code', 'percentage')
-                        ->with(['products' => function ($subQuery) use ($productIds) {
-                            $subQuery->whereIn('product_id', $productIds)
-                                     ->select('id', 'coupon_rule_id', 'product_id');
-                        }]);
-                }])
-                ->get();
-
-            foreach ($coupons as $promotion) {
-                foreach ($promotion->couponRules as $couponRule) {
-                    if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
-                        foreach ($couponRule->products as $cp) {
-                            $couponsMap[$cp->product_id][strtolower($couponRule->coupon_code)] = [
-                                'code'       => strtolower($couponRule->coupon_code),
-                                'value'      => intval($couponRule->percentage),
-                                'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
-                                'end_date'   => $promotion->end_date->format('Y-m-d H:i:s'),
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-
-        // 5. Format for the frontend matching review controller structure
-        $formatted = collect($items)->map(function($item) use ($extraDetails, $slugs, $couponsMap) {
-            // 1. Cleaner helper
-            $cleaner = function($str) {
-                $str = str_replace('&amp;', '&', $str); // Convert &amp; to & for URL cleaning
-                $str = preg_replace('/[^\w\s-]/', '', $str);
-                $str = preg_replace('/\s+/', ' ', $str);
-                return trim($str);
-            };
-
-            // 2. IMAGE LOGIC (consistent array and 0th string)
-            $imgList = [];
-            if (!empty($item->images)) {
-                $decoded = is_string($item->images) ? json_decode($item->images, true) : $item->images;
-                $imgList = is_array($decoded) ? $decoded : [$item->images];
-            } elseif (!empty($item->image)) {
-                $imgList = [$item->image];
-            }
-            $displayImage = !empty($imgList) ? $imgList[0] : ($item->image ?? null);
-
-            // 3. CATEGORY & SUBCAT LOGIC
-            $categorySlug = strtolower(str_replace(' ', '-', $cleaner($item->category_name ?? 'shop')));
-            
-            // Safely check for subcategory
-            $subcatName = null;
-            if (isset($item->subcategory) && is_object($item->subcategory)) {
-                $subcatName = $item->subcategory->subcategory_name ?? null;
-            } elseif (isset($item->subcategory_name)) {
-                $subcatName = $item->subcategory_name;
-            }
-
-            if (!empty($subcatName)) {
-                $subcatSlug = strtolower(str_replace(' ', '-', $cleaner($subcatName)));
-            } else {
-                // Your specific fallback logic
-                $fallbacks = ['gift-sets', 'hair-mist', 'extrait-de-parfum'];
-                $subcatSlug = in_array($categorySlug, $fallbacks) ? $categorySlug : "online-exclusive";
-            }
-
-            $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
-
-            // 4. STOCK & QUANTITY
-            $extra = $extraDetails[$item->product_id] ?? null;
-            $productQty = (int) ($extra->quantity ?? ($item->product_qty ?? 0));
-            $stockStatus = $extra->stock_status ?? ($productQty > 0 ? 'in_stock' : 'out_of_stock');
-            $inStock = ($productQty > 0) || ($stockStatus === 'in_stock');
-
-            // 5. LABELS & TAGS formatting
-            $labelsFormatted = [];
-            if (isset($item->labels)) {
-                $labelsFormatted = collect($item->labels)->map(function ($l) {
-                    return [
-                        'label_name'  => is_object($l) ? $l->label_name : ($l['label_name'] ?? null),
-                        'label_color' => is_object($l) ? $l->label_color : ($l['label_color'] ?? null),
-                    ];
-                })->values()->all();
-            }
-
-            $tagsFormatted = [];
-            if (isset($item->tags)) {
-                $tagsFormatted = collect($item->tags)->values()->all();
-            }
-
-            $permalinkKey = $slugs[$item->product_id] ?? $productSlug;
-
-            return [
-                'id'                => (int) $item->product_id,
-                'product_id'        => (int) $item->product_id,
-                'product_name'      => $item->product_name,
-                'product_name_ar'   => $extra->name_ar ?? ($item->product_name_ar ?? null),
-                'name'              => html_entity_decode($item->product_name), // Fixes &amp; for the UI
-                'price'             => (string) $item->price,
-                'sale_price'        => !empty($item->sale_price) ? (string) $item->sale_price : null,
-                'product_qty'       => $productQty,
-                'stock_status'      => $stockStatus,
-                'in_stock'          => $inStock,
-                'image'             => $displayImage,
-                'product_image'     => $displayImage,
-                'images'            => $imgList,
-                'description'       => $item->description ?? null,
-                'description_ar'    => $extra->description_ar ?? ($item->description_ar ?? null),
-                'collection_name'   => $item->collection_name ?? null,
-                'category_id'       => isset($item->category_id) ? (int) $item->category_id : null,
-                'category_name'     => $item->category_name ?? '',
-                'subcategory'       => $subcatName ? ['subcategory_name' => $subcatName] : null,
-                'subcategory_name'  => $subcatName ?? '',
-                'permalink'         => ['key' => $permalinkKey],
-                'labels'            => $labelsFormatted,
-                'tags'              => $tagsFormatted,
-                'discount'          => $item->discount ?? null,
-                'coupon'            => $couponsMap[$item->product_id] ?? [],
-                'url_path'          => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}",
-            ];
-        });
-
-        return response()->json([
-            'success' => true,
-            'data'    => $formatted
-        ]);
     }
 
     /**
@@ -2743,12 +2646,14 @@ class ProductController extends Controller
                 'ec_product_categories.id as category_id',
                 'ec_product_category_product.product_id',
                 'ec_products.name as product_name',
+                'ec_products.name_ar as product_name_ar',
                 'ec_product_categories.name as category_name',
                 'ec_products.image',
                 'ec_products.images',
                 'ec_products.description',
                 'ec_products.quantity as product_qty',
                 'ec_products.sale_price',
+                'ec_products.maximum_order_quantity',
                 DB::raw('COALESCE(sales_agg.total_sales, 0) as sales') // Use the joined sales data
             )
             ->join('ec_product_categories', 'ec_product_category_product.category_id', '=', 'ec_product_categories.id')
@@ -2888,6 +2793,175 @@ class ProductController extends Controller
                 }
             }
         }
+    }
+
+    public function getSearchSuggestions(Request $request) {
+        // 1. Prepare the request for the internal call
+        $request->merge([
+            'limit' => 6, 
+            'page' => 1,
+            'search' => $request->input('keyword') 
+        ]);
+
+        // 2. Call the internal method
+        $response = $this->getAllProducts($request);
+        
+        // 3. Get the underlying data from the JsonResponse
+        $originalData = $response->getData();
+        
+        // Laravel's paginate() puts results in a 'data' property
+        $items = isset($originalData->data) ? $originalData->data : [];
+
+        // 4. Batch fetch extra product details & slugs matching ProductReviewController structure
+        $productIds = collect($items)->pluck('product_id')->filter()->unique()->values()->all();
+        $extraDetails = [];
+        $slugs = [];
+        $couponsMap = [];
+
+        if (!empty($productIds)) {
+            $extraDetails = DB::table('ec_products')
+                ->whereIn('id', $productIds)
+                ->select('id', 'name_ar', 'description_ar', 'stock_status', 'quantity')
+                ->get()
+                ->keyBy('id');
+
+            $slugs = DB::table('slugs')
+                ->where('reference_type', 'Botble\Ecommerce\Models\Product')
+                ->whereIn('reference_id', $productIds)
+                ->pluck('key', 'reference_id');
+
+            // Fetch active coupons for the product IDs
+            $coupons = Promotion::where('type', 'coupon')
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->whereHas('couponRules.products', function ($query) use ($productIds) {
+                    $query->whereIn('product_id', $productIds);
+                })
+                ->with(['couponRules' => function ($query) use ($productIds) {
+                    $query->whereNotNull('coupon_code')
+                        ->select('id', 'promotion_id', 'coupon_code', 'percentage')
+                        ->with(['products' => function ($subQuery) use ($productIds) {
+                            $subQuery->whereIn('product_id', $productIds)
+                                     ->select('id', 'coupon_rule_id', 'product_id');
+                        }]);
+                }])
+                ->get();
+
+            foreach ($coupons as $promotion) {
+                foreach ($promotion->couponRules as $couponRule) {
+                    if ($couponRule->coupon_code && $couponRule->products->isNotEmpty()) {
+                        foreach ($couponRule->products as $cp) {
+                            $couponsMap[$cp->product_id][strtolower($couponRule->coupon_code)] = [
+                                'code'       => strtolower($couponRule->coupon_code),
+                                'value'      => intval($couponRule->percentage),
+                                'start_date' => $promotion->start_date->format('Y-m-d H:i:s'),
+                                'end_date'   => $promotion->end_date->format('Y-m-d H:i:s'),
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Format for the frontend matching review controller structure
+        $formatted = collect($items)->map(function($item) use ($extraDetails, $slugs, $couponsMap) {
+            // 1. Cleaner helper
+            $cleaner = function($str) {
+                $str = str_replace('&amp;', '&', $str); // Convert &amp; to & for URL cleaning
+                $str = preg_replace('/[^\w\s-]/', '', $str);
+                $str = preg_replace('/\s+/', ' ', $str);
+                return trim($str);
+            };
+
+            // 2. IMAGE LOGIC (consistent array and 0th string)
+            $imgList = [];
+            if (!empty($item->images)) {
+                $decoded = is_string($item->images) ? json_decode($item->images, true) : $item->images;
+                $imgList = is_array($decoded) ? $decoded : [$item->images];
+            } elseif (!empty($item->image)) {
+                $imgList = [$item->image];
+            }
+            $displayImage = !empty($imgList) ? $imgList[0] : ($item->image ?? null);
+
+            // 3. CATEGORY & SUBCAT LOGIC
+            $categorySlug = strtolower(str_replace(' ', '-', $cleaner($item->category_name ?? 'shop')));
+            
+            // Safely check for subcategory
+            $subcatName = null;
+            if (isset($item->subcategory) && is_object($item->subcategory)) {
+                $subcatName = $item->subcategory->subcategory_name ?? null;
+            } elseif (isset($item->subcategory_name)) {
+                $subcatName = $item->subcategory_name;
+            }
+
+            if (!empty($subcatName)) {
+                $subcatSlug = strtolower(str_replace(' ', '-', $cleaner($subcatName)));
+            } else {
+                // Your specific fallback logic
+                $fallbacks = ['gift-sets', 'hair-mist', 'extrait-de-parfum'];
+                $subcatSlug = in_array($categorySlug, $fallbacks) ? $categorySlug : "online-exclusive";
+            }
+
+            $productSlug = strtolower(str_replace(' ', '-', $cleaner($item->product_name)));
+
+            // 4. STOCK & QUANTITY
+            $extra = $extraDetails[$item->product_id] ?? null;
+            $productQty = (int) ($extra->quantity ?? ($item->product_qty ?? 0));
+            $stockStatus = $extra->stock_status ?? ($productQty > 0 ? 'in_stock' : 'out_of_stock');
+            $inStock = ($productQty > 0) || ($stockStatus === 'in_stock');
+
+            // 5. LABELS & TAGS formatting
+            $labelsFormatted = [];
+            if (isset($item->labels)) {
+                $labelsFormatted = collect($item->labels)->map(function ($l) {
+                    return [
+                        'label_name'  => is_object($l) ? $l->label_name : ($l['label_name'] ?? null),
+                        'label_color' => is_object($l) ? $l->label_color : ($l['label_color'] ?? null),
+                    ];
+                })->values()->all();
+            }
+
+            $tagsFormatted = [];
+            if (isset($item->tags)) {
+                $tagsFormatted = collect($item->tags)->values()->all();
+            }
+
+            $permalinkKey = $slugs[$item->product_id] ?? $productSlug;
+
+            return [
+                'id'                => (int) $item->product_id,
+                'product_id'        => (int) $item->product_id,
+                'product_name'      => $item->product_name,
+                'product_name_ar'   => $extra->name_ar ?? ($item->product_name_ar ?? null),
+                'name'              => html_entity_decode($item->product_name, ENT_QUOTES, 'UTF-8'),
+                'price'             => (string) $item->price,
+                'sale_price'        => !empty($item->sale_price) ? (string) $item->sale_price : null,
+                'product_qty'       => $productQty,
+                'stock_status'      => $stockStatus,
+                'in_stock'          => $inStock,
+                'image'             => $displayImage,
+                'product_image'     => $displayImage,
+                'images'            => $imgList,
+                'description'       => $item->description ?? null,
+                'description_ar'    => $extra->description_ar ?? ($item->description_ar ?? null),
+                'collection_name'   => $item->collection_name ?? null,
+                'category_id'       => isset($item->category_id) ? (int) $item->category_id : null,
+                'category_name'     => $item->category_name ?? '',
+                'subcategory'       => $subcatName ? ['subcategory_name' => $subcatName] : null,
+                'subcategory_name'  => $subcatName ?? '',
+                'permalink'         => ['key' => $permalinkKey],
+                'labels'            => $labelsFormatted,
+                'tags'              => $tagsFormatted,
+                'discount'          => $item->discount ?? null,
+                'coupon'            => $couponsMap[$item->product_id] ?? [],
+                'url_path'          => "/shop/{$categorySlug}/{$subcatSlug}/{$productSlug}",
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data'    => $formatted
+        ]);
     }
 
     public function getProductsLiveStatus(Request $request) {

@@ -55,6 +55,11 @@ Route::middleware(['customLogs', 'restrict.domains'])->group(function () {
         Route::get('/sessions', [AuthController::class, 'getSessions']);
         Route::post('/sessions/revoke', [AuthController::class, 'revokeSession']);
         Route::post('/sessions/revoke-others', [AuthController::class, 'revokeOtherSessions']);
+
+        // Customer Reviews
+        Route::get('/customerReviews', [ApiProductReviewController::class, 'customerReviews']);
+        Route::post('/customerReviews/{id}/update', [ApiProductReviewController::class, 'updateCustomerReview']);
+        Route::put('/customerReviews/{id}', [ApiProductReviewController::class, 'updateCustomerReview']);
     });
 
 
@@ -108,6 +113,10 @@ Route::get('/search-suggestions', [ProductController::class, 'getSearchSuggestio
     Route::get('/products/{product}/reviews', [ApiProductReviewController::class, 'index']);
     // Address to submit a new review
     Route::post('/reviews', [ApiProductReviewController::class, 'store']);
+    Route::post('/checkOrderReviews', [ApiProductReviewController::class, 'checkOrderReviews']);
+    Route::withoutMiddleware('restrict.domains')->match(['get', 'post'], '/orderReviewDetails', [ApiProductReviewController::class, 'getOrderReviewDetails']);
+    Route::withoutMiddleware(['customLogs', 'restrict.domains'])->match(['get', 'post'], '/sendOrderReviewReminders', [ApiProductReviewController::class, 'sendOrderReviewReminders']);
+    Route::withoutMiddleware(['customLogs', 'restrict.domains'])->match(['get', 'post'], '/sendWhatsAppReviewReminders', [ApiProductReviewController::class, 'sendWhatsAppReviewReminders']);
 
 
     Route::get('/freeGiftProducts', [ProductController::class, 'freeGiftProducts']);

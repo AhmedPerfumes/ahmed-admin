@@ -169,4 +169,7 @@ return [
         // 'Example' => App\Facades\Example::class,
     ])->toArray(),
 
+    'review_launch_date' => env('REVIEW_REMINDER_LAUNCH_DATE', '2026-09-01'),
+
 ];
+

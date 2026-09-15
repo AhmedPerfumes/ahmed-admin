@@ -6,6 +6,7 @@ use App\Scopes\ActiveReviewScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Botble\Base\Models\BaseModel;
 use Botble\Ecommerce\Models\Product; // <-- ADD THIS LINE
+use Botble\Ecommerce\Models\Order;
 use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- ADD THIS LINE
 use Botble\Base\Enums\BaseStatusEnum; 
 
@@ -30,9 +31,12 @@ class ProductReview extends BaseModel
         'customer_email',
         'customer_phone',
         'product_id',
+        'order_id',
         'star',
         'comment',
         'status',
+        'coupon_code',
+        'coupon_sent_at',
         'images',
     ];
 
@@ -43,6 +47,7 @@ class ProductReview extends BaseModel
      */
     protected $casts = [
         'images' => 'array',
+        'coupon_sent_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -54,5 +59,10 @@ class ProductReview extends BaseModel
     {
         // This links our 'product_id' column to the main Product blueprint.
         return $this->belongsTo(Product::class)->withDefault();
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'order_id')->withDefault();
     }
 }

@@ -39,10 +39,12 @@ class ProductReviewTable extends TableAbstract
         $query = $this->model->select([
             'id',
             'product_id',
+            'order_id',
             'customer_name',
             'star',
             'comment',
             'status',
+            'coupon_code',
             'created_at',
         ]);
 
@@ -68,6 +70,9 @@ class ProductReviewTable extends TableAbstract
                 ->alignStart(),
             Column::make('status')
                 ->title('Status'),
+            Column::make('coupon_code')
+                ->title('Coupon')
+                ->alignCenter(),
             Column::make('created_at')
                 ->title('Created At'),
         ];
@@ -90,6 +95,12 @@ class ProductReviewTable extends TableAbstract
             ->editColumn('status', function (ProductReview $item) {
                 // This uses Botble's helper to create a nice status badge.
                 return BaseHelper::renderBadge($item->status);
+            })
+            ->editColumn('coupon_code', function (ProductReview $item) {
+                if ($item->coupon_code) {
+                    return '<span class="badge bg-primary">' . e($item->coupon_code) . '</span>';
+                }
+                return '<span class="text-muted">—</span>';
             });
 
         return $this->toJson($data);

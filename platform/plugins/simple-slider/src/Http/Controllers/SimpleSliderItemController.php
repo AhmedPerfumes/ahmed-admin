@@ -2,13 +2,13 @@
 
 namespace Botble\SimpleSlider\Http\Controllers;
 
-use App\Services\NextJsCacheService;
 use Botble\Base\Http\Actions\DeleteResourceAction;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\SimpleSlider\Forms\SimpleSliderItemForm;
 use Botble\SimpleSlider\Http\Requests\SimpleSliderItemRequest;
 use Botble\SimpleSlider\Models\SimpleSliderItem;
 use Botble\SimpleSlider\Tables\SimpleSliderItemTable;
+use App\Services\NextJsCacheService;
 
 class SimpleSliderItemController extends BaseController
 {
@@ -36,7 +36,7 @@ class SimpleSliderItemController extends BaseController
         SimpleSliderItemForm::create()->setRequest($request)->save();
 
         if (class_exists(NextJsCacheService::class)) {
-            NextJsCacheService::revalidate(['home-sliders', 'menu-data']);
+            NextJsCacheService::revalidate(["home-sliders"]);
         }
 
         return $this
@@ -69,7 +69,7 @@ class SimpleSliderItemController extends BaseController
             ->save();
 
         if (class_exists(NextJsCacheService::class)) {
-            NextJsCacheService::revalidate(['home-sliders', 'menu-data']);
+            NextJsCacheService::revalidate(["home-sliders"]);
         }
 
         return $this
@@ -84,7 +84,7 @@ class SimpleSliderItemController extends BaseController
         $response = DeleteResourceAction::make($simpleSliderItem);
 
         if (class_exists(NextJsCacheService::class)) {
-            NextJsCacheService::revalidate(['home-sliders', 'menu-data']);
+            NextJsCacheService::revalidate(["home-sliders"]);
         }
 
         return $response;

@@ -26,20 +26,54 @@ class SimpleSliderItemForm extends FormAbstract
             ->add('simple_slider_id', 'hidden', [
                 'value' => $this->getRequest()->input('simple_slider_id'),
             ])
-            ->add('season', TextField::class, [
-                'label' => 'Season',
-                'attr' => [
-                    'data-counter' => 120,
-                ],
-            ])
+            ->add('rowOpen1', 'html', ['html' => '<div class="row">'])
             ->add('title', TextField::class, [
-                'label' => trans('core/base::forms.title'),
+                'label' => trans('core/base::forms.title') . ' (EN)',
+                'attr' => [
+                    'data-counter' => 120,
+                ],
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
+            ])
+            ->add('title_ar', TextField::class, [
+                'label' => trans('core/base::forms.title') . ' (AR)',
+                'attr' => [
+                    'data-counter' => 120,
+                ],
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
+            ])
+            ->add('rowClose1', 'html', ['html' => '</div>'])
+            ->add('rowOpen2', 'html', ['html' => '<div class="row">'])
+            ->add('sub_title', TextField::class, [
+                'label' => 'Sub Title (EN)',
+                'attr' => [
+                    'data-counter' => 120,
+                ],
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
+            ])
+            ->add('sub_title_ar', TextField::class, [
+                'label' => 'Sub Title (AR)',
+                'attr' => [
+                    'data-counter' => 120,
+                ],
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
+            ])
+            ->add('rowClose2', 'html', ['html' => '</div>'])
+            ->add('season', TextField::class, [
+                'label' => 'Season (EN)',
                 'attr' => [
                     'data-counter' => 120,
                 ],
             ])
-            ->add('sub_title', TextField::class, [
-                'label' => 'Sub Title',
+            ->add('season_ar', TextField::class, [
+                'label' => 'Season (AR)',
                 'attr' => [
                     'data-counter' => 120,
                 ],
@@ -47,23 +81,44 @@ class SimpleSliderItemForm extends FormAbstract
             ->add('link', TextField::class, [
                 'label' => trans('core/base::forms.link'),
                 'attr' => [
-                    // 'placeholder' => 'https://',
                     'data-counter' => 120,
                 ],
             ])
-            // ->add('description', TextareaField::class, DescriptionFieldOption::make()->toArray())
-            ->add('type', SelectField::class, SelectFieldOption::make()->label(trans('plugins/captcha::captcha.settings.type'))
-            ->choices([
-                'desktop' => 'Desktop',
-                'mobile' => 'Mobile',
-            ])->toArray())
+            ->add('rowOpen4', 'html', ['html' => '<div class="row">'])
             ->add('color', 'customColor', [
                 'label' => trans('plugins/ecommerce::product-label.color'),
                 'attr' => [
                     'placeholder' => trans('plugins/ecommerce::product-label.color_placeholder'),
                 ],
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
             ])
-            ->add('order', NumberField::class, SortOrderFieldOption::make()->toArray())
-            ->add('image', MediaImageField::class, MediaImageFieldOption::make()->required()->toArray());
+            ->add('order', NumberField::class, [
+                'label' => trans('core/base::forms.order'),
+                'attr' => [
+                    'placeholder' => trans('core/base::forms.order_placeholder'),
+                ],
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
+            ])
+            ->add('rowClose4', 'html', ['html' => '</div>'])
+            ->add('rowOpen5', 'html', ['html' => '<div class="row">'])
+            ->add('image', MediaImageField::class, [
+                'label' => 'Desktop Image',
+                'required' => true,
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
+            ])
+            ->add('mobile_image', MediaImageField::class, [
+                'label' => 'Mobile Image',
+                'required' => false,
+                'wrapper' => [
+                    'class' => 'form-group col-md-6',
+                ],
+            ])
+            ->add('rowClose5', 'html', ['html' => '</div>']);
     }
 }
