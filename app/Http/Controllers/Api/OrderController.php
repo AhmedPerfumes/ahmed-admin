@@ -33,31 +33,28 @@ use App\Models\CashbackProduct;
 use Botble\Payment\Models\Payment;
 use App\Models\ActiveCoupon;
 use Illuminate\Support\Facades\Log;
-use Botble\Ecommerce\Models\ShippingRule;
-use Botble\Ecommerce\Models\Tax;
+use App\Services\OrderPricing\OrderProductPricingService;
+use App\Services\OrderPricing\PricingContext;
 
 class OrderController extends Controller
 {
-    public function storeOrder(\App\Http\Requests\StoreOrderRequest $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+    public function storeOrder(\App\Http\Requests\StoreOrderRequest $request, CreatePaymentForOrderService $createPaymentForOrderService, OrderProductPricingService $pricingService) {
         $orderTrackId = \Illuminate\Support\Str::uuid()->toString();
-
+        
         // This injects the unique ID into every log generated during this request
         \Illuminate\Support\Facades\Log::withContext([
             'order_req_id' => $orderTrackId
         ]);
+
         Log::info("[$orderTrackId] OrderController: storeOrder() started.");
-
-        // echo base_path('certs/cacert.pem');die;
-
-        $customer = Auth::guard('api')->user();
-        if (!$customer) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        Log::info(request()->all());
 
         // --- PRE-TRANSACTION API CHECKS ---
         $coupon_code = $request->input('couponCode');
         $decode = null; // Initialise — only populated below if a coupon code is present
-        
+        \Log::info('[OrderController] storeOrder — coupon_code from request', [
+            'coupon_code' => $coupon_code,
+        ]);
         if (isset($coupon_code) && !empty($coupon_code)) {
 
             if (!isset($request->couponData) || empty($request->couponData)) {
@@ -92,22 +89,25 @@ class OrderController extends Controller
             $response = curl_exec($curl);
             curl_close($curl);
             $decode = json_decode($response);
-            
+
+            \Log::info('[OrderController] Coupon API response decoded', [
+                'coupon_code'    => $coupon_code,
+                'raw_response'   => $response,
+                'decode'         => $decode ? (array) $decode : null,
+                'decode_data'    => !empty($decode->data) ? (array) $decode->data : null,
+            ]);
+
             if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
                 return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
             }
         }
+
         $productIds = collect($request->input('products'))->pluck('product_id')->toArray();
         $dbProducts = Product::whereIn('id', $productIds)->get()->keyBy('id');
 
         // Parallel API check for StockStatus BEFORE the DB transaction to prevent locking
         $stockResponses = \Illuminate\Support\Facades\Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($request, $dbProducts) {
             foreach ($request->input('products') as $product) {
-                if($product['quantity'] <= 0) {
-                    return response()->json([
-                        'qtyMessage'          => 'Quantity should be greater than 0'
-                   ]);
-                }
                 $exisProduct = $dbProducts->get($product['product_id']);
                 if ($exisProduct && $exisProduct->barcode) {
                     $pool->as('product_' . $product['product_id'])
@@ -129,9 +129,9 @@ class OrderController extends Controller
             if (!$exisProduct) {
                 return response()->json(['notFound' => 'Product not found '.$product['product_name']], 500);
             }
-            // if ($product['quantity'] <= 0) {
-            //     return response()->json(['qtyMessage' => 'Quantity should be greater than 0']);
-            // }
+            if ($product['quantity'] <= 0) {
+                return response()->json(['qtyMessage' => 'Quantity should be greater than 0']);
+            }
             if ($exisProduct->quantity < $product['quantity']) {
                 return response()->json(['qtyMessage' => $product['product_name'].' is Out Of Stock.']);
             }
@@ -157,6 +157,7 @@ class OrderController extends Controller
             $response = $stockResponses['product_' . $product['product_id']] ?? null;
             if ($response && $response->successful()) {
                 $respData = $response->json();
+                \Log::info('Concurrent Stock API Response for ' . $product['product_id'] . ':', ['response' => $respData]);
                 
                 if (isset($respData['data']) && $respData['data'] < $product['quantity']) {
                     return response()->json([
@@ -164,16 +165,17 @@ class OrderController extends Controller
                     ]);
                 }
             } elseif ($response) {
+                \Log::info('Concurrent Stock API Error for ' . $product['product_id'] . ':', [
+                    'error' => $response->body()
+                ]);
                 // return response()->json([
-                //     'qtyMessage' => "We couldn't verify the stock for this product right now. Please try again later. If the issue continues, contact support and mention reference code: STOCK-A7K92PQL."
+                //     'qtyMessage' => 'Something Went Wrong Please Try Again Later.'
                 // ]);
             }
         }
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $createPaymentForOrderService, $productIds, $dbProducts, $decode) {
-
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $createPaymentForOrderService, $pricingService, $productIds, $dbProducts) {
         
-            
             $dbIndividualDiscounts = Promotion::where('type', 'discount')
                 ->whereDate('start_date', '<=', now())
                 ->whereDate('end_date', '>=', now())
@@ -205,7 +207,7 @@ class OrderController extends Controller
                 ->whereHas('focRules.products', function ($query) use ($productIds) { $query->whereIn('product_id', $productIds); })
                 ->with([
                     'focRules' => function ($query) {
-                        $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold', 'gift_limit', 'allow_with_discount');
+                        $query->select('id', 'promotion_id', 'min_threshold', 'max_threshold');
                     },
                     'focRules.products' => function ($query) use ($productIds) {
                         $query->whereIn('product_id', $productIds);
@@ -314,7 +316,7 @@ class OrderController extends Controller
                 // // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=123456";
                 // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
 
-                // $ch = curl_init();
+            $barcodes = [];
 
                 // curl_setopt($ch, CURLOPT_URL, $url);
                 // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -574,63 +576,7 @@ class OrderController extends Controller
             // }
 
             $coupon_code = $request->input('couponCode');
-            // $decode = null;
-
-            // if (isset($coupon_code) && !empty($coupon_code)) {
-
-            //     if (!isset($request->couponData) || empty($request->couponData)) {
-            //         return response()->json(['couponMessage' => 'Apply or Remove Coupon First']);
-            //     }
-
-            //     $couponRegistrationId = $request->couponData['couponRegistrationId'] ?? 0;
-
-            //     // ✅ Build payload conditionally
-            //     $postData = [
-            //         'salesType' => $request->couponData['salesType'] ?? '',
-            //         'company' => $request->couponData['company'] ?? '',
-            //         'mobileNo' => $request->billingAddress['mobile'] ?? '',
-            //         'email' => $request->billingAddress['email'] ?? '',
-            //         'couponRegistrationId' => $couponRegistrationId,
-            //     ];
-
-            //     // ✅ Only include couponCode when registrationId = 0
-            //     if ($couponRegistrationId == 0) {
-            //         $postData['couponCode'] = $coupon_code;
-            //     }
-
-            //     // 🔥 CURL setup
-            //     $curl = curl_init();
-            //     curl_setopt_array($curl, [
-            //         CURLOPT_URL => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/ActiveCoupons',
-            //         CURLOPT_RETURNTRANSFER => true,
-            //         CURLOPT_ENCODING => '',
-            //         CURLOPT_MAXREDIRS => 10,
-            //         CURLOPT_TIMEOUT => 0,
-            //         CURLOPT_FOLLOWLOCATION => true,
-            //         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            //         CURLOPT_CUSTOMREQUEST => 'POST',
-            //         CURLOPT_POSTFIELDS => json_encode($postData),
-            //         CURLOPT_HTTPHEADER => [
-            //             'Content-Type: application/json',
-            //         ],
-            //     ]);
-
-            //     $response = curl_exec($curl);
-            //     if (curl_errno($curl)) {
-            //         // echo 'Error: ' . curl_error($curl);
-            //         \Log::info('Active Coupon API Error:', ['error' => curl_error($curl)]);
-            //     }
-            //     curl_close($curl);
-
-            //     $decode = json_decode($response);
-
-            //     \Log::info('Active Coupon API Response:', ['response' => $decode]);
-
-            //     // ✅ Validation check
-            //     if (!isset($decode->data) || (is_array($decode->data) && empty($decode->data))) {
-            //         return response()->json(['couponMessage' => 'You Have Already Used this Coupon Code']);
-            //     }
-            // }
+            // die();
 
             $cashback = Promotion::select('promotions.name', 'cashback_rules.id', 'cashback_percentage', 'cashback_amount', 'duration')->where('type', 'cashback')->where('start_date', '<=', now())->where('end_date', '>=', now())->leftJoin('cashback_rules', 'promotions.id', '=', 'cashback_rules.promotion_id')->first();
             if($cashback) {
@@ -642,7 +588,8 @@ class OrderController extends Controller
                 $cashback_product_ids = [];
             }
 
-            $customer_id = $request->input('customer_id');
+            $authCustomer = auth()->user();
+            $customer_id = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
             if (!$customer_id) {
                 $validator = Validator::make($request->all(), [
@@ -677,7 +624,6 @@ class OrderController extends Controller
                         'city' => $request->input('billingAddress.emirates'),
                         'country' => $request->input('billingAddress.country'),
                         'address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
-                        'area' => $request->input('billingAddress.area'),
                         'customer_id' => $customer->id,
                     ]);
 
@@ -715,7 +661,6 @@ class OrderController extends Controller
                             'city' => $request->input('billingAddress.emirates'),
                             'country' => $request->input('billingAddress.country'),
                             'address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
-                            'area' => $request->input('billingAddress.area'),
                             'customer_id' => $exisCustomer->id,
                         ]);
                     }
@@ -782,22 +727,19 @@ class OrderController extends Controller
 
             if ($existingOrder) {
                 return response()->json([
-                    'duplicateOrderMessage' => 'Your order has been placed already. Order Id: ' . $existingOrder->code
+                    'duplicateOrderMessage' => 'You order has been placed already. Order Id: ' . $existingOrder->code
                 ]);
             }
-
-            $tax = Tax::select('percentage')->where('status', 'published')->first();
-
             $order = Order::create([
                 'user_id' => $customer_id,
                 'shipping_method' => $request->input('shipping_method') ? : ShippingMethodEnum::DEFAULT,
                 'shipping_option' => $request->input('shipping_option'),
-                'shipping_amount' => $request->input('shippingPrice') / (1 + ($tax->percentage / 100)),
-                'shipping_amount_vat' => $request->input('shippingPrice') / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100),
-                'service_amount' => $request->input('servicePrice') / (1 + ($tax->percentage / 100)),
-                'service_amount_vat' => $request->input('servicePrice') / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100),
-                'vat' => $tax->percentage,
-                'tax_amount' => ($request->input('totalPrice') / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100)) + ($request->input('shippingPrice') / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100)) + ($request->input('servicePrice') / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100)) + ($request->input('codPrice') / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100)),
+                'shipping_amount' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)),
+                'shipping_amount_vat' => $request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+                'service_amount' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)),
+                'service_amount_vat' => $request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
+                'vat' => $request->input('vatTax'),
+                'tax_amount' => ($request->input('totalPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('shippingPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('servicePrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)) + ($request->input('codPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100)),
                 'sub_total' => $request->input('totalPrice') ? : 0,
                 'amount' => $request->input('finalPrice') ? : 0,
                 'coupon_code' => $request->input('couponCode'),
@@ -807,19 +749,15 @@ class OrderController extends Controller
                 'description' => $request->input('note'),
                 'is_confirmed' => 1,
                 'is_finished' => 1,
-                'status' => ($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara' || $request->input('payment_method') == 'tabby') ? OrderStatusEnum::CANCELED : OrderStatusEnum::PROCESSING,
+                'status' => OrderStatusEnum::PROCESSING,
                 'lang' => $request->input('locale'),
-                'cod_charge' => $request->input('codPrice') / (1 + ($tax->percentage / 100)),
-                'cod_charge_vat' => $request->input('codPrice') / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100),
+                'cod_charge' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)),
+                'cod_charge_vat' => $request->input('codPrice') / (1 + ($request->input('vatTax') / 100)) * ($request->input('vatTax') / 100),
             ]);
 
             // echo "<pre>";print_r($order);die();
 
             if($order) {
-
-                $loopSubTotal = 0;
-                $loopTaxTotal = 0;
-                $loopGrandTotal = 0;
 
                 if($request->input('customer_id')) {
                     $loggedInCustomer = Customer::where('id', $request->input('customer_id'))->first();
@@ -833,7 +771,6 @@ class OrderController extends Controller
                             'city' => $request->input('billingAddress.emirates'),
                             'country' => $request->input('billingAddress.country'),
                             'address' => $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
-                            'area' => $request->input('billingAddress.area'),
                             'customer_id' => $loggedInCustomer->id,
                         ]);
                         $loggedInCustomerAdd = Address::where('customer_id', $loggedInCustomer->id)->first();
@@ -846,12 +783,11 @@ class OrderController extends Controller
                         'city' => $request->input('shippingAddress.emirates') ? $request->input('shippingAddress.emirates') : $loggedInCustomerAdd->city,
                         'country' => $request->input('shippingAddress.country') ? $request->input('shippingAddress.country') : $loggedInCustomerAdd->country,
                         'address' => $request->input('shippingAddress.area') ? $request->input('shippingAddress.area').' '.$request->input('shippingAddress.building') : $loggedInCustomerAdd->address,
-                        'area' => $request->input('shippingAddress.area') ? $request->input('shippingAddress.area') : $request->input('billingAddress.area'),
                         'order_id' => $order->id,
                         'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                     ]);
 
-                    if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {
+                    if($request->input('payment_method') == 'paytabs' || $request->input('payment_method') == 'tamara') {            
                         $data = [
                             "name"=> $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $loggedInCustomer->name,
                             "email"=> $request->input('shippingAddress.email') ? $request->input('shippingAddress.email') : $loggedInCustomer->email,
@@ -869,7 +805,6 @@ class OrderController extends Controller
                         //     'redirect_url'     => $resp['redirect_url']
                         // ]);
                     }
-
                 } else {
                     OrderAddress::query()->create([
                         'name' => $request->input('shippingAddress.first_name') ? $request->input('shippingAddress.first_name').' '.$request->input('shippingAddress.last_name') : $request->input('billingAddress.first_name').' '.$request->input('billingAddress.last_name'),
@@ -880,7 +815,6 @@ class OrderController extends Controller
                         // 'zip_code' => $request->input('shippingAddress.zip_code'),
                         'country' => $request->input('shippingAddress.country') ? $request->input('shippingAddress.country') : $request->input('billingAddress.country'),
                         'address' => $request->input('shippingAddress.area') ? $request->input('shippingAddress.area').' '.$request->input('shippingAddress.building') : $request->input('billingAddress.area').' '.$request->input('billingAddress.building'),
-                        'area' => $request->input('shippingAddress.area') ? $request->input('shippingAddress.area') : $request->input('billingAddress.area'),
                         'order_id' => $order->id,
                         'type' => $request->input('shippingAddress.first_name') ? 'shipping_address' : 'billing_address',
                     ]);
@@ -933,9 +867,6 @@ class OrderController extends Controller
                     
                     $quantity = $product['quantity'] ? $product['quantity'] : 1;
 
-                    // $exisProduct = Product::where('ec_products.id', $product['product_id'])
-                    // // ->join('ec_tax_products', 'ec_products.id', '=', 'ec_tax_products.product_id')->join('ec_taxes', 'ec_taxes.id', '=', 'ec_tax_products.tax_id')
-                    // ->first();
                     $exisProduct = $dbProducts->get($product['product_id']);
 
                     // $exisProduct->discount = DiscountProduct::select('value', 'start_date', 'end_date')->where('product_id', $product['product_id'])->whereNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_products.discount_id', 'left')->first();
@@ -956,63 +887,63 @@ class OrderController extends Controller
 
                     // Fetch active discount for the product
                     $exisProduct->discount = null;
-
                     $bogoOverrodeDiscount = isset($product['_original_discount']) && $product['_original_discount'] !== null;
 
                     if (!$bogoOverrodeDiscount) {
-
                         $individualDiscount = $dbIndividualDiscounts->first(function ($promo) use ($product) {
                             return collect($promo->discountRules)->some(function ($rule) use ($product) {
                                 return collect($rule->individualRules)->contains('product_id', $product['product_id']);
                             });
                         });
 
-                        if ($individualDiscount) {
-                            $discountRule = collect($individualDiscount->discountRules)->first(function ($rule) use ($product) {
-                                return collect($rule->individualRules)->contains('product_id', $product['product_id']);
+                    if ($individualDiscount) {
+                        $discountRule = collect($individualDiscount->discountRules)->first(function ($rule) use ($product) {
+                            return collect($rule->individualRules)->contains('product_id', $product['product_id']);
+                        });
+                        $individualRule = $discountRule ? collect($discountRule->individualRules)->firstWhere('product_id', $product['product_id']) : null;
+                        if ($individualRule) {
+                            $exisProduct->discount = (object) [
+                                'name' => $individualDiscount->name,
+                                'value' => intval($individualRule->value),
+                                'apply_to' => $discountRule->apply_to,
+                                'discount_type' => $individualRule->discount_type,
+                                'product_price' => $individualRule->product_price,
+                                'discount_amount' => $individualRule->discount_amount,
+                                'final_price' => $individualRule->final_price,
+                                'start_date' => \Carbon\Carbon::parse($individualDiscount->start_date)->format('Y-m-d H:i:s'),
+                                'end_date' => \Carbon\Carbon::parse($individualDiscount->end_date)->format('Y-m-d H:i:s'),
+                            ];
+                        }
+                    } else {
+                        // If no individual discount, try to fetch discount for group/all products
+                        $groupDiscount = $dbGroupDiscounts->first(function ($promo) use ($product) {
+                            return collect($promo->discountRules)->some(function ($rule) use ($product) {
+                                return collect($rule->products)->contains('product_id', $product['product_id']);
                             });
-                            $individualRule = $discountRule ? collect($discountRule->individualRules)->firstWhere('product_id', $product['product_id']) : null;
-                            if ($individualRule) {
-                                $exisProduct->discount = (object) [
-                                    'name' => $individualDiscount->name,
-                                    'value' => intval($individualRule->value),
-                                    'apply_to' => $discountRule->apply_to,
-                                    'discount_type' => $individualRule->discount_type,
-                                    'product_price' => $individualRule->product_price,
-                                    'discount_amount' => $individualRule->discount_amount,
-                                    'final_price' => $individualRule->final_price,
-                                    'start_date' => \Carbon\Carbon::parse($individualDiscount->start_date)->format('Y-m-d H:i:s'),
-                                    'end_date' => \Carbon\Carbon::parse($individualDiscount->end_date)->format('Y-m-d H:i:s'),
-                                ];
-                            }
-                        } else {
-                            // If no individual discount, try to fetch discount for group/all products
-                            $groupDiscount = $dbGroupDiscounts->first(function ($promo) use ($product) {
-                                return collect($promo->discountRules)->some(function ($rule) use ($product) {
-                                    return collect($rule->products)->contains('product_id', $product['product_id']);
-                                });
-                            });
+                        });
 
-                            if ($groupDiscount) {
-                                $discountRule = collect($groupDiscount->discountRules)->first(function ($rule) use ($product) {
-                                    return collect($rule->products)->contains('product_id', $product['product_id']);
-                                });
-                                if ($discountRule) {
-                                    $exisProduct->discount = (object) [
-                                        'name' => $groupDiscount->name,
-                                        'value' => intval($discountRule->percentage),
-                                        'apply_to' => $discountRule->apply_to,
-                                        'discount_type' => 'percent',
-                                        'product_price' => null,
-                                        'discount_amount' => null,
-                                        'final_price' => null,
-                                        'start_date' => \Carbon\Carbon::parse($groupDiscount->start_date)->format('Y-m-d H:i:s'),
-                                        'end_date' => \Carbon\Carbon::parse($groupDiscount->end_date)->format('Y-m-d H:i:s'),
-                                    ];
-                                }
+                        if ($groupDiscount) {
+                            $discountRule = collect($groupDiscount->discountRules)->first(function ($rule) use ($product) {
+                                return collect($rule->products)->contains('product_id', $product['product_id']);
+                            });
+                            if ($discountRule) {
+                                $exisProduct->discount = (object) [
+                                    'name' => $groupDiscount->name,
+                                    'value' => intval($discountRule->percentage),
+                                    'apply_to' => $discountRule->apply_to,
+                                    'discount_type' => 'percent',
+                                    'product_price' => null,
+                                    'discount_amount' => null,
+                                    'final_price' => null,
+                                    'start_date' => \Carbon\Carbon::parse($groupDiscount->start_date)->format('Y-m-d H:i:s'),
+                                    'end_date' => \Carbon\Carbon::parse($groupDiscount->end_date)->format('Y-m-d H:i:s'),
+                                ];
                             }
                         }
                     }
+
+                    }
+
                     // Fetch active coupons for the product
                     // $coupons = Promotion::where('type', 'coupon')
                     //     ->whereDate('start_date', '<=', now())
@@ -1088,15 +1019,14 @@ class OrderController extends Controller
 
                     $exisProduct->qty = $quantity;
 
-                    // print_r($exisProduct);
+                    // echo $exisProduct->name;
+                    // echo "<br>";
+                    // print_r($exisProduct->customer_coupon);
+                    // echo '---';
 
                     if((isset($product['is_gift']) && $product['is_gift'] == true)) {
                         $exisProduct->is_gift = 1;
                     }
-
-                    // if((isset($product['is_customer_coupon']) && $product['is_customer_coupon'] == true)) {
-                    //     $exisProduct->is_customer_coupon = 1;
-                    // }
 
                     if((isset($product['is_coupon']) && $product['is_coupon'] == true)) {
                         $exisProduct->is_coupon = 1;
@@ -1104,335 +1034,26 @@ class OrderController extends Controller
 
                     array_push($prod, $exisProduct);
 
-                    // $discount_price = '';
-                    // $sale_price = '';
-                    if(!is_null($exisProduct->discount) && $exisProduct->is_gift != 1 && $exisProduct->is_coupon != 1) {
-                        if($exisProduct->discount->discount_type == 'percent') {
-                            // echo "Discount Percent";
-                            // echo "\n";
-                            $price = $exisProduct->price / (1 + ($tax->percentage / 100));
-                            $total_amount = $price * $quantity;
-                            $discount_percent = $exisProduct->discount->value;
-                            $discount_amount = ($total_amount / 100) * $discount_percent;
-                            $net_amount = $total_amount - $discount_amount;
-                            $tax_amount = ($net_amount / 100) * $tax->percentage;
-                            $gross_amount = $net_amount + $tax_amount;
-                            $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                            $orderProduct = [
-                                'order_id' => $order->id,
-                                'product_id' => $product['product_id'],
-                                'product_name' => $exisProduct->name,
-                                'product_image' => $exisProduct->image,
-                                'qty' => $quantity,
-                                'weight' => $exisProduct->weight,
-                                'price' => $price,
-                                'total_amount' => $total_amount,
-                                'discount_percent' => $discount_percent,
-                                'discount_amount' => $discount_amount,
-                                'net_amount' => $net_amount,
-                                'tax_amount' => $tax_amount,
-                                'gross_amount' => $gross_amount,
-                                'product_options' => [],
-                                'options' => json_encode($options),
-                                'product_type' => $exisProduct->product_type,
-                                'product_category' => $product['category_name'] ? $product['category_name'] : '',
-                                'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                                'vat' => $tax->percentage,
-                                'campaign' => $exisProduct->discount->name,
-                            ];   
-                        } elseif($exisProduct->discount->discount_type == 'amount') {
-                            // echo "Discount Amount";
-                            // echo "\n";
-                            $price = $exisProduct->price / (1 + ($tax->percentage / 100));
-                            $total_amount = $price * $quantity;
-                            $sale_price = $exisProduct->discount->final_price / (1 + ($tax->percentage / 100));
-                            $discount_percent = 0;
-                            $discount_amount = $total_amount - ($sale_price * $quantity);
-                            $net_amount = $total_amount - $discount_amount;
-                            $tax_amount = ($net_amount / 100) * $tax->percentage;
-                            $gross_amount = $net_amount + $tax_amount;
-                            // echo "Price ".$price;
-                            // echo "\n";
-                            // echo "Total Amount ".$total_amount;
-                            // echo "\n";
-                            // echo "Sales Price ".$sale_price;
-                            // echo "\n";
-                            // echo "Discount Percent ".$discount_percent;
-                            // echo "\n";
-                            // echo "Discount Amount ".$discount_amount;
-                            // echo "\n";
-                            // echo "Net Amount ".$net_amount;
-                            // echo "\n";
-                            // echo "Tax Amount ".$tax_amount;
-                            // echo "\n";
-                            // echo "Gross Amount ".$gross_amount;
-                            // echo "\n";
-                            $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                            $orderProduct = [
-                                'order_id' => $order->id,
-                                'product_id' => $product['product_id'],
-                                'product_name' => $exisProduct->name,
-                                'product_image' => $exisProduct->image,
-                                'qty' => $quantity,
-                                'weight' => $exisProduct->weight,
-                                'price' => $price,
-                                'total_amount' => $total_amount,
-                                'discount_percent' => $discount_percent,
-                                'discount_amount' => $discount_amount,
-                                'net_amount' => $net_amount,
-                                'tax_amount' => $tax_amount,
-                                'gross_amount' => $gross_amount,
-                                'product_options' => [],
-                                'options' => json_encode($options),
-                                'product_type' => $exisProduct->product_type,
-                                'product_category' => $product['category_name'],
-                                'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                                'vat' => $tax->percentage,
-                                'campaign' => $exisProduct->discount->name,
-                            ];
-                        }
-                        $loopSubTotal += $gross_amount;
-                        $loopTaxTotal += $tax_amount;
-                    }
-                    // elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
-                    //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    //     $total_amount = $price * $quantity;
-                    //     $discount_percent = $exisProduct->coupon[strtolower($request->input('couponCode'))]['value'];
-                    //     $discount_amount = ($total_amount / 100) * $discount_percent;
-                    //     $net_amount = $total_amount - $discount_amount;
-                    //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    //     $gross_amount = $net_amount + $tax_amount;
-                    //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                    //     $orderProduct = [
-                    //         'order_id' => $order->id,
-                    //         'product_id' => $product['product_id'],
-                    //         'product_name' => $exisProduct->name,
-                    //         'product_image' => $exisProduct->image,
-                    //         'qty' => $quantity,
-                    //         'weight' => $exisProduct->weight,
-                    //         'price' => $price,
-                    //         'total_amount' => $total_amount,
-                    //         'discount_percent' => $discount_percent,
-                    //         'discount_amount' => $discount_amount,
-                    //         'net_amount' => $net_amount,
-                    //         'tax_amount' => $tax_amount,
-                    //         'gross_amount' => $gross_amount,
-                    //         'product_options' => [],
-                    //         'options' => json_encode($options),
-                    //         'product_type' => $exisProduct->product_type,
-                    //         'product_category' => $product['category_name'],
-                    //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                    //         'vat' => $request->input('vatTax'),
-                    //         'campaign' => strtolower($request->input('couponCode')) == 'welcome10' ? 'first_order_discount_2025' : $request->input('couponCode'),
-                    //     ];
-                    // }
-                    // elseif(isset($product['is_customer_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price) && !is_null($exisProduct->customer_coupon) && !empty($exisProduct->customer_coupon) && isset($exisProduct->customer_coupon) && isset($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]) && $exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
-                    elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
-                        // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
-                            // echo 'Customer Coupon';
-                            // echo '\n ';
-                            $price = $exisProduct->price / (1 + ($tax->percentage / 100));
-                            $total_amount = $price * $quantity;
-                            $discount_percent = $product['value'];
-                            $discount_amount = ($total_amount / 100) * $discount_percent;
-                            $net_amount = $total_amount - $discount_amount;
-                            $tax_amount = ($net_amount / 100) * $tax->percentage;
-                            $gross_amount = $net_amount + $tax_amount;
-                            $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                            $orderProduct = [
-                                'order_id' => $order->id,
-                                'product_id' => $product['product_id'],
-                                'product_name' => $exisProduct->name,
-                                'product_image' => $exisProduct->image,
-                                'qty' => $quantity,
-                                'weight' => $exisProduct->weight,
-                                'price' => $price,
-                                'total_amount' => $total_amount,
-                                'discount_percent' => $discount_percent,
-                                'discount_amount' => $discount_amount,
-                                'net_amount' => $net_amount,
-                                'tax_amount' => $tax_amount,
-                                'gross_amount' => $gross_amount,
-                                'product_options' => [],
-                                'options' => json_encode($options),
-                                'product_type' => $exisProduct->product_type,
-                                'product_category' => $product['category_name'],
-                                'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                                'vat' => $tax->percentage,
-                                'campaign' => $request->input('couponCode'),
-                            ];
-                            $loopSubTotal += $gross_amount;
-                            $loopTaxTotal += $tax_amount;
-                        // } elseif($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'amount') {
-                        //     // echo 'Customer Coupon Amount';
-                        //     // echo '\n ';
-                        //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                        //     $total_amount = $price * $quantity;
-                        //     $sale_price = $price - ($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'] / (1 + ($request->input('vatTax') / 100)));
-                        //     $discount_percent = 0;
-                        //     $discount_amount = $total_amount - ($sale_price * $quantity);
-                        //     $net_amount = $total_amount - $discount_amount;
-                        //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                        //     $gross_amount = $net_amount + $tax_amount;
-
-                        //     // echo "Price ".$price;
-                        //     // echo "\n";
-                        //     // echo "Total Amount ".$total_amount;
-                        //     // echo "\n";
-                        //     // echo "Sales Price ".$sale_price;
-                        //     // echo "\n";
-                        //     // echo "Discount Percent ".$discount_percent;
-                        //     // echo "\n";
-                        //     // echo "Discount Amount ".$discount_amount;
-                        //     // echo "\n";
-                        //     // echo "Net Amount ".$net_amount;
-                        //     // echo "\n";
-                        //     // echo "Tax Amount ".$tax_amount;
-                        //     // echo "\n";
-                        //     // echo "Gross Amount ".$gross_amount;
-                        //     // echo "\n";
-                        //     // echo $exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'];
-                            
-                        //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                        
-                        //     $orderProduct = [
-                        //         'order_id' => $order->id,
-                        //         'product_id' => $product['product_id'],
-                        //         'product_name' => $exisProduct->name,
-                        //         'product_image' => $exisProduct->image,
-                        //         'qty' => $quantity,
-                        //         'weight' => $exisProduct->weight,
-                        //         'price' => $price,
-                        //         'total_amount' => $total_amount,
-                        //         'discount_percent' => $discount_percent,
-                        //         'discount_amount' => $discount_amount,
-                        //         'net_amount' => $net_amount,
-                        //         'tax_amount' => $tax_amount,
-                        //         'gross_amount' => $gross_amount,
-                        //         'product_options' => [],
-                        //         'options' => json_encode($options),
-                        //         'product_type' => $exisProduct->product_type,
-                        //         'product_category' => $product['category_name'],
-                        //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                        //         'vat' => $request->input('vatTax'),
-                        //         'campaign' => $request->input('couponCode'),
-                        //     ];
-                        // }
-                    }
-                    // elseif(!is_null($exisProduct->sale_price)) {
-                    //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                    //     $total_amount = $price * $quantity;
-                    //     $sale_price = $exisProduct->sale_price / (1 + ($request->input('vatTax') / 100));
-                    //     $discount_percent = 0;
-                    //     $discount_amount = $total_amount - ($sale_price * $quantity);
-                    //     $net_amount = $total_amount - $discount_amount;
-                    //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                    //     $gross_amount = $net_amount + $tax_amount;
-                    //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                    //     $orderProduct = [
-                    //         'order_id' => $order->id,
-                    //         'product_id' => $product['product_id'],
-                    //         'product_name' => $exisProduct->name,
-                    //         'product_image' => $exisProduct->image,
-                    //         'qty' => $quantity,
-                    //         'weight' => $exisProduct->weight,
-                    //         'price' => $price,
-                    //         'total_amount' => $total_amount,
-                    //         'discount_percent' => $discount_percent,
-                    //         'discount_amount' => $discount_amount,
-                    //         'net_amount' => $net_amount,
-                    //         'tax_amount' => $tax_amount,
-                    //         'gross_amount' => $gross_amount,
-                    //         'product_options' => [],
-                    //         'options' => json_encode($options),
-                    //         'product_type' => $exisProduct->product_type,
-                    //         'product_category' => $product['category_name'],
-                    //         'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                    //         'vat' => $request->input('vatTax'),
-                    //     ];
-                    // }
-                    elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                        $price = $exisProduct->price / (1 + ($tax->percentage / 100));
-                        $total_amount = 0.00;
-                        $discount_percent = 100;
-                        $discount_amount = $exisProduct->price / (1 + ($tax->percentage / 100));
-                        $net_amount = 0.00;
-                        $tax_amount = 0.00;
-                        $gross_amount = 0.00;
-                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                        $orderProduct = [
-                            'order_id' => $order->id,
-                            'product_id' => $product['product_id'],
-                            'product_name' => $exisProduct->name,
-                            'product_image' => $exisProduct->image,
-                            'qty' => $quantity,
-                            'weight' => $exisProduct->weight,
-                            'price' => $price,
-                            'total_amount' => $total_amount,
-                            'discount_percent' => $discount_percent,
-                            'discount_amount' => $discount_amount,
-                            'net_amount' => $net_amount,
-                            'tax_amount' => $tax_amount,
-                            'gross_amount' => $gross_amount,
-                            'product_options' => [],
-                            'options' => json_encode($options),
-                            'product_type' => $exisProduct->product_type,
-                            'product_category' => '',
-                            'product_subcategory' => '',
-                            'vat' => $tax->percentage,
-                            'is_gift' => 1,
-                            'campaign' => $product['campaign'],
-                        ];
-                    }
-                    else {
-                        $price = $exisProduct->price / (1 + ($tax->percentage / 100));
-                        $total_amount = $price * $quantity;
-                        $discount_percent = 0;
-                        $discount_amount = 0.00;
-                        $net_amount = $total_amount - $discount_amount;
-                        $tax_amount = ($net_amount / 100) * $tax->percentage;
-                        $gross_amount = $net_amount + $tax_amount;
-                        $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
-                    
-                        $orderProduct = [
-                            'order_id' => $order->id,
-                            'product_id' => $product['product_id'],
-                            'product_name' => $exisProduct->name,
-                            'product_image' => $exisProduct->image,
-                            'qty' => $quantity,
-                            'weight' => $exisProduct->weight,
-                            'price' => $price,
-                            'total_amount' => $total_amount,
-                            'discount_percent' => $discount_percent,
-                            'discount_amount' => $discount_amount,
-                            'net_amount' => $net_amount,
-                            'tax_amount' => $tax_amount,
-                            'gross_amount' => $gross_amount,
-                            'product_options' => [],
-                            'options' => json_encode($options),
-                            'product_type' => $exisProduct->product_type,
-                            'product_category' => $product['category_name'],
-                            'product_subcategory' => isset($product['subcategory_name']) ? $product['subcategory_name'] : '',
-                            'vat' => $tax->percentage,
-                            'campaign' => !empty($product['collection_name']) ? 'K Series '.$product['product_name'] : '',
-                        ];
-                        $loopSubTotal += $gross_amount;
-                        $loopTaxTotal += $tax_amount;
-                    }
+                    $ctx = new PricingContext(
+                        orderId: $order->id,
+                        vatRate: $request->input('vatTax'),
+                        quantity: $quantity,
+                        dbProduct: $exisProduct,
+                        requestProduct: $product,
+                        couponCode: $request->input('couponCode')
+                    );
+                    $orderProduct = $pricingService->buildOrderProduct($ctx);
 
                     OrderProduct::query()->create($orderProduct);
 
-                    // Product::query()
-                    //     ->where('id', $product['product_id'])
-                    //     ->where('with_storehouse_management', 1)
-                    //     ->where('quantity', '>=', $quantity)
-                    //     ->decrement('quantity', $quantity);
+                    Product::query()
+                        ->where('id', $product['product_id'])
+                        ->where('with_storehouse_management', 1)
+                        ->where('quantity', '>=', $quantity)
+                        ->decrement('quantity', $quantity);
+
+                    // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=123456";
+                    // $url = env('SMART_VIEW_STOCK_API_URL')."ECommerce/StockStatus?itemCode=".$exisProduct->barcode;
 
                     // $ch = curl_init();
 
@@ -1443,7 +1064,7 @@ class OrderController extends Controller
                     // curl_setopt($ch, CURLOPT_HTTPHEADER, [
                     //     "Accept: application/json",
                     //     "Company: UAE", 
-                    //     "Authorization: ". env('SMART_VIEW_TOKEN')
+                    //     "Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VySUQiOiJhZG1pbiIsIkVtcElEIjoiMTAyNDgiLCJDb21wYW55IjoiIiwiV2hzQ29kZSI6IidDdXN0b20nLCdETV8wMScsJ0ZHXzAxJywnRk9DJywnSUNfVUFFJywnUE1fMDEnLCdTUF8wMDEnLCdTUF8wMDInLCdTUF8wMDMnLCdTUF8wMDQnLCdTUF8wMDUnLCdTUF8wMDYnLCdTUF8wMDcnLCdTUF8wMDgnLCdTUF8wMDknLCdTUF8wMTAnLCdTUF8wMTEnLCdTUF8wMTInLCdTUF8wMTMnLCdTUF8wMTQnLCcwMScsJ0NOMDAxXzAxJywnQ3VzdG9tJywnRE1fMDEnLCdGR18wMScsJ0ZHXzAyJywnRkdfMDMnLCdGT0MnLCdJQ18wMScsJ0lDX1VBRScsJ1BNXzAxJywnU1BfMDAxJywnU1BfMDAxXzEnLCdTUF8wMDInLCdTUF8wMDMnLCdTUF8wMDNfMScsJ1NQXzAwNCcsJ1NQXzAwNScsJ1NQXzAwNicsJ1NQXzAwNycsJ1NQXzAwOCcsJ1NQXzAwOScsJ1NQXzAxMCcsJ1NQXzAxMScsJ1NQXzAxMicsJ1NQXzAxMycsJ1NQXzAxNCcsJ1NQXzAxNScsJ1NQXzAxNicsJ1NQXzAxNycsJ1NQXzAxOScsJ1NQXzAyMCcsJ1NQXzAyMF8xJywnU1BfMDIxJywnU1BfMDIyJywnU1BfMDIzJywnU1BfMDI0JywnU1BfMDI1JywnU1BfMDI2JywnU1BfMDI3JywnU1BfMDI4JywnU1BfMDI4XzEnLCdTUF8wMjhfMicsJ1NQXzAyOScsJ1NQXzAzMCcsJ1NQXzAzMScsJ1ZOXzAwMScsJ0N1c3RvbScsJ0RNXzAxJywnRkdfMDEnLCdGT0MnLCdJQ19VQUUnLCdQTV8wMScsJ1NQXzAwMScsJ1NQXzAwMicsJ1NQXzAwMycsJ1NQXzAwNCcsJ1NQXzAwNScsJ1NQXzAwNicsJ1NQXzAwNycsJ1NQXzAwOCcsJzAxJywnQ3VzdG9tJywnRE1fMDEnLCdGR18wMScsJ0ZPQycsJ0lDXzAxJywnSUNfTW92JywnSUNfT0FQJywnSUNfVUFFJywnUE1fMDEnLCdTUF8wMDEnLCdTUF8wMDInLCdTUF8wMDMnLCdTUF8wMDQnLCdTUF8wMDUnLCdTUF8wMDYnLCdTUF8wMDcnLCdTUF8wMDgnLCdTUF8wMDknLCdTUF8wMTAnLCdTUF8wMTEnLCdTUF8wMTInLCdTUF8wMTMnLCdTUF8wMTQnLCdTUF8wMTUnLCdTUF8wMTYnLCdTUF8wMTcnLCdTUF8wMTgnLCdTUF8wMTknLCdTUF8wMjAnLCdTUF8wMjEnLCdTUF8wMjInLCdTUF8wMjMnLCdTUF8wMjQnLCdTUF8wMjUnLCdTUF8wMjYnLCdTUF8wMjcnLCdTUF8wMjgnLCdTUF8wMjknLCdTUF8wMzAnLCdTUF8wMzEnLCdTUF8wMzInLCdTUF8wMzMnLCdTUF8wMzQnLCdTUF8wMzUnLCdTUF8wMzYnLCdTUF8wMzcnLCdTUF8wMzgnLCdTUF8wMzknLCdTUF8wNDAnLCdTUF8wNDEnLCdTUF8wNDInLCdTUF8wNDMnLCdTUF8wNDQnLCdTUF8wNDUnLCdTUF8wNDYnLCdTUF8wNDcnLCdTUF8wNDgnLCdTUF8wNDknLCdTUF8wNTAnLCdTUF8wNTEnLCdTUF8wNTInLCdTUF8wNTMnLCdTUF8wNTQnLCdTUF8wNTUnLCdTUF8wNTYnLCdTUF8wNTcnLCdTUF8wNTgnLCdTUF8wNTknLCdTUF8wNjAnLCdTUF8wNjEnLCdUWVNfMDEnLCcwMScsJ0NOMDAxXzAxJywnQ04wMDJfMDEnLCdDTjAwM18wMScsJ0NOMDA0XzAxJywnQ04wMDVfMDEnLCdDTjAwNl8wMScsJ0N1c3RvbScsJ0RNXzAxJywnRkdfMDEnLCdGR18wMicsJ0ZPQycsJ0lDX09NTicsJ0lDX1RZUycsJ0lDX1VBRScsJ1BNXzAxJywnU01QXzAxJywnU1BfMDAxJywnU1BfMDAyJywnU1BfMDAzJywnU1BfMDA0JywnU1BfMDA1JywnU1BfMDA2JywnU1BfMDA3JywnU1BfMDA4JywnU1BfMDA5JywnU1BfMDEwJywnU1BfMDExJywnU1BfMDEyJywnU1BfMDEzJywnU1BfMDE1JywnU1BfMDE2JywnU1BfMDE3JywnU1BfMDE4JywnU1BfMDE5JywnU1BfMDIwJywnU1BfMDIxJywnU1BfMDIyJywnMDEnLCdBbWF6b24nLCdBVF8wMScsJ0JLXzAxJywnQlJBTkQnLCdDMDIwMjM1NicsJ0NOMDAxXzAxJywnQ04wMDJfMDEnLCdDTjAwM18wMScsJ0NOMDA0XzAxJywnQ04wMDVfMDEnLCdDTjAwNl8wMScsJ0NOMDA3XzAxJywnQ04wMDhfMDEnLCdDV19TTTAwMCcsJ0NXX1NNMDAxJywnQ1dfU00wMDInLCdDV19TTTAwMycsJ0NXX1NNMDA0JywnQ1dfU00wMDUnLCdDV19TTTAwNicsJ0NXX1NNMDA3JywnQ1dfU00wMDgnLCdDV19TTTAwOScsJ0NXX1NNMDEwJywnRE1fMDEnLCdETV8wMicsJ0RNXzAzJywnRE1fMDQnLCdETV8wNScsJ0RNXzA2JywnRUNfMDEnLCdGR18wMScsJ0ZPQycsJ0dGXzAxJywnSUNfQU1QJywnSUNfQkhSJywnSUNfS1NBJywnSUNfTW92JywnSUNfT01OJywnSUNfUUFUJywnSVQnLCdJVDAyJywnUEtfMDEnLCdQTV8wMScsJ1BNXzAyJywnUUNfMDEnLCdSJkQnLCdTS18wMScsJ1NMXzAxJywnU01QXzAxJywnU1BfMDAxJywnU1BfMDAyJywnU1BfMDAzJywnU1BfMDA0JywnU1BfMDA1JywnU1BfMDA2JywnU1BfMDA3JywnU1BfMDA4JywnU1BfMDA5JywnU1BfMDEwJywnU1BfMDExJywnU1BfMDEyJywnU1BfMDEzJywnU1BfMDE0JywnU1BfMDE1JywnU1BfMDE2JywnU1BfMDE3JywnU1BfMDE4JywnU1BfMDE5JywnU1BfMDIwJywnU1BfMDIxJywnU1BfMDIyJywnU1BfMDIzJywnU1BfMDI0JywnU1BfMDI1JywnU1BfMDI2JywnU1BfMDI3JywnU1BfMDI4JywnU1BfMDI5JywnU1BfMDMwJywnU1BfMDMxJywnU1BfMDMyJywnU1BfMDMyXzEnLCdTUF8wMzMnLCdTUF8wMzQnLCdTUF8wMzUnLCdTUF8wMzYnLCdTUF8wMzcnLCdTUF8wMzgnLCdTUF8wMzknLCdTUF8wNDAnLCdTUF8wNDEnLCdTUF8wNDInLCdTUF8wNDMnLCdTUF8wNDQnLCdTUF8wNDUnLCdTUF8wNDYnLCdTUF8wNDcnLCdTUF8wNDgnLCdTUF8wNDknLCdTUF8wNTAnLCdTUF8wNTEnLCdTUF8wNTInLCdTUF8wNTMnLCdTUF8wNTQnLCdTUF8wNTUnLCdTUF8wNTYnLCdTUF8wNTcnLCdTUF8wNTgnLCdTUF8wNTknLCdTUF8wNjAnLCdTUF8wNjEnLCdTUF8wNjInLCdTUF8wNjMnLCdTUF8wNjQnLCdTUF8wNjUnLCdTUF8wNjYnLCdTUF8wNjcnLCdTUF8wNjgnLCdTUF8wNjknLCdTUF8wNzAnLCdTUF8wNzEnLCdTUF8wNzInLCdTUF8wNzMnLCdTUF8wNzQnLCdTUF8wNzUnLCdTUF8wNzYnLCdTUF8wNzcnLCdTUF8wNzknLCdTUF8wODAnLCdTUF8wODEnLCdTUF8wODInLCdTUF8wODMnLCdTUF8wODQnLCdTUF8wODUnLCdTUF8wODYnLCdTUF8wODgnLCdTUF8wODknLCdTUF8wOTAnLCdTUF8wOTEnLCdTUF8wOTInLCdXSF8wMScsJ1dIXzAyJywnV0hfMDMnLCdXSF8wNCcsJ1dIXzA1JywnV0hfMDYnLCdXSF9EUk0nLCdXSF9WZW5kJyIsIlN0b3JlSUQiOiInJywnSE8nLCdPRkInLCdITycsJ0hPJywnUCZFJywnU01BJywnQktXJywnQkNDJywnQlNUJywnSERMJywnREFNJywnSklEJywnQlVLJywnUkFNJywnQ0NCJywnSE1UJywnTUhSJywnQU1CJywnQlNTJywnJywnSE8nLCdITycsJycsJ0pETycsJ01ETycsJ0hPJywnSE8nLCcnLCdITycsJ1AmRScsJ0tBUycsJ0tBU1MnLCdKUUInLCdEQVQnLCdEQVRTJywnTk9SJywnQVNNJywnVEJBJywnQVpNJywnQktSJywnU0tEJywnVEdNJywnT0JNJywnSlVNJywnUUJBJywnS09TJywnU1NKJywnTU9OJywnU0FGJywnUUJGJywnS01TJywnS01TUycsJ01BRycsJ1lSTScsJ01VRycsJ01SSicsJ1NRSicsJ01ESCcsJ01ERycsJ01DVCcsJ01DVFMnLCdWTUNUJywnUkhCJywnT0JIJywnQkFTJywnS1NWJywnJywnSE8nLCcnLCdITycsJ0hPJywnUCZFJywnS1NNJywnSlJLJywnS01BJywnS09EJywnR0FUJywnQkxWJywnTUdUJywnTUdDJywnJywnSE8nLCdITycsJ09GTycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdQJkUnLCdTTVQnLCdTS0snLCdTRUInLCdCUksnLCdTTEwnLCdTVVInLCdOSVonLCdTV1EnLCdTT00nLCdTQU0nLCdCUk0nLCdFQlInLCdTQlgnLCdCRFknLCdLQlInLCdBTVInLCdTTk0nLCdBVk0nLCdMV00nLCdKTE4nLCdBS00nLCdBS0InLCdNU04nLCdTTlcnLCdSU1QnLCdCUkEnLCdZQU4nLCdTTE4nLCdTTFUnLCdTQUQnLCdNT00nLCdRVVInLCdCSUQnLCdLQU0nLCdLVUQnLCdTTUwnLCdTTlMnLCdDQ00nLCdNT08nLCdDQ1MnLCdKTFMnLCdPQVMnLCdTU1MnLCdETksnLCdCSEwnLCdNQVQnLCdBTlMnLCdBU0snLCdLQlMnLCdTTVMnLCdGTEonLCdEUU0nLCdFQlMnLCdGQU4nLCdCRFMnLCdBTVMnLCdCREQnLCdPT1MnLCdUTUQnLCdTV1MnLCdNVVMnLCdITycsJycsJycsJycsJycsJycsJycsJycsJycsJycsJ09GUScsJ0hPJywnJywnSE8nLCdITycsJ0hPJywnUCZFJywnSE8nLCdBWlknLCdTSEYnLCdOU1InLCdESEYnLCdNUVInLCdBTUonLCdET00nLCdBTUsnLCdMQkInLCdBV1MnLCdNUksnLCdBRlMnLCdXQVEnLCdRT1MnLCdRUk4nLCdJR1cnLCdFWkQnLCdWSUwnLCdOQVMnLCdTSE4nLCdXQVQnLCcnLCdITycsJ0hPJywnSE8nLCcnLCcnLCcnLCcnLCcnLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0FFQycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ1AmRScsJ0hPJywnSE8nLCcnLCcnLCdITycsJ0hPJywnREZNJywnQlNNJywnQk5ZJywnQ1RNJywnRE1LJywnS0hMJywnQUpDJywnTVpNJywnQUZNJywnQUFNJywnQldNJywnQlNHJywnQlNYJywnQUdNJywnQUJNJywnQUJDJywnTUZDJywnRFJDJywnREFGJywnRkpNJywnQUtIJywnS0hLJywnTU5NJywnUkFLJywnU0hNJywnTVJEJywnU1JDJywnU0JTJywnU01NJywnTUFNJywnVUFRJywnSlJOJywnSlJNJywnU1FNJywnUk1aJywnQVNTJywnQkFSJywnS0hNJywnTU9RJywnRExNJywnQVlSJywnVUNKJywnQUdaJywnUkhNJywnVUNBJywnVUNCJywnRkNDJywnR0JWJywnRFJNJywnU0NIJywnSFRUJywnTVNGJywnSk1NJywnWkNDJywnR1lNJywnRkNNJywnTVNNJywnREhEJywnUklGJywnS0JNJywnSE1EJywnUldEJywnS1dTJywnQUFLJywnQlJTJywnRE9TJywnU0xNJywnREVSJywnU0NEJywnS0xGJywnU0JBJywnTURNJywnSlJGJywnTExaJywnRkpTJywnUkZNJywnRE1CJywnTVJCJywnREhNJywnSURXJywnSkNQJywnRFNTJywnTVNLJywnSE1BJywnRElCJywnRFNRJywnVU1CJywnQUtEJywnSFRTJywnWUFTJywnR0JJJywnSE8nLCdITycsJ0hPJywnSE8nLCdITycsJ0hPJywnRFdTJywnJyIsIlRlcm1pbmFsSUQiOiIiLCJzYWxlc1BlcnNvbklkIjoiIiwiem9uZUlkIjoiJyonIiwiZXhwIjoxNzczNTU5MjYyfQ.JZfGnaPSXmCanQfq3OWPRkYqqzy_rM9LLyLLiTLMFOo"
                     // ]);
 
                     // $response = curl_exec($ch);
@@ -1455,6 +1076,69 @@ class OrderController extends Controller
                     // curl_close($ch);
 
                     // echo $response;
+
+                    if($cashback) {
+                        $customer_cash_back_coupon = DB::table('coupon_customers')->where('customer_id', $customer_id)->where('cashback_rule_id', $cashback->id)->first();
+
+                        if (in_array($product['product_id'], $cashback_product_ids) && !$customer_cash_back_coupon) {
+                            $start_date = now();
+                            $exist_coupon_rule = Promotion::select('coupon_rules.id')->where('coupon_code', $coupon_code)->where('type', 'coupon')->where('start_date', '<=', now())->where('end_date', '>=', now())->leftJoin('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')->first();
+
+                            if (!$exist_coupon_rule) {
+                                $promotion = Promotion::create([
+                                    'name'      => $coupon_code,
+                                    'type'     => 'coupon',
+                                    'start_date'     => $start_date,
+                                    'end_date' => Carbon::parse($start_date)->addDays($cashback->duration),
+                                ]);
+                                if($promotion) {
+                                    $coupon_rule = CouponRule::create([
+                                        'promotion_id'      => $promotion->id,
+                                        'coupon_code'     => $coupon_code,
+                                        'apply_to' => 'customer',
+                                        'coupon_type' => $coupon_type,
+                                        'percentage' => $cashback->cashback_percentage,
+                                        'amount' => $cashback->cashback_amount,
+                                    ]);
+                                    if($coupon_rule) {
+                                        DB::table('coupon_customers')->insert([
+                                            'coupon_rule_id' => $coupon_rule->id,
+                                            'cashback_rule_id' => $cashback->id,
+                                            'customer_id' => $customer_id,
+                                            'created_at' => now()
+                                        ]);
+                                    }
+                                }
+                            } else {
+                                DB::table('coupon_customers')->insert([
+                                    'coupon_rule_id' => $exist_coupon_rule->id,
+                                    'cashback_rule_id' => $cashback->id,
+                                    'customer_id' => $customer_id,
+                                    'created_at' => now()
+                                ]);
+                            }
+                            
+                            // if($promotion) {
+                            //     $coupon_rule = CouponRule::create([
+                            //         'promotion_id'      => $promotion->id,
+                            //         'coupon_code'     => $coupon_code,
+                            //         'apply_to' => 'customer',
+                            //         'coupon_type' => $coupon_type,
+                            //         'percentage' => $cashback->cashback_percentage,
+                            //         'amount' => $cashback->cashback_amount,
+                            //     ]);
+
+                            //     if($coupon_rule) {
+                            //         DB::table('coupon_customers')->insert([
+                            //             'coupon_rule_id' => $coupon_rule->id,
+                            //             'cashback_rule_id' => $cashback->id,
+                            //             'customer_id' => $customer_id,
+                            //             'created_at' => now()
+                            //         ]);
+                            //     }
+                            // }
+                        }
+                    }
                 }
                 // die(';;;');
 
@@ -1480,108 +1164,6 @@ class OrderController extends Controller
                 // }
 
                 // curl_close($ch);
-                // $resp = json_decode($response);
-                // // print_r($resp->data);die;
-                // \Log::info('Stock API Response2:', ['response' => $resp]);
-
-                if($cashback) {
-                    $customer_cash_back_coupon = DB::table('coupon_customers')->where('customer_id', $customer_id)->where('cashback_rule_id', $cashback->id)->first();
-
-                    if (in_array($product['product_id'], $cashback_product_ids) && !$customer_cash_back_coupon) {
-                        $start_date = now();
-                        $exist_coupon_rule = Promotion::select('coupon_rules.id')->where('coupon_code', $coupon_code)->where('type', 'coupon')->where('start_date', '<=', now())->where('end_date', '>=', now())->leftJoin('coupon_rules', 'promotions.id', '=', 'coupon_rules.promotion_id')->first();
-
-                        if (!$exist_coupon_rule) {
-                            $promotion = Promotion::create([
-                                'name'      => $coupon_code,
-                                'type'     => 'coupon',
-                                'start_date'     => $start_date,
-                                'end_date' => Carbon::parse($start_date)->addDays($cashback->duration),
-                            ]);
-                            if($promotion) {
-                                $coupon_rule = CouponRule::create([
-                                    'promotion_id'      => $promotion->id,
-                                    'coupon_code'     => $coupon_code,
-                                    'apply_to' => 'customer',
-                                    'coupon_type' => $coupon_type,
-                                    'percentage' => $cashback->cashback_percentage,
-                                    'amount' => $cashback->cashback_amount,
-                                ]);
-                                if($coupon_rule) {
-                                    DB::table('coupon_customers')->insert([
-                                        'coupon_rule_id' => $coupon_rule->id,
-                                        'cashback_rule_id' => $cashback->id,
-                                        'customer_id' => $customer_id,
-                                        'created_at' => now()
-                                    ]);
-                                }
-                            }
-                        } else {
-                            DB::table('coupon_customers')->insert([
-                                'coupon_rule_id' => $exist_coupon_rule->id,
-                                'cashback_rule_id' => $cashback->id,
-                                'customer_id' => $customer_id,
-                                'created_at' => now()
-                            ]);
-                        }
-                        
-                        // if($promotion) {
-                        //     $coupon_rule = CouponRule::create([
-                        //         'promotion_id'      => $promotion->id,
-                        //         'coupon_code'     => $coupon_code,
-                        //         'apply_to' => 'customer',
-                        //         'coupon_type' => $coupon_type,
-                        //         'percentage' => $cashback->cashback_percentage,
-                        //         'amount' => $cashback->cashback_amount,
-                        //     ]);
-
-                        //     if($coupon_rule) {
-                        //         DB::table('coupon_customers')->insert([
-                        //             'coupon_rule_id' => $coupon_rule->id,
-                        //             'cashback_rule_id' => $cashback->id,
-                        //             'customer_id' => $customer_id,
-                        //             'created_at' => now()
-                        //         ]);
-                        //     }
-                        // }
-                    }
-                }
-
-                $shipping_service_charges = ShippingRule::select('price')->get();
-                $serviceAmount = round((float) $shipping_service_charges[1]->price, 2);
-                $freeShippingThreshold = round((float) $shipping_service_charges[3]->price, 2);
-                $codAmount = 0;
-                if($request->input('payment_method') == 'cod') {
-                    $codAmount = round((float) $shipping_service_charges[2]->price, 2);
-                }
-                // echo $freeShippingThreshold.'----'.$loopSubTotal;
-                $subtotal = round((float)$loopSubTotal, 2);
-                $threshold = (float)($freeShippingThreshold ?? 400);
-                if ($subtotal >= $threshold) {
-                    $loopGrandTotal = $subtotal;
-                    $loopGrandTotal += $serviceAmount;
-                    $shippingAmount = 0;
-                    // die('if');
-                } else {
-                    $tax = Tax::select('percentage')->where('status', 'published')->first();
-                    $loopGrandTotal = $subtotal;
-                    $shippingAmount = round((float) $shipping_service_charges[0]->price, 2);
-                    $loopGrandTotal += $shippingAmount;
-                    $loopGrandTotal += $serviceAmount;
-                    // die('else');
-                }
-
-                $order->update([
-                    'sub_total' => $subtotal,
-                    'tax_amount' => $loopTaxTotal + ($shippingAmount / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100)) + ($serviceAmount / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100)) + ($codAmount / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100)),
-                    'amount' => $loopGrandTotal + $codAmount,
-                    'shipping_amount' => $shippingAmount / (1 + ($tax->percentage / 100)),
-                    'shipping_amount_vat' => $shippingAmount / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100),
-                    'service_amount' => $serviceAmount / (1 + ($tax->percentage / 100)),
-                    'service_amount_vat' => $serviceAmount / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100),
-                    'cod_charge' => $codAmount / (1 + ($tax->percentage / 100)),
-                    'cod_charge_vat' => $codAmount / (1 + ($tax->percentage / 100)) * ($tax->percentage / 100),
-                ]);
 
                 // if ($couponCode = $request->input('couponCode')) {
                 //     // Discount::getFacadeRoot()->afterOrderPlaced($couponCode, $request->input('customer_id') ? $request->input('customer_id') : $customer_id);
@@ -1607,7 +1189,6 @@ class OrderController extends Controller
                 //         ]);
                 //     }
                 // }
-
                 // $coupon_code = $request->input('couponCode');
                 // if(isset($coupon_code) && !empty($request->input('couponCode'))) {
                 //     $curl = curl_init();
@@ -1624,11 +1205,11 @@ class OrderController extends Controller
                 //         // 'discAmount'           => 27.50,
                 //         'netAmount'            => $order->amount,
                 //     ];
-                //     if ($couponRegistrationId == 0) {
+                //       if ($couponRegistrationId == 0) {
                 //         $payload['couponCode'] = $coupon_code;
                 //     }
                     
-                //     \Log::info('Coupon Redeem Payload:', ['request' => $payload]);
+                //     \Log::info(json_encode($payload)."payload_Response");
 
                 //     curl_setopt_array($curl, [
                 //         CURLOPT_URL            => env('SMART_VIEW_COUPON_API_URL') . 'Coupon/Redeem',
@@ -1647,18 +1228,7 @@ class OrderController extends Controller
 
                 //     $response = curl_exec($curl);
 
-                //     if (curl_errno($curl)) {
-                //         // echo 'order_authorised Curl error: ' . curl_error($ch);
-                //         \Log::info('Coupon Redeem API Error:', ['error' => curl_error($curl)]);
-                //     }
-
                 //     curl_close($curl);
-
-                //     $redeem_resp = json_decode($response, true);
-
-                //     // echo "<pre>";print_r($refund_resp);exit;
-
-                //     \Log::info('Order Redeem Response:', ['response' => $redeem_resp]);
                 // }
 
                 if($request->input('customer_id')) {
@@ -1710,6 +1280,8 @@ class OrderController extends Controller
                 //     //         'end_date' => $coupon->end_date,
                 //     //     ];
                 //     // }
+
+                //     // $exisProduct->coupon = $couponData;
 
                 //     // Fetch active discount for the product
                 //     $exisProduct->discount = null;
@@ -1814,7 +1386,7 @@ class OrderController extends Controller
 
                 //     // $exisProduct->coupon = $couponData;
 
-                //      // $customerCouponData = [];
+                //     // $customerCouponData = [];
 
                 //     // if ($coupons->isEmpty()) {
                 //     // $customer_coupons = DiscountCustomer::select('code', 'value', 'start_date', 'end_date')->where('customer_id', $customer_id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discounts', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
@@ -1854,66 +1426,66 @@ class OrderController extends Controller
                 //     // $exisProduct->customer_coupon = empty($customerCoupons) ? [] : $customerCoupons;
                 //     // }
 
-                //     if(!is_null($exisProduct->discount)) {
-                //        if($exisProduct->discount->discount_type == 'percent') {
-                //             $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //             $total_amount = $price * $quantity;
-                //             $discount_percent = $exisProduct->discount->value;
-                //             $discount_amount = ($total_amount / 100) * $discount_percent;
-                //             $net_amount = $total_amount - $discount_amount;
-                //             $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                //             $gross_amount = $net_amount + $tax_amount;
-                //             $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                //     // if(!is_null($exisProduct->discount)) {
+                //     //     if($exisProduct->discount->discount_type == 'percent') {
+                //     //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     //         $total_amount = $price * $quantity;
+                //     //         $discount_percent = $exisProduct->discount->value;
+                //     //         $discount_amount = ($total_amount / 100) * $discount_percent;
+                //     //         $net_amount = $total_amount - $discount_amount;
+                //     //         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     //         $gross_amount = $net_amount + $tax_amount;
+                //     //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                         
-                //             $orderProduct = [
-                //                 'invoice_id' => $invoice->id,
-                //                 'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //                 'reference_id' => $exisProduct->id,
-                //                 'name' => $exisProduct->name,
-                //                 // 'description' => $exisProduct->description,
-                //                 'image' => $exisProduct->image,
-                //                 'qty' => $quantity,
-                //                 'price' => $price,
-                //                 'sub_total' => $total_amount,
-                //                 'discount_percent' => $discount_percent,
-                //                 'discount_amount' => $discount_amount,
-                //                 'net_amount' => $net_amount,
-                //                 'tax_amount' => $tax_amount,
-                //                 'gross_amount' => $gross_amount,
-                //                 'amount' => $gross_amount,
-                //                 'options' => json_encode($options),
-                //             ];   
-                //         } elseif($exisProduct->discount->discount_type == 'amount') {
-                //             $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //             $total_amount = $price * $quantity;
-                //             $sale_price = $price - $exisProduct->discount->value;
-                //             $discount_percent = 0;
-                //             $discount_amount = $total_amount - ($sale_price * $quantity);
-                //             $net_amount = $total_amount - $discount_amount;
-                //             $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                //             $gross_amount = $net_amount + $tax_amount;
-                //             $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                //     //         $orderProduct = [
+                //     //             'invoice_id' => $invoice->id,
+                //     //             'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //     //             'reference_id' => $exisProduct->id,
+                //     //             'name' => $exisProduct->name,
+                //     //             // 'description' => $exisProduct->description,
+                //     //             'image' => $exisProduct->image,
+                //     //             'qty' => $quantity,
+                //     //             'price' => $price,
+                //     //             'sub_total' => $total_amount,
+                //     //             'discount_percent' => $discount_percent,
+                //     //             'discount_amount' => $discount_amount,
+                //     //             'net_amount' => $net_amount,
+                //     //             'tax_amount' => $tax_amount,
+                //     //             'gross_amount' => $gross_amount,
+                //     //             'amount' => $gross_amount,
+                //     //             'options' => json_encode($options),
+                //     //         ];   
+                //     //     } elseif($exisProduct->discount->discount_type == 'amount') {
+                //     //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     //         $total_amount = $price * $quantity;
+                //     //         $sale_price = $exisProduct->discount->final_price / (1 + ($request->input('vatTax') / 100));
+                //     //         $discount_percent = 0;
+                //     //         $discount_amount = $total_amount - ($sale_price * $quantity);
+                //     //         $net_amount = $total_amount - $discount_amount;
+                //     //         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     //         $gross_amount = $net_amount + $tax_amount;
+                //     //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                         
-                //             $orderProduct = [
-                //                 'invoice_id' => $invoice->id,
-                //                 'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //                 'reference_id' => $exisProduct->id,
-                //                 'name' => $exisProduct->name,
-                //                 // 'description' => $exisProduct->description,
-                //                 'image' => $exisProduct->image,
-                //                 'qty' => $quantity,
-                //                 'price' => $price,
-                //                 'sub_total' => $total_amount,
-                //                 'discount_percent' => $discount_percent,
-                //                 'discount_amount' => $discount_amount,
-                //                 'net_amount' => $net_amount,
-                //                 'tax_amount' => $tax_amount,
-                //                 'gross_amount' => $gross_amount,
-                //                 'amount' => $gross_amount,
-                //                 'options' => json_encode($options),
-                //             ];
-                //         }
-                //     }
+                //     //         $orderProduct = [
+                //     //             'invoice_id' => $invoice->id,
+                //     //             'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //     //             'reference_id' => $exisProduct->id,
+                //     //             'name' => $exisProduct->name,
+                //     //             // 'description' => $exisProduct->description,
+                //     //             'image' => $exisProduct->image,
+                //     //             'qty' => $quantity,
+                //     //             'price' => $price,
+                //     //             'sub_total' => $total_amount,
+                //     //             'discount_percent' => $discount_percent,
+                //     //             'discount_amount' => $discount_amount,
+                //     //             'net_amount' => $net_amount,
+                //     //             'tax_amount' => $tax_amount,
+                //     //             'gross_amount' => $gross_amount,
+                //     //             'amount' => $gross_amount,
+                //     //             'options' => json_encode($options),
+                //     //         ];
+                //     //     }
+                //     // }
                 //     // elseif(!empty($product['coupon']) && !is_null($exisProduct->coupon) && !empty($exisProduct->coupon) && isset($exisProduct->coupon) && isset($exisProduct->coupon[strtolower($request->input('couponCode'))]) && $exisProduct->coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
                 //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                 //     //     $total_amount = $price * $quantity;
@@ -1943,71 +1515,70 @@ class OrderController extends Controller
                 //     //         'options' => json_encode($options),
                 //     //     ];
                 //     // }
-                //     // elseif(isset($product['is_customer_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price) && !is_null($exisProduct->customer_coupon) && !empty($exisProduct->customer_coupon) && isset($exisProduct->customer_coupon) && isset($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]) && $exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['code'] == strtolower($request->input('couponCode'))) {
-                //     elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
-                //         // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
-                //             // echo 'Customer Coupon';
-                //             // echo '\n ';
-                //             $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //             $total_amount = $price * $quantity;
-                //             $discount_percent = $product['value'];
-                //             $discount_amount = ($total_amount / 100) * $discount_percent;
-                //             $net_amount = $total_amount - $discount_amount;
-                //             $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                //             $gross_amount = $net_amount + $tax_amount;
-                //             $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                //     // elseif(isset($product['is_coupon']) && !isset($product['is_gift']) && is_null($exisProduct->sale_price)) {
+                //     //         // if($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'percent') {
+                //     //         // echo 'Customer Coupon Percent';
+                //     //         // echo '\n ';
+                //     //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     //         $total_amount = $price * $quantity;
+                //     //         $discount_percent = $product['value'];
+                //     //         $discount_amount = ($total_amount / 100) * $discount_percent;
+                //     //         $net_amount = $total_amount - $discount_amount;
+                //     //         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     //         $gross_amount = $net_amount + $tax_amount;
+                //     //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                         
-                //             $orderProduct = [
-                //                 'invoice_id' => $invoice->id,
-                //                 'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //                 'reference_id' => $exisProduct->id,
-                //                 'name' => $exisProduct->name,
-                //                 // 'description' => $exisProduct->description,
-                //                 'image' => $exisProduct->image,
-                //                 'qty' => $quantity,
-                //                 'price' => $price,
-                //                 'sub_total' => $total_amount,
-                //                 'discount_percent' => $discount_percent,
-                //                 'discount_amount' => $discount_amount,
-                //                 'net_amount' => $net_amount,
-                //                 'tax_amount' => $tax_amount,
-                //                 'gross_amount' => $gross_amount,
-                //                 'amount' => $gross_amount,
-                //                 'options' => json_encode($options),
-                //             ];
-                //         // } elseif($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'amount') {
-                //         //      // echo 'Customer Coupon Amount';
-                //         //     // echo '\n ';
-                //         //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //         //     $total_amount = $price * $quantity;
-                //         //     $sale_price = $price - ($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'] / (1 + ($request->input('vatTax') / 100)));
-                //         //     $discount_percent = 0;
-                //         //     $discount_amount = $total_amount - ($sale_price * $quantity);
-                //         //     $net_amount = $total_amount - $discount_amount;
-                //         //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                //         //     $gross_amount = $net_amount + $tax_amount;
-                //         //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                //     //         $orderProduct = [
+                //     //             'invoice_id' => $invoice->id,
+                //     //             'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //     //             'reference_id' => $exisProduct->id,
+                //     //             'name' => $exisProduct->name,
+                //     //             // 'description' => $exisProduct->description,
+                //     //             'image' => $exisProduct->image,
+                //     //             'qty' => $quantity,
+                //     //             'price' => $price,
+                //     //             'sub_total' => $total_amount,
+                //     //             'discount_percent' => $discount_percent,
+                //     //             'discount_amount' => $discount_amount,
+                //     //             'net_amount' => $net_amount,
+                //     //             'tax_amount' => $tax_amount,
+                //     //             'gross_amount' => $gross_amount,
+                //     //             'amount' => $gross_amount,
+                //     //             'options' => json_encode($options),
+                //     //         ];
+                //     //     // } elseif($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['coupon_type'] == 'amount') {
+                //     //     //      // echo 'Customer Coupon Amount';
+                //     //     //     // echo '\n ';
+                //     //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     //     //     $total_amount = $price * $quantity;
+                //     //     //     $sale_price = $price - ($exisProduct->customer_coupon[strtolower($request->input('couponCode'))]['value'] / (1 + ($request->input('vatTax') / 100)));
+                //     //     //     $discount_percent = 0;
+                //     //     //     $discount_amount = $total_amount - ($sale_price * $quantity);
+                //     //     //     $net_amount = $total_amount - $discount_amount;
+                //     //     //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     //     //     $gross_amount = $net_amount + $tax_amount;
+                //     //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                         
-                //         //     $orderProduct = [
-                //         //         'invoice_id' => $invoice->id,
-                //         //         'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //         //         'reference_id' => $exisProduct->id,
-                //         //         'name' => $exisProduct->name,
-                //         //         // 'description' => $exisProduct->description,
-                //         //         'image' => $exisProduct->image,
-                //         //         'qty' => $quantity,
-                //         //         'price' => $price,
-                //         //         'sub_total' => $total_amount,
-                //         //         'discount_percent' => $discount_percent,
-                //         //         'discount_amount' => $discount_amount,
-                //         //         'net_amount' => $net_amount,
-                //         //         'tax_amount' => $tax_amount,
-                //         //         'gross_amount' => $gross_amount,
-                //         //         'amount' => $gross_amount,
-                //         //         'options' => json_encode($options),
-                //         //     ];
-                //         // }
-                //     }
+                //     //     //     $orderProduct = [
+                //     //     //         'invoice_id' => $invoice->id,
+                //     //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //     //     //         'reference_id' => $exisProduct->id,
+                //     //     //         'name' => $exisProduct->name,
+                //     //     //         // 'description' => $exisProduct->description,
+                //     //     //         'image' => $exisProduct->image,
+                //     //     //         'qty' => $quantity,
+                //     //     //         'price' => $price,
+                //     //     //         'sub_total' => $total_amount,
+                //     //     //         'discount_percent' => $discount_percent,
+                //     //     //         'discount_amount' => $discount_amount,
+                //     //     //         'net_amount' => $net_amount,
+                //     //     //         'tax_amount' => $tax_amount,
+                //     //     //         'gross_amount' => $gross_amount,
+                //     //     //         'amount' => $gross_amount,
+                //     //     //         'options' => json_encode($options),
+                //     //     //     ];
+                //     //     // }
+                //     // }
                 //     // elseif(!is_null($exisProduct->sale_price)) {
                 //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
                 //     //     $total_amount = $price * $quantity;
@@ -2020,7 +1591,7 @@ class OrderController extends Controller
                 //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
                 //     //     $orderProduct = [
-                //     //          'invoice_id' => $invoice->id,
+                //     //         'invoice_id' => $invoice->id,
                 //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
                 //     //         'reference_id' => $exisProduct->id,
                 //     //         'name' => $exisProduct->name,
@@ -2038,70 +1609,81 @@ class OrderController extends Controller
                 //     //         'options' => json_encode($options),
                 //     //     ];
                 //     // }
-                //     elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
-                //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //         $total_amount = 0.00;
-                //         $discount_percent = 100;
-                //         $discount_amount = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //         $net_amount = 0.00;
-                //         $tax_amount = 0.00;
-                //         $gross_amount = 0.00;
-                //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                //     // elseif(isset($product['is_gift']) && $product['is_gift'] == true) {
+                //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     //     $total_amount = 0.00;
+                //     //     $discount_percent = 100;
+                //     //     $discount_amount = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     //     $net_amount = 0.00;
+                //     //     $tax_amount = 0.00;
+                //     //     $gross_amount = 0.00;
+                //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
-                //         $orderProduct = [
-                //             'invoice_id' => $invoice->id,
-                //             'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //             'reference_id' => $exisProduct->id,
-                //             'name' => $exisProduct->name,
-                //             // 'description' => $exisProduct->description,
-                //             'image' => $exisProduct->image,
-                //             'qty' => $quantity,
-                //             'price' => $price,
-                //             'sub_total' => $total_amount,
-                //             'discount_percent' => $discount_percent,
-                //             'discount_amount' => $discount_amount,
-                //             'net_amount' => $net_amount,
-                //             'tax_amount' => $tax_amount,
-                //             'gross_amount' => $gross_amount,
-                //             'amount' => $gross_amount,
-                //             'options' => json_encode($options)
-                //         ];
-                //     }
-                //     else {
-                //         $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
-                //         $total_amount = $price * $quantity;
-                //         $discount_percent = 0;
-                //         $discount_amount = 0.00;
-                //         $net_amount = $total_amount - $discount_amount;
-                //         $tax_amount = ($net_amount / 100) * $request->input('vatTax');
-                //         $gross_amount = $net_amount + $tax_amount;
-                //         $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
+                //     //     $orderProduct = [
+                //     //         'invoice_id' => $invoice->id,
+                //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //     //         'reference_id' => $exisProduct->id,
+                //     //         'name' => $exisProduct->name,
+                //     //         // 'description' => $exisProduct->description,
+                //     //         'image' => $exisProduct->image,
+                //     //         'qty' => $quantity,
+                //     //         'price' => $price,
+                //     //         'sub_total' => $total_amount,
+                //     //         'discount_percent' => $discount_percent,
+                //     //         'discount_amount' => $discount_amount,
+                //     //         'net_amount' => $net_amount,
+                //     //         'tax_amount' => $tax_amount,
+                //     //         'gross_amount' => $gross_amount,
+                //     //         'amount' => $gross_amount,
+                //     //         'options' => json_encode($options)
+                //     //     ];
+                //     // }
+                //     // else {
+                //     //     $price = $exisProduct->price / (1 + ($request->input('vatTax') / 100));
+                //     //     $total_amount = $price * $quantity;
+                //     //     $discount_percent = 0;
+                //     //     $discount_amount = 0.00;
+                //     //     $net_amount = $total_amount - $discount_amount;
+                //     //     $tax_amount = ($net_amount / 100) * $request->input('vatTax');
+                //     //     $gross_amount = $net_amount + $tax_amount;
+                //     //     $options = array('name' => $exisProduct->name, 'image' => $exisProduct->image, 'attributes' => ' ', 'taxRate' => $exisProduct->percentage, 'options' => [], 'extras' => [], 'sku' => $exisProduct->sku, 'weight' => $exisProduct->weight, 'original_price' => $exisProduct->price, 'product_type' => $exisProduct->product_type);
                     
-                //         $orderProduct = [
-                //             'invoice_id' => $invoice->id,
-                //             'reference_type' => 'Botble\Ecommerce\Models\Product',
-                //             'reference_id' => $exisProduct->id,
-                //             'name' => $exisProduct->name,
-                //             // 'description' => $exisProduct->description,
-                //             'image' => $exisProduct->image,
-                //             'qty' => $quantity,
-                //             'price' => $price,
-                //             'sub_total' => $total_amount,
-                //             'discount_percent' => $discount_percent,
-                //             'discount_amount' => $discount_amount,
-                //             'net_amount' => $net_amount,
-                //             'tax_amount' => $tax_amount,
-                //             'gross_amount' => $gross_amount,
-                //             'amount' => $gross_amount,
-                //             'options' => json_encode($options),
-                //         ];
-                //     }
+                //     //     $orderProduct = [
+                //     //         'invoice_id' => $invoice->id,
+                //     //         'reference_type' => 'Botble\Ecommerce\Models\Product',
+                //     //         'reference_id' => $exisProduct->id,
+                //     //         'name' => $exisProduct->name,
+                //     //         // 'description' => $exisProduct->description,
+                //     //         'image' => $exisProduct->image,
+                //     //         'qty' => $quantity,
+                //     //         'price' => $price,
+                //     //         'sub_total' => $total_amount,
+                //     //         'discount_percent' => $discount_percent,
+                //     //         'discount_amount' => $discount_amount,
+                //     //         'net_amount' => $net_amount,
+                //     //         'tax_amount' => $tax_amount,
+                //     //         'gross_amount' => $gross_amount,
+                //     //         'amount' => $gross_amount,
+                //     //         'options' => json_encode($options),
+                //     //     ];
+                //     // }
 
-                //     InvoiceItem::query()->create($orderProduct);
+                //     // InvoiceItem::query()->create($orderProduct);
                 // }
 
+                \Log::info('[OrderController] Checking decode/coupon condition', [
+                    'order_id'     => $order->id,
+                    'decode'       => !empty($decode) ? (array) $decode : null,
+                    'has_data'     => !empty($decode->data),
+                    'data_is_array'=> !empty($decode->data) && is_array($decode->data),
+                ]);
+
                 if (!empty($decode) && !empty($decode->data) && is_array($decode->data)) {
-                                      
+                    \Log::info('[OrderController] Condition MET — processing coupon data', [
+                        'order_id'    => $order->id,
+                        'couponObject'=> (array) $decode->data[0],
+                    ]);
+
                     // Get the first coupon object from the 'data' array
                     $couponObject = $decode->data[0];
 
@@ -2109,7 +1691,6 @@ class OrderController extends Controller
                     $couponData = (array) $couponObject;
 
                     // Add the order's ID to the data
-                    // Assumes 'order_number' column stores the $order->id.
                     $couponData['order_id'] = $order->id;
 
                     // **IMPORTANT**: Your schema for 'column1' is NOT NULL
@@ -2120,12 +1701,25 @@ class OrderController extends Controller
 
                     // Create the new record in the 'active_coupon' table
                     ActiveCoupon::create($couponData);
+
+                    \Log::info('[OrderController] ActiveCoupon record created', [
+                        'order_id'   => $order->id,
+                        'couponData' => $couponData,
+                    ]);
                 } else {
+                    \Log::info('[OrderController] Condition NOT MET — skipping coupon creation', [
+                        'order_id' => $order->id,
+                        'decode'   => !empty($decode) ? (array) $decode : null,
+                    ]);
                 }
+
+                \Log::info('[OrderController] Exited coupon if block', [
+                    'order_id' => $order->id,
+                ]);
+
 
                 if($request->input('payment_method') == 'paytabs') {
                     $resp = $this->payTabsPayment($request, $data, $order);
-                    // echo "<pre>";print_r($resp);die();
                     if($resp['redirect_url']) {
                         return response()->json([
                             'message'          => 'Redirecting to Paytabs...',
@@ -2134,7 +1728,7 @@ class OrderController extends Controller
                             'total'            => $order->amount,
                             'sub_total'        => $order->sub_total,
                             'shipping_amount'  => $order->shipping_amount,
-                            // 'products'         => $prod,
+                            'products'         => $prod,
                             'redirect_url'     => $resp['redirect_url']
                         ]);
                     }
@@ -2151,12 +1745,11 @@ class OrderController extends Controller
                             'total'            => $order->amount,
                             'sub_total'        => $order->sub_total,
                             'shipping_amount'  => $order->shipping_amount,
-                            // 'products'         => $prod,
+                            'products'         => $prod,
                             'redirect_url'     => $resp['checkout_url']
                         ]);
                     }
                 }
-
                 if ($request->input('payment_method') == 'tabby') {
                     $useShippingAddress = $request->input('shippingAddress.first_name');
                     $addressPrefix = $useShippingAddress ? 'shippingAddress' : 'billingAddress';
@@ -2180,7 +1773,7 @@ class OrderController extends Controller
                             'order_history'    => [],
                         ];
                     }
-                    $resp = $this->tabbyPayment($request, $shippingData, $order, $prod);
+                    $resp = $this->tabbyPayment($request, $shippingData, $order);
                     if (isset($resp['status']) && ($resp['status'] == 'created' || $resp['status'] == 'CREATED')) {
                         $redirectUrl = $resp['configuration']['available_products']['installments'][0]['web_url'] 
                                     ?? $resp['configuration']['available_products']['installments'][0]['url'] 
@@ -2230,7 +1823,7 @@ class OrderController extends Controller
                         null,
                         "Tabby payment failed: " . $rejectionReason,
                     );
-
+                    
                     return response()->json([
                         'message' => $errorMessage,
                         'error'   => $resp['message'] ?? $errorMessage
@@ -2244,33 +1837,8 @@ class OrderController extends Controller
                     $order,
                     $request->input('payment_method'),
                     'completed',
-                    $customer_id
+                    $customer_id,
                 );
-
-                $filteredProducts = array_map(function ($item) {
-
-                    $product = [
-                        'id' => $item['id'],
-                        'product_id' => $item['id'],
-                        'name' => $item['name'],
-                        'price' => $item['price'],
-                        'qty' => $item['qty'],
-                        'discount' => $item['discount'],
-                        'coupon' => $item['coupon'],
-                    ];
-
-                    // Add only if exists
-                    if (isset($item['is_gift'])) {
-                        $product['is_gift'] = $item['is_gift'];
-                    }
-
-                    if (isset($item['is_coupon'])) {
-                        $product['is_coupon'] = $item['is_coupon'];
-                    }
-
-                    return $product;
-
-                }, $prod);
 
                 Log::info('OrderController: storeOrder() finished successfully.', ['order_id' => $order->id ?? null]);
                 return response()->json([
@@ -2282,7 +1850,7 @@ class OrderController extends Controller
                     'total'            => $order->amount,
                     'sub_total'        => $order->sub_total,
                     'shipping_amount'  => $order->shipping_amount,
-                    'products'         => $filteredProducts
+                    'products'         => $prod
                 ]);
             }
         });
@@ -2691,8 +2259,8 @@ class OrderController extends Controller
         }
 
         // 3. ZERO-TRUST STEP: Direct Server-to-Server Inquiry to PayTabs Query API
-        $PROFILE_ID = env('PAYTABS_PROFILE_ID');
-        $SERVER_KEY = env('PAYTABS_SERVER_KEY');
+        $PROFILE_ID = config('paytabs.profile_id');
+        $SERVER_KEY = config('paytabs.server_key');
         $QUERY_URL  = 'https://secure.paytabs.com/payment/query';
 
         $queryPayload = [
@@ -2973,6 +2541,7 @@ class OrderController extends Controller
 
     public function customerDetails(Request $request)
     {
+<<<<<<< HEAD
         $customer = Auth::guard('api')->user();
         if (!$customer) {
             return response()->json(['message' => 'Unauthorizedsss'], 401);
@@ -2987,9 +2556,12 @@ class OrderController extends Controller
         }
 
         $customer = Customer::select('id', 'name', 'email', 'phone')->where('id', $request->input('customer_id'))->first();
+=======
+        $customer = auth()->user() ?? Customer::find($request->input('customer_id'));
+>>>>>>> 543d5c07ed7cbed4772210303a69eb9cd92e575e
 
         if(!$customer) {
-            return response()->json(['message' => 'Customer Not Found']);
+            return response()->json(['message' => 'Customer Not Found'], 404);
         }
 
         return response()->json([
@@ -3003,30 +2575,38 @@ class OrderController extends Controller
 
     public function customerUpdate(Request $request)
     {
+        $authCustomer = auth()->user();
+        $targetId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
+
         if($request->flag == 'fpassword') {
             $validator = Validator::make($request->all(), [
-            'customer_id'      => 'required',
-            'customer_password' => 'required',
+                'customer_password' => 'required|string|min:6',
+            ], [
+                'customer_password.required' => 'Password is required.',
+                'customer_password.min'      => 'Password must be at least 6 characters.',
             ]);
 
             if ($validator->fails()) {
-                return response()->json($validator->errors());
+                return response()->json([
+                    'message' => 'Validation Error',
+                    'errors'  => $validator->errors()
+                ], 422);
             }
 
-            $customer = Customer::find($request->input('customer_id'));
+            $customer = Customer::find($targetId);
 
             if (!$customer) {
-                return response()->json(['message' => 'Customer Not Found']);
+                return response()->json(['message' => 'Customer Not Found'], 404);
             }
 
             $customer->password = Hash::make($request->input('customer_password'));
             $customer->save();
 
             return response()->json([
-                'message' => 'Password Updated Successfully',
-                'customer_id' => $customer->id,
-                'customer_name' => $customer->name,
-                'customer_email' => $customer->email,
+                'message'         => 'Password Updated Successfully',
+                'customer_id'     => $customer->id,
+                'customer_name'   => $customer->name,
+                'customer_email'  => $customer->email,
                 'customer_mobile' => $customer->phone
             ]);
         } else {
@@ -3035,47 +2615,59 @@ class OrderController extends Controller
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
             $validator = Validator::make($request->all(), [
-                'customer_id'      => 'required',
-                'customer_name' => 'required',
-                 'customer_email' => 'required|email|unique:ec_customers,email,' . $request->input('customer_id'),
-                'customer_mobile' => 'required|unique:ec_customers,phone,' . $request->input('customer_id'),
-                // 'customer_password' => 'required',
+                'customer_name'     => 'required|string|min:2|max:120',
+                'customer_email'    => 'required|email|max:150|unique:ec_customers,email,' . $targetId,
+                'customer_mobile'   => ['required', 'regex:/^\d{9,15}$/', 'unique:ec_customers,phone,' . $targetId],
+                'customer_password' => 'nullable|string|min:6',
+            ], [
+                'customer_name.required'   => 'Full name is required.',
+                'customer_name.min'        => 'Name must be at least 2 characters.',
+                'customer_email.required'  => 'Email address is required.',
+                'customer_email.email'     => 'Please provide a valid email address.',
+                'customer_email.unique'    => 'This email address is already in use.',
+                'customer_mobile.required' => 'Mobile number is required.',
+                'customer_mobile.regex'    => 'Please provide a valid mobile number.',
+                'customer_mobile.unique'   => 'This mobile number is already in use.',
+                'customer_password.min'    => 'New password must be at least 6 characters.',
             ]);
 
             if ($validator->fails()) {
-                return response()->json($validator->errors());
+                return response()->json([
+                    'message' => 'Validation Error',
+                    'errors'  => $validator->errors()
+                ], 422);
             }       
 
-            $customer = Customer::find($request->input('customer_id'));
+            $customer = Customer::find($targetId);
 
             if (!$customer) {
-                return response()->json(['message' => 'Customer Not Found']);
+                return response()->json(['message' => 'Customer Not Found'], 404);
             }
 
-            $customer->name = $request->input('customer_name');
-            $customer->email = $request->input('customer_email');
-            $customer->phone = $request->input('customer_mobile');
+            $customer->name = trim($request->input('customer_name'));
+            $customer->email = trim($request->input('customer_email'));
+            $customer->phone = trim($request->input('customer_mobile'));
             if(isset($request->customer_password) && !empty($request->customer_password)) {
                 $customer->password = Hash::make($request->input('customer_password'));
             }
             $customer->save();
 
-            $addresses = Address::where('customer_id', $request->input('customer_id'))->get();
+            $addresses = Address::where('customer_id', $customer->id)->get();
 
             if(!$addresses->isEmpty()) {
                 foreach ($addresses as $key => $address) {
-                    $address->name = $request->input('customer_name');
-                    $address->email = $request->input('customer_email');
-                    $address->phone = $request->input('customer_mobile');
+                    $address->name = $customer->name;
+                    $address->email = $customer->email;
+                    $address->phone = $customer->phone;
                     $address->save();
                 }   
             }
 
             return response()->json([
-                'message' => 'Customer Updated Successfully',
-                'customer_id' => $customer->id,
-                'customer_name' => $customer->name,
-                'customer_email' => $customer->email,
+                'message'         => 'Customer Updated Successfully',
+                'customer_id'     => $customer->id,
+                'customer_name'   => $customer->name,
+                'customer_email'  => $customer->email,
                 'customer_mobile' => $customer->phone
             ]);
         }
@@ -3083,15 +2675,14 @@ class OrderController extends Controller
 
     public function customerAddressDetails(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'customer_id'      => 'required'
-        ]);
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors());
+        if (!$customerId) {
+            return response()->json(['message' => 'Customer Id is required'], 400);
         }
 
-        $address = Address::where('customer_id', $request->input('customer_id'))->get();
+        $address = Address::where('customer_id', $customerId)->get();
 
         if($address->isEmpty()) {
             return response()->json(['message' => 'Customer Address Not Found']);
@@ -3111,6 +2702,7 @@ class OrderController extends Controller
 
     public function customerAddressUpdate(Request $request)
     {
+<<<<<<< HEAD
         $customer = Auth::guard('api')->user();
         if (!$customer) {
             return response()->json(['message' => 'Unauthorized'], 401);
@@ -3126,13 +2718,17 @@ class OrderController extends Controller
         //         'email' => 'required|email',
         //         'mobile' => 'required',
         //     ]);
+=======
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
+
+>>>>>>> 543d5c07ed7cbed4772210303a69eb9cd92e575e
         // address_id of 0 or -1 means "create new address"
         if((int)$request->input('address_id') <= 0) {
             $validator = Validator::make($request->all(), [
                 'state'       => 'required',
                 'city'        => 'required',
                 'address'     => 'required',
-                'customer_id' => 'required',
                 'name'        => 'required',
                 'email'       => 'required|email',
                 'mobile'      => 'required',
@@ -3143,6 +2739,7 @@ class OrderController extends Controller
             }
             
             $address = Address::create([
+<<<<<<< HEAD
                 'name'      => $request->input('name'),
                 'email'     => $request->input('email'),
                 'phone'     => $request->input('mobile'),
@@ -3153,6 +2750,16 @@ class OrderController extends Controller
                 'address' => $request->input('address'),
                 'customer_id' => $request->input('customer_id'),
                 'is_default' => $request->input('is_default',0),
+=======
+                'name'        => $request->input('name'),
+                'email'       => $request->input('email'),
+                'phone'       => $request->input('mobile'),
+                'state'       => $request->input('state'),
+                'city'        => $request->input('city'),
+                'address'     => $request->input('address'),
+                'customer_id' => $customerId,
+                'is_default'  => $request->input('is_default', 0),
+>>>>>>> 543d5c07ed7cbed4772210303a69eb9cd92e575e
             ]);
 
             return response()->json([
@@ -3173,10 +2780,14 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
-        $address = Address::find($request->input('address_id'));
+        $query = Address::where('id', $request->input('address_id'));
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
+        }
+        $address = $query->first();
 
         if (!$address) {
-            return response()->json(['message' => 'Customer Address Not Found']);
+            return response()->json(['message' => 'Customer Address Not Found'], 404);
         }
 
         $address->state = $request->input('state');
@@ -3226,14 +2837,60 @@ class OrderController extends Controller
         ]);
     }
 
+    public function customerAddressDelete(Request $request)
+    {
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
+
+        if (!$customerId) {
+            return response()->json(['message' => 'Unauthenticated. Please log in.'], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'address_id' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $address = Address::where('id', $request->input('address_id'))
+            ->where('customer_id', $customerId)
+            ->first();
+
+        if (!$address) {
+            return response()->json(['message' => 'Address not found or does not belong to this customer'], 404);
+        }
+
+        $wasDefault = (int) $address->is_default === 1;
+        $address->delete();
+
+        $remainingAddresses = Address::where('customer_id', $customerId)->get();
+
+        // If the deleted address was default, auto-promote the first remaining address
+        if ($wasDefault && $remainingAddresses->isNotEmpty()) {
+            $newDefault = $remainingAddresses->first();
+            $newDefault->is_default = 1;
+            $newDefault->save();
+            $remainingAddresses = Address::where('customer_id', $customerId)->get();
+        }
+
+        return response()->json([
+            'message'     => 'Address deleted successfully',
+            'was_default' => $wasDefault,
+            'addresses'   => $remainingAddresses,
+        ]);
+    }
+
     public function customerOrders(Request $request)
     {
-        // Customer/user ID (required for total filtering)
-        $customerId = $request->input('customer_id');
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
         if (!$customerId) {
             return response()->json(['message' => 'Customer Id is Required']);
         }
+
 
         // Main columns
         $columns = [
@@ -3264,12 +2921,26 @@ class OrderController extends Controller
                 'ec_orders.amount',
                 'ec_orders.tax_amount',
                 'ec_orders.sub_total',
+                'ec_orders.shipping_amount',
+                'ec_orders.shipping_amount_vat',
+                'ec_orders.service_amount',
+                'ec_orders.service_amount_vat',
+                'ec_orders.cod_charge',
+                'ec_orders.cod_charge_vat',
                 'ec_orders.coupon_code',
+                'ec_orders.discount_amount',
+                // 'ec_orders.promotion_amount',
                 'payments.payment_channel'
             )
             ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
             ->where('ec_orders.user_id', $customerId);
         
+        if ($request->input('with_products')) {
+            $dataQuery->with(['products' => function ($q) {
+                $q->select('id', 'order_id', 'product_image');
+            }]);
+        }
+
         if ($request->input('with_products')) {
             $dataQuery->with(['products' => function ($q) {
                 $q->select('id', 'order_id', 'product_image');
@@ -3297,12 +2968,24 @@ class OrderController extends Controller
             $dataQuery->where('payments.payment_channel', 'like', '%' . $request->payment_channel . '%');
         }
 
-        // Sorting
-        $orderBy = $request->input('orderBy', 'ec_orders.id');
-        $orderDir = $request->input('orderDir', 'desc');
-        if (in_array($orderBy, $columns)) {
-            $dataQuery->orderBy($orderBy, $orderDir);
-        }
+        // Sorting — accept both qualified ("ec_orders.created_at") and
+        // unqualified ("created_at") column names from the frontend.
+        $allowedColumns = [
+            'id'              => 'ec_orders.id',
+            'created_at'      => 'ec_orders.created_at',
+            'amount'          => 'ec_orders.amount',
+            'status'          => 'ec_orders.status',
+            'ec_orders.id'          => 'ec_orders.id',
+            'ec_orders.created_at'  => 'ec_orders.created_at',
+            'ec_orders.amount'      => 'ec_orders.amount',
+            'ec_orders.status'      => 'ec_orders.status',
+        ];
+        $orderByRaw   = $request->input('orderBy', 'created_at');
+        $orderDir     = in_array(strtolower($request->input('orderDir', 'desc')), ['asc', 'desc'])
+                            ? strtolower($request->input('orderDir', 'desc'))
+                            : 'desc';
+        $qualifiedCol = $allowedColumns[$orderByRaw] ?? 'ec_orders.created_at';
+        $dataQuery->orderBy($qualifiedCol, $orderDir);
 
         // Pagination
         $page = (int) $request->input('page', 1);
@@ -3338,6 +3021,29 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
 
+        $order = Order::select(
+            'ec_orders.id',
+            'ec_orders.code',
+            'ec_orders.created_at',
+            'ec_orders.status',
+            'ec_orders.amount',
+            'ec_orders.tax_amount',
+            'ec_orders.sub_total',
+            'ec_orders.shipping_amount',
+            'ec_orders.shipping_amount_vat',
+            'ec_orders.service_amount',
+            'ec_orders.service_amount_vat',
+            'ec_orders.cod_charge',
+            'ec_orders.cod_charge_vat',
+            'ec_orders.coupon_code',
+            'ec_orders.discount_amount',
+            // 'ec_orders.promotion_amount',
+            'payments.payment_channel'
+        )
+        ->leftJoin('payments', 'ec_orders.payment_id', '=', 'payments.id')
+        ->where('ec_orders.id', $request->input('order_id'))
+        ->first();
+
         $order_products = OrderProduct::select('id', 'product_name', 'product_image', 'price', 'qty', 'total_amount', 'discount_percent', 'discount_amount', 'net_amount', 'tax_amount', 'gross_amount', 'is_gift')->where('order_id', $request->input('order_id'))->get();
 
         if($order_products->isEmpty()) {
@@ -3348,6 +3054,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => 'Details Fetched successfully',
+            'order' => $order,
             'order_products' => $order_products,
             'order_address' => $order_address,
         ]);
@@ -3393,7 +3100,8 @@ class OrderController extends Controller
 
         // Customer-specific coupons
         $customerCoupons = collect();
-        $customerId = $request->input('customer_id');
+        $authCustomer = auth()->user();
+        $customerId = $authCustomer ? $authCustomer->id : $request->input('customer_id');
 
         if ($customerId && $customerId != '-1') {
             $customerCoupons = Promotion::where('type', 'coupon')
@@ -3440,8 +3148,13 @@ class OrderController extends Controller
 
     public function customerPasswordCheck(Request $request)
     {
+        $customer = auth()->user() ?? Customer::find($request->input('customer_id'));
+
+        if (!$customer) {
+            return response()->json(['message' => 'Customer Not Found'], 404);
+        }
+
         $validator = Validator::make($request->all(), [
-            'customer_id'      => 'required',
             'customer_password' => 'required'
         ]);
 
@@ -3449,22 +3162,247 @@ class OrderController extends Controller
             return response()->json($validator->errors());
         }
         
-        $customer = Customer::find($request->input('customer_id'));
-
-        if (!$customer) {
-            return response()->json(['message' => 'Customer Not Found']);
+        if (Hash::check($request->input('customer_password'), $customer->password)) {
+            return response()->json(['status' => 'success', 'message' => 'Password Correct']);
+        } else {
+            return response()->json(['status' => 'error', 'message' => 'Incorrect Password'], 400);
         }
-
-        $customer_password = Hash::check($request->input('customer_password'), $customer->password);
-
-        if (!Hash::check($request->input('customer_password'), $customer->password)) {
-            return response()->json(['message' => 'Incorrect Password']);
-        }
-
-        return response()->json([
-            'message' => 'Customer Found Successfully',
-        ]);
     }
+
+    // public function tamaraPayment(Request $request, $shippingData, $order, $prods) {
+
+    //     $curl = curl_init();
+
+    //     $payload = [
+    //         "total_amount" => [
+    //             "amount" => (float) $request->input('finalPrice'),
+    //             "currency" => "AED"
+    //         ],
+    //         "shipping_amount" => [
+    //             "amount" => (float) $request->input('shippingPrice'),
+    //             "currency" => "AED"
+    //         ],
+    //         "tax_amount" => [
+    //             "amount" => $order->tax_amount * (1 + ($request->input('vatTax') / 100)),
+    //             "currency" => "AED"
+    //         ],
+    //         "order_reference_id" => explode('#', $order->code)[1],
+    //         "order_number" => $order->code,
+    //         "items" => [],
+    //         "consumer" => [
+    //             "email" => $request->input("billingAddress.email"),
+    //             "first_name" => $request->input("billingAddress.first_name"),
+    //             "last_name" => $request->input("billingAddress.last_name"),
+    //             "phone_number" => $request->input('billingAddress.mobile')
+    //         ],
+    //         "country_code" => "AE",
+    //         "description" => "AMG Order",
+    //         "merchant_url" => [
+    //             "cancel" => env('CUSTOM_URL')."tamara-payment-redirect/#/cancel",
+    //             "failure" => env('CUSTOM_URL')."tamara-payment-redirect/#/fail",
+    //             "success" => env('CUSTOM_URL')."tamara-payment-redirect/#/success"
+    //         ],
+    //         "payment_type" => "PAY_BY_INSTALMENTS",
+    //         "instalments" => 3,
+    //         "billing_address" => [
+    //             "city" => $request->input("billingAddress.emirates"),
+    //             "country_code" => "AE",
+    //             "first_name" => $request->input("billingAddress.first_name"),
+    //             "last_name" => $request->input("billingAddress.last_name"),
+    //             "line1" => $request->input("billingAddress.area") . " " . $request->input("billingAddress.building"),
+    //             "phone_number" => $request->input('billingAddress.mobile')
+    //         ],
+    //         "shipping_address" => [
+    //             "city" => $shippingData["city"],
+    //             "country_code" => "AE",
+    //             "first_name" => $shippingData["first_name"],
+    //             "last_name" => $shippingData["last_name"],
+    //             "line1" => $shippingData["street1"],
+    //             "phone_number" => $shippingData["phone"]
+    //         ],
+    //         "locale" => "en_US"
+    //     ];
+
+    //     foreach ($prods as $item) {
+    //         $vatPercent = $request->input('vatTax'); // e.g., 5 or 15
+    //         $totalAmount = (float) $item['price']; // already includes VAT
+            
+    //         // Unit price excluding VAT
+    //         $unitPrice = $totalAmount / (1 + ($vatPercent / 100));
+
+    //         // Tax = total - unit price
+    //         $taxAmount = $totalAmount - $unitPrice;
+
+    //         $payload['items'][] = [
+    //             "name" => $item['name'],
+    //             "type" => "Physical",
+    //             "reference_id" => (string)$item['id'],
+    //             "quantity" => $item['qty'],
+    //             "sku" => $item['sku'],
+    //             "unit_price" => [
+    //                 "amount" => round($unitPrice, 2),
+    //                 "currency" => "AED"
+    //             ],
+    //             "total_amount" => [
+    //                 "amount" => round($totalAmount, 2),
+    //                 "currency" => "AED"
+    //             ],
+    //             "tax_amount" => [
+    //                 "amount" => round($taxAmount, 2),
+    //                 "currency" => "AED"
+    //             ],
+    //         ];
+    //     }
+
+    //     // echo "<pre>";print_r($payload);die;
+
+    //     $curl = curl_init();
+
+    //     curl_setopt_array($curl, [
+    //         CURLOPT_URL => env('TAMARA_API_URL').'checkout',
+    //         CURLOPT_RETURNTRANSFER => true,
+    //         CURLOPT_ENCODING => '',
+    //         CURLOPT_MAXREDIRS => 10,
+    //         CURLOPT_TIMEOUT => 0,
+    //         CURLOPT_FOLLOWLOCATION => true,
+    //         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+    //         CURLOPT_CUSTOMREQUEST => 'POST',
+    //         CURLOPT_POSTFIELDS => json_encode($payload),
+    //         CURLOPT_HTTPHEADER => [
+    //             'Content-Type: application/json',
+    //             'Authorization: Bearer ' . env('TAMARA_TOKEN')
+    //         ],
+    //     ]);
+
+    //     $response = curl_exec($curl);
+
+    //     curl_close($curl);
+    //     // echo $response;die;
+    //     return json_decode($response, true);
+    // }
+
+    // public function tamaraPaymentResponse(Request $request, CreatePaymentForOrderService $createPaymentForOrderService) {
+    //     // echo "<pre>";print_r($request->all());die;
+    //      return response()->json([
+    //         'data' => $request->all(),
+    //     ]);
+    //     // $customer = Customer::where('email', $request->input('customerEmail'))->first();
+    //     // $order = Order::where('user_id', $customer->id)->orderBy('id', 'desc')->first();
+    //     $order = Order::where('code', base64_decode($request->query('order_number')))->orderBy('id', 'desc')->first();
+    //     // echo "<pre>";print_r($order);
+    //     $createPaymentForOrderService->execute(
+    //         $order,
+    //         'tamara',
+    //         $request['respStatus'],
+    //         // $customer->id,
+    //         $order->user_id,
+    //         $request->input('tranRef'),
+    //         $request['respMessage'],
+    //     );
+
+    //     header('Location: http://localhost:3000/'.$order->lang.'/shop-order-payment-complete?q='.base64_encode($order->code));exit();
+    // }
+
+    // public function tamaraPaymentWebhook(Request $request) {
+    //     if($request->event_type == 'order_approved') {
+    //         $ch = curl_init();
+    //         curl_setopt($ch, CURLOPT_URL, env('TAMARA_API_URL')."orders/".$request->order_id."/authorise");
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_POST, true); // This is equivalent to --request POST
+
+    //         $headers = [
+    //             'Content-Type: application/json',
+    //             'Accept: application/json',
+    //             'Authorization: Bearer ' . env('TAMARA_TOKEN')
+    //         ];
+
+    //         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    //         // Execute the request
+    //         $response = curl_exec($ch);
+
+    //         // Check for errors
+    //         if (curl_errno($ch)) {
+    //             echo 'order_approved Curl error: ' . curl_error($ch);
+    //         } else {
+    //             echo 'order_approved Response: ' . $response;
+    //         }
+
+    //         // Close cURL session
+    //         curl_close($ch);
+    //     } elseif($request->event_type == 'order_authorised') {
+    //         $url = env('TAMARA_API_URL')."payments/capture";
+
+    //         $data = [
+    //             "order_id" => $request->order_id,
+    //             "total_amount" => [
+    //                 "amount" => 198,
+    //                 "currency" => "AED"
+    //             ],
+    //             "items" => [
+    //                 [
+    //                     "name" => "Marj",
+    //                     "type" => "Physical",
+    //                     "reference_id" => "49",
+    //                     "sku" => "FGD01506",
+    //                     "quantity" => 1,
+    //                     "tax_amount" => [
+    //                         "amount" => 7.86,
+    //                         "currency" => "AED"
+    //                     ],
+    //                     "unit_price" => [
+    //                         "amount" => 157.15,
+    //                         "currency" => "AED"
+    //                     ],
+    //                     "total_amount" => [
+    //                         "amount" => 165,
+    //                         "currency" => "AED"
+    //                     ]
+    //                 ]
+    //             ],
+    //             "shipping_amount" => [
+    //                 "amount" => 20,
+    //                 "currency" => "AED"
+    //             ],
+    //             "tax_amount" => [
+    //                 "amount" => 9.43,
+    //                 "currency" => "AED"
+    //             ],
+    //             "shipping_info" => [
+    //                 "shipped_at" => "2025-10-10T17:25:00.677Z",
+    //                 "shipping_company" => "SMSA"
+    //             ]
+    //         ];
+
+    //         // Initialize cURL session
+    //         $ch = curl_init($url);
+
+    //         // Set cURL options
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_POST, true);
+    //         curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    //             'Content-Type: application/json',
+    //             'Accept: application/json',
+    //             'Authorization: Bearer ' . env('TAMARA_TOKEN')
+    //         ]);
+
+    //         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+    //         // Execute cURL request
+    //         $response = curl_exec($ch);
+
+    //         // Error handling
+    //         if (curl_errno($ch)) {
+    //             echo 'order_authorised Curl error: ' . curl_error($ch);
+    //         } else {
+    //             echo "order_authorised Response:\n" . $response;
+    //         }
+
+    //         curl_close($ch);
+
+    //     }
+
+    // }
 
     public function tamaraPayment(Request $request, $shippingData, $order, $prods) {
         $tax = Tax::select('percentage')->where('status', 'published')->first();

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 // use Botble\Ecommerce\Models\Discount as DiscountModel;
 use Botble\Ecommerce\Models\OrderAddress;
 use Botble\Ecommerce\Models\Review;
-// use Botble\Ecommerce\Models\Discount;
+use App\Services\JwtService;
 use Botble\Ecommerce\Models\Address;
 
 class AuthController extends Controller
@@ -154,29 +154,28 @@ class AuthController extends Controller
             $mobile_verification->otp = 0;
             $mobile_verification->save();
 
-            // $customer = OrderAddress::select('ec_order_addresses.id', 'name', 'email', 'phone')->join('payments', 'payments.order_id', '=', 'ec_order_addresses.order_id')->where('status', 'completed')->where('phone', $request->mobile)->get();
+            $customer = Customer::where('email', $request->email)->orWhere('phone', $request->mobile)->first();
 
-            // echo "<pre>";print_r($customer);
+            if (!$customer) {
+                $customer = Customer::create([
+                    'name'      => 'Guest User',
+                    'email'     => $request->email,
+                    'phone'     => $request->mobile,
+                    'password'  => Hash::make($request->password ?: '123456')
+                ]);
+            }
 
-            // $coupon = DiscountModel::where('code', 'WELCOME10')->where('start_date', '<=', now())->where('end_date', '>=', now())->first();
+            $sessionData = JwtService::createDeviceSession($customer, $request);
 
             return response()->json([
                 'message'       => 'OTP Verified Successfully',
-                // 'customer'          => !$customer->isEmpty() ? false : true,
-                // 'coupon'            => $coupon
+                'data'          => $customer,
+                'access_token'  => $sessionData['access_token'],
+                'refresh_token' => $sessionData['refresh_token'],
+                'session_id'    => $sessionData['session_id'],
+                'token_type'    => 'Bearer'
             ]);
         } else {
-            // $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
-
-            // if (!$customer) {
-            //     return response()->json([
-            //         'message'       => 'Invalid Mobile Number or OTP',
-            //     ]);
-            // }
-
-            // $customer->otp = 0;
-            // $customer->save();
-
             $validator = Validator::make($request->all(), [
                 'mobile'     => 'required|numeric',
                 'otp'  => 'required|numeric'
@@ -186,29 +185,51 @@ class AuthController extends Controller
                 return response()->json($validator->errors());
             }
 
-            // $mobile_verification = MobileVerification::where('phone', $request->mobile)->where('otp', $request->otp)->orderBy('id', 'desc')->first();
+            if($request->flag == 'fpassword') {
+                $customer = Customer::select('id', 'name', 'email', 'phone')->where('phone', $request->mobile)->where('otp', $request->otp)->first();
 
-            // if (!$mobile_verification) {
-            //     return response()->json([
-            //         'message'       => 'Invalid Mobile Number or OTP',
-            //     ]);
-            // }
+                if (!$customer) {
+                    return response()->json([
+                        'message'       => 'Invalid Mobile Number or OTP',
+                    ]);
+                }
 
-            // $mobile_verification->otp = 0;
-            // $mobile_verification->save();
+                $customer->otp = 0;
+                $customer->save();
+
+                $sessionData = JwtService::createDeviceSession($customer, $request);
+
+                return response()->json([
+                    'message'       => 'OTP Verified Successfully',
+                    'data'          => $customer,
+                    'access_token'  => $sessionData['access_token'],
+                    'refresh_token' => $sessionData['refresh_token'],
+                    'session_id'    => $sessionData['session_id'],
+                    'token_type'    => 'Bearer'
+                ]);
+            }
+
+            $mobile_verification = MobileVerification::where('phone', $request->mobile)->where('otp', $request->otp)->orderBy('id', 'desc')->first();
+
+            if (!$mobile_verification) {
+                return response()->json([
+                    'message'       => 'Invalid Mobile Number or OTP',
+                ]);
+            }
+
+            $mobile_verification->otp = 0;
+            $mobile_verification->save();
 
             $validator = Validator::make($request->all(), [
-                // 'customer_id'      => 'required',
                 'name' => 'required',
                 'email' => 'required|email|unique:ec_customers,email,',
                 'mobile' => 'required|unique:ec_customers,phone,',
-                // 'password' => 'required',
+                'password' => 'required',
             ]);
 
             if ($validator->fails()) {
                 return response()->json($validator->errors());
             }
-
 
             $customer = Customer::create([
                 'name'      => $request->name,
@@ -220,7 +241,7 @@ class AuthController extends Controller
             $apiUrl = env('SMART_VIEW_COUPON_API_URL').'Coupon/Register';
 
             $postData = [
-                    'couponId' => "3FDF342E-52C6-4D73-AD84-DA2605E15DF8",
+                'couponId' => "3FDF342E-52C6-4D73-AD84-DA2605E15DF8",
                 'customerName'  => $customer->name,
                 'email' => $customer->email,
                 'mobileNo' => $customer->phone,
@@ -235,43 +256,25 @@ class AuthController extends Controller
             ]);
             
             $apiResponse = curl_exec($ch);
+
             if (curl_errno($ch)) {
-                // echo 'Error:' . curl_error($ch);
-                \Log::info('Coupon Register API Response', [
+                \Log::info('Coupon Register API Error', [
                     'error' => curl_error($ch),
                 ]);
             }
             curl_close($ch);
-            // echo "<pre>";print_r($apiResponse);
+            $resp = json_decode($apiResponse, true);
 
-            // Optionally log the API response for debugging
-            // \Log::info('Coupon/Register API Response', [
-            //     'http_code' => $httpCode,
-            //     'response'  => $apiResponse,
-            // ]);
+            \Log::info('Coupon Register API Response', ['response' => $resp]);
 
-
-            // $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
-
-            // // Manually transform into an array with formatted strings
-            // $formattedCoupons = $coupons->map(function ($coupon) {
-            //     return [
-            //         'code'       => $coupon->code,
-            //         'value'      => $coupon->value,
-            //         'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-            //         'end_date'   => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-            //         'type'       => 'customer',
-            //     ];
-            // })->toArray();
-
-            // $customer->coupon = $formattedCoupons;
-
-            $token = $customer->createToken('auth_token')->plainTextToken;
+            $sessionData = JwtService::createDeviceSession($customer, $request);
 
             return response()->json([
-                'message'       => $request->flag == 'fpassword' ? 'OTP Verified Successfully' : 'Customer Registered Successfully',
+                'message'       => 'Customer Registered Successfully',
                 'data'          => $customer,
-                'access_token'  => $token,
+                'access_token'  => $sessionData['access_token'],
+                'refresh_token' => $sessionData['refresh_token'],
+                'session_id'    => $sessionData['session_id'],
                 'token_type'    => 'Bearer'
             ]);
         }
@@ -302,21 +305,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // $coupons = DiscountModel::select('code', 'value', 'start_date', 'end_date')->where('target', 'customer')->where('customer_id', $customer->id)->whereNotNull('code')->whereDate('start_date', '<=', now())->whereDate('end_date', '>=', now())->join('ec_discount_customers', 'ec_discounts.id', '=', 'ec_discount_customers.discount_id', 'left')->get();
-
-        // Manually transform into an array with formatted strings
-        // $formattedCoupons = $coupons->map(function ($coupon) {
-        //     return [
-        //         'code'       => $coupon->code,
-        //         'value'      => $coupon->value,
-        //         'start_date' => \Carbon\Carbon::parse($coupon->start_date)->format('Y-m-d H:i:s'),
-        //         'end_date'   => \Carbon\Carbon::parse($coupon->end_date)->format('Y-m-d H:i:s'),
-        //         'type'       => 'customer',
-        //     ];
-        // })->toArray();
-
-        // $customer->coupon = $formattedCoupons;
-
         $address = Address::where('customer_id', $customer->id)->get();
 
         if(!$address->isEmpty()) {
@@ -329,34 +317,129 @@ class AuthController extends Controller
             $customer->addresses = $address;
         }
 
-        $token = $customer->createToken('auth_token')->plainTextToken;
+        $sessionData = JwtService::createDeviceSession($customer, $request);
 
         return response()->json([
             'message'       => 'Login Successfully',
             'data'          => $customer,
-            'access_token'  => $token,
+            'access_token'  => $sessionData['access_token'],
+            'refresh_token' => $sessionData['refresh_token'],
+            'session_id'    => $sessionData['session_id'],
             'token_type'    => 'Bearer'
         ]);
     }
 
     /**
-     * Sign Out
+     * Refresh JWT Access Token
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function signout() {
-        $customer = Auth::guard('api')->user();
-        if (!$customer) {
-            return response()->json(['message' => 'No Active Session'], 401);
+    public function refresh(Request $request) {
+        // Read refresh token from request payload, header, or cookie
+        $refreshToken = $request->input('refresh_token') ?? $request->bearerToken() ?? $request->cookie('refresh_token');
+        if (!$refreshToken) {
+            return response()->json(['message' => 'Refresh token is required'], 401);
         }
-        $customer->tokens()->delete();
+
+        $sessionData = JwtService::refreshDeviceSession($refreshToken, $request);
+        if (!$sessionData) {
+            return response()->json(['message' => 'Invalid or expired refresh token'], 401);
+        }
+
+        // Return new access token and fresh refresh token in JSON response
+        return response()->json([
+            'access_token'  => $sessionData['access_token'],
+            'refresh_token' => $sessionData['refresh_token'],
+            'session_id'    => $sessionData['session_id'],
+            'token_type'    => 'Bearer',
+        ]);
+    }
+
+    /**
+     * Sign Out (Revokes current device session & token)
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function signout(Request $request) {
+        $token = $request->bearerToken() ?? $request->query('token');
+        if ($token) {
+            JwtService::invalidateToken($token);
+        }
+
+        // Also invalidate the refresh token if provided
+        $refreshToken = $request->input('refresh_token') ?? $request->cookie('refresh_token');
+        if ($refreshToken) {
+            JwtService::invalidateToken($refreshToken);
+        }
+
         return response()->json(['message' => 'Logged Out Successfully']);
     }
 
+    /**
+     * List Active Device Sessions
+     */
+    public function getSessions(Request $request) {
+        $customer = Auth::user();
+        if (!$customer) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $currentSessionId = $request->attributes->get('current_session_id') ?? $customer->current_session_id ?? null;
+        $sessions = JwtService::getCustomerSessions($customer->id, $currentSessionId);
+
+        return response()->json([
+            'status'   => 'success',
+            'sessions' => $sessions
+        ]);
+    }
+
+    /**
+     * Revoke Specific Device Session
+     */
+    public function revokeSession(Request $request) {
+        $customer = Auth::user();
+        if (!$customer) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $sessionId = $request->input('session_id');
+        if (!$sessionId) {
+            return response()->json(['message' => 'Session ID is required'], 400);
+        }
+
+        $success = JwtService::revokeSession($customer->id, $sessionId);
+
+        return response()->json([
+            'status'  => $success ? 'success' : 'error',
+            'message' => $success ? 'Device session revoked successfully' : 'Session not found',
+        ]);
+    }
+
+    /**
+     * Revoke All Other Device Sessions
+     */
+    public function revokeOtherSessions(Request $request) {
+        $customer = Auth::user();
+        if (!$customer) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $currentSessionId = $request->attributes->get('current_session_id') ?? $customer->current_session_id ?? '';
+        $revokedCount = JwtService::revokeOtherSessions($customer->id, $currentSessionId);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "All other device sessions ($revokedCount) revoked successfully",
+        ]);
+    }
+
+
+
     public function getCustomer(Request $request)
     {
-        $customer = Auth::guard('api')->user();
+        $customer = Auth::user() ?? Auth::guard('api')->user();
 
         if (!$customer) {
             return response()->json(['message' => 'Unauthorized'], 401);

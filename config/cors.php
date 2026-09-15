@@ -19,7 +19,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:3000'],
+    'allowed_origins' => [
+        'http://localhost:3000',
+        'https://ae.ahmedalmaghribi.com',
+    ],
 
     'allowed_origins_patterns' => [],
 
@@ -29,6 +32,7 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    // Required for the browser to send the HttpOnly refresh_token cookie
+    'supports_credentials' => true,
 
 ];

@@ -23,8 +23,7 @@ class NextJsCacheService
 
     protected function sendRequest($tags)
     {
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000/en/');
-        $url = rtrim($frontendUrl, '/') . '/api/clearcache';
+        $url = 'http://localhost:3000/en/api/clearcache';
         $secret = env('NEXTJS_REVALIDATION_SECRET');
 
         dispatch(function () use ($url, $secret, $tags) {

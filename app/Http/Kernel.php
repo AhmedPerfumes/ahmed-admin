@@ -44,6 +44,7 @@ class Kernel extends HttpKernel
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\EncryptCookies::class,
         ],
     ];
 
@@ -66,11 +67,14 @@ class Kernel extends HttpKernel
         'signed' => \App\Http\Middleware\ValidateSignature::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
-        // 'log.request.response' => \App\Http\Middleware\LogRequestsAndResponses::class,
+        'customLogs' => \App\Http\Middleware\LogRequestsAndResponses::class,
+        'restrict.domains' => \App\Http\Middleware\RestrictToDomains::class,
+        'jwt.auth' => \App\Http\Middleware\JwtAuthMiddleware::class,
     ];
 
     protected $routeMiddleware = [
-        'customLogs' => \App\Http\Middleware\LogRequestsAndResponses::class, // <--- Log requests and responses
+        'customLogs' => \App\Http\Middleware\LogRequestsAndResponses::class,
         'restrict.domains' => \App\Http\Middleware\RestrictToDomains::class,
+        'jwt.auth' => \App\Http\Middleware\JwtAuthMiddleware::class,
     ];
 }

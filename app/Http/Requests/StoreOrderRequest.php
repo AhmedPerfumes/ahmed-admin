@@ -27,8 +27,6 @@ class StoreOrderRequest extends FormRequest
     {
         $rules = [
             'products' => 'required|array',
-            'finalPrice' => 'required|numeric|gt:0',
-            'totalPrice' => 'required|numeric|gt:0'
         ];
 
         if (!$this->input('customer_id')) {
